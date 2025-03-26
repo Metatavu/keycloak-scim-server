@@ -7,6 +7,7 @@ import fi.metatavu.keycloak.scim.server.filter.ComparisonFilter;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
 import fi.metatavu.keycloak.scim.server.model.User;
 import fi.metatavu.keycloak.scim.server.model.UsersList;
+import jakarta.ws.rs.NotFoundException;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.RoleModel;
@@ -49,6 +50,24 @@ public class UsersController {
         }
 
         return translateUser(user);
+    }
+
+    /**
+     * Finds a user
+     *
+     * @param session Keycloak session
+     * @param userId user ID
+     * @return found user
+     */
+    public User findUser(
+        KeycloakSession session,
+        String userId
+    ) {
+        try {
+            return translateUser(session.users().getUserById(session.getContext().getRealm(), userId));
+        } catch (NotFoundException e) {
+            return null;
+        }
     }
 
     /**
@@ -121,6 +140,10 @@ public class UsersController {
      * @return SCIM user
      */
     private fi.metatavu.keycloak.scim.server.model.User translateUser(UserModel user) {
+        if (user == null) {
+            return null;
+        }
+
         return new fi.metatavu.keycloak.scim.server.model.User()
             .id(user.getId())
             .userName(user.getUsername())
@@ -135,5 +158,4 @@ public class UsersController {
                     .givenName(user.getFirstName())
             );
     }
-
 }

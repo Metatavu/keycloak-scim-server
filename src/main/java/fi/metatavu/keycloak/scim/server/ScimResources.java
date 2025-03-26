@@ -99,6 +99,30 @@ public class ScimResources {
         return Response.ok(usersList).build();
     }
 
+    @GET
+    @Path("v2/Users/{id}")
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response getUser(
+            @Context KeycloakSession session,
+            @PathParam("id") String userId
+    ) {
+        verifyPermissions(session);
+
+        RealmModel realm = session.getContext().getRealm();
+        if (realm == null) {
+            throw new NotFoundException("Realm not found");
+        }
+
+        User user = usersController.findUser(session, userId);
+        if (user == null) {
+            logger.warn(String.format("User not found: %s", userId));
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        return Response.ok(user).build();
+    }
+
     @DELETE
     @Path("v2/Users/{id}")
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)

@@ -1,19 +1,11 @@
 package fi.metatavu.keycloak.scim.server;
 
-import dasniko.testcontainers.keycloak.KeycloakContainer;
 import fi.metatavu.keycloak.scim.server.test.client.ApiException;
 import fi.metatavu.keycloak.scim.server.test.client.model.User;
 import fi.metatavu.keycloak.scim.server.test.client.model.UsersList;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.keycloak.OAuth2Constants;
-import org.keycloak.admin.client.Keycloak;
-import org.keycloak.admin.client.KeycloakBuilder;
-import org.testcontainers.containers.Network;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import java.net.URI;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -22,21 +14,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Tests for SCIM 2.0 User list endpoint
  */
 @Testcontainers
-class UserListTestsIT {
-
-  private static final Network network = Network.newNetwork();
-
-  @Container
-  private static final KeycloakContainer keycloak = new KeycloakContainer("quay.io/keycloak/keycloak:26.1.2")
-      .withNetwork(network)
-      .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
-      .withRealmImportFile("kc-test.json")
-      .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
-
-  @BeforeAll
-  static void setUp() {
-    assertTrue(keycloak.isRunning());
-  }
+class UserListTestsIT extends AbstractScimTest {
 
   @Test
   void testListUsersNoFilter() throws ApiException {
@@ -260,65 +238,6 @@ class UserListTestsIT {
     );
 
     assertEquals("listUsers call failed with: 400 - Invalid filter", exception.getMessage());
-  }
-
-  @SuppressWarnings("SameParameterValue")
-  private static void assertUser(
-      User user,
-      String expectedId,
-      String expectedUserName,
-      String expectedGivenName,
-      String expectedFamilyName,
-      String expectedEmail
-  ) {
-    assertNotNull(user.getName());
-    assertNotNull(user.getEmails());
-
-    assertEquals(expectedId, user.getId());
-    assertEquals(expectedUserName, user.getUserName());
-    assertEquals(expectedGivenName, user.getName().getGivenName());
-    assertEquals(expectedFamilyName, user.getName().getFamilyName());
-    assertEquals(1, user.getEmails().size());
-    assertEquals(expectedEmail, user.getEmails().getFirst().getValue());
-  }
-
-  /**
-   * Returns service account token
-   *
-   * @return service account token
-   */
-  private String getServiceAccountToken() {
-      try (Keycloak keycloakAdmin = KeycloakBuilder.builder()
-            .serverUrl(keycloak.getAuthServerUrl())
-            .realm(TestConsts.REALM)
-            .grantType(OAuth2Constants.CLIENT_CREDENTIALS)
-            .clientId(TestConsts.SCIM_CLIENT_ID)
-            .clientSecret(TestConsts.SCIM_CLIENT_SECRET)
-            .build()) {
-
-          return keycloakAdmin
-              .tokenManager()
-              .getAccessToken()
-              .getToken();
-      }
-  }
-
-  /**
-   * Returns SCIM URI for the test realm
-   *
-   * @return SCIM URI
-   */
-  private URI getScimUri() {
-    return URI.create(keycloak.getAuthServerUrl()).resolve(String.format("/realms/%s/scim/v2/", TestConsts.REALM));
-  }
-
-  /**
-   * Returns authenticated SCIM client
-   *
-   * @return authenticated SCIM client
-   */
-  private ScimClient getAuthenticatedScimClient() {
-    return new ScimClient(getScimUri(), getServiceAccountToken());
   }
 
 }

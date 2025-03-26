@@ -23,6 +23,35 @@ import java.util.Map;
 public class UsersController {
 
     /**
+     * Creates a user
+     *
+     * @param session Keycloak session
+     * @param realm Keycloak realm
+     * @param scimUser SCIM user
+     * @return created user
+     */
+    public fi.metatavu.keycloak.scim.server.model.User createUser(KeycloakSession session, RealmModel realm, fi.metatavu.keycloak.scim.server.model.User scimUser) {
+        UserModel user = session.users().addUser(realm, scimUser.getUserName());
+        user.setEnabled(scimUser.getActive() == null || Boolean.TRUE.equals(scimUser.getActive()));
+
+        if (scimUser.getName() != null) {
+            user.setFirstName(scimUser.getName().getGivenName());
+            user.setLastName(scimUser.getName().getFamilyName());
+        }
+
+        if (scimUser.getEmails() != null && !scimUser.getEmails().isEmpty()) {
+            user.setEmail(scimUser.getEmails().getFirst().getValue());
+        }
+
+        RoleModel scimRole = realm.getRole(ScimRoles.SCIM_MANAGED_ROLE);
+        if (scimRole != null) {
+            user.grantRole(scimRole);
+        }
+
+        return translateUser(user);
+    }
+
+    /**
      * Lists users
      *
      * @param realm realm

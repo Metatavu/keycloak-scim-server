@@ -3,6 +3,7 @@ package fi.metatavu.keycloak.scim.server;
 import fi.metatavu.keycloak.scim.server.test.client.ApiClient;
 import fi.metatavu.keycloak.scim.server.test.client.ApiException;
 import fi.metatavu.keycloak.scim.server.test.client.api.UsersApi;
+import fi.metatavu.keycloak.scim.server.test.client.model.User;
 import fi.metatavu.keycloak.scim.server.test.client.model.UsersList;
 
 import java.net.URI;
@@ -43,6 +44,16 @@ public class ScimClient {
     }
 
     /**
+     * Creates a user
+     *
+     * @param user user to create
+     * @return created user
+     */
+    public User createUser(User user) throws ApiException {
+        return getUsersApi().createUser(user);
+    }
+
+    /**
      * Returns initialized users API
      *
      * @return initialized users API
@@ -65,5 +76,4 @@ public class ScimClient {
         result.setRequestInterceptor(builder -> builder.header("Authorization", "Bearer " + accessToken));
         return result;
     }
-
 }

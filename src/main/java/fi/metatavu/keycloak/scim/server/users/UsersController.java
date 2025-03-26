@@ -101,8 +101,8 @@ public class UsersController {
             .toList();
 
         List<User> users = filteredUsers.stream()
-            .limit(maxResults)
             .skip(firstResult)
+            .limit(maxResults)
             .map(this::translateUser)
             .toList();
 

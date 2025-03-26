@@ -6,6 +6,7 @@ import fi.metatavu.keycloak.scim.server.test.client.model.UsersList;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -238,6 +239,54 @@ class UserListTestsIT extends AbstractScimTest {
     );
 
     assertEquals("listUsers call failed with: 400 - Invalid filter", exception.getMessage());
+  }
+
+  @Test
+  void testPagination() throws ApiException {
+    ScimClient scimClient = getAuthenticatedScimClient();
+    List<User> createdUsers = new ArrayList<>();
+
+    // Create 5 users
+    for (int i = 1; i <= 5; i++) {
+      User user = new User();
+      user.setUserName("paginated-user-" + i);
+      user.setActive(true);
+      user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
+      user.setName(getName("Paginated", "User" + i));
+      user.setEmails(getEmails("pagination" + i + "@example.com"));
+
+      User created = scimClient.createUser(user);
+      createdUsers.add(created);
+    }
+
+    // Page 1: count=2, startIndex=0
+    UsersList page1 = scimClient.listUsers("firstName eq \"Paginated\"", 0, 2);
+    assertEquals(2, page1.getItemsPerPage());
+    assertEquals(0, page1.getStartIndex());
+    assertEquals(5, page1.getTotalResults());
+    assertNotNull(page1.getResources());
+    assertEquals(2, page1.getResources().size());
+
+    // Page 2: count=2, startIndex=2
+    UsersList page2 = scimClient.listUsers("firstName eq \"Paginated\"", 2, 2);
+    assertEquals(2, page2.getItemsPerPage());
+    assertEquals(2, page2.getStartIndex());
+    assertEquals(5, page2.getTotalResults());
+    assertNotNull(page2.getResources());
+    assertEquals(2, page2.getResources().size());
+
+    // Page 3: count=2, startIndex=4 (only one user expected)
+    UsersList page3 = scimClient.listUsers("firstName eq \"Paginated\"", 4, 2);
+    assertEquals(2, page3.getItemsPerPage());
+    assertEquals(4, page3.getStartIndex());
+    assertEquals(5, page3.getTotalResults());
+    assertNotNull(page3.getResources());
+    assertTrue(page3.getResources().size() <= 2);
+
+    // Cleanup
+    for (User user : createdUsers) {
+      deleteRealmUser(user.getId());
+    }
   }
 
 }

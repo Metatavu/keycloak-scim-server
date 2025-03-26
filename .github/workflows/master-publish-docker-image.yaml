@@ -41,8 +41,8 @@ jobs:
           distribution: 'temurin'
           server-id: github
           settings-path: ${{ github.workspace }}
-      - name: Publish to GitHub Packages
-        run: ./gradlew build publish -x test
+      - name: Build extension
+        run: ./gradlew clean build 
         env:
           USERNAME: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

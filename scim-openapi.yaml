@@ -75,6 +75,35 @@ paths:
                 $ref: '#/components/schemas/User'
 
   /Users/{id}:
+    get:
+      summary: Get user by ID
+      operationId: findUser
+      tags: [ Users ]
+      description: >
+        Retrieves a user by SCIM ID.
+        
+        Requires:
+        - OAuth2 access token (Bearer token)
+        - The client must be authenticated via client credentials
+        - The service account must have the realm role `scim-access`
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: SCIM user ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User found
+          content:
+            application/scim+json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: User not found
     delete:
       summary: Delete user
       operationId: deleteUser

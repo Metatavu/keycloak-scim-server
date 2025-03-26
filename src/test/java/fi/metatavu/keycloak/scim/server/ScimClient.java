@@ -54,6 +54,25 @@ public class ScimClient {
     }
 
     /**
+     * Finds a user
+     *
+     * @param id user ID
+     * @return found user
+     */
+    public User findUser(String id) throws ApiException {
+        return getUsersApi().findUser(id);
+    }
+
+    /**
+     * Deletes a user
+     *
+     * @param userId user ID
+     */
+    public void deleteUser(String userId) throws ApiException {
+        getUsersApi().deleteUser(userId);
+    }
+
+    /**
      * Returns initialized users API
      *
      * @return initialized users API
@@ -76,4 +95,5 @@ public class ScimClient {
         result.setRequestInterceptor(builder -> builder.header("Authorization", "Bearer " + accessToken));
         return result;
     }
+
 }

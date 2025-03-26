@@ -80,35 +80,4 @@ public class UserCreateTestsIT extends AbstractScimTest {
         deleteRealmUser(created.getId());
     }
 
-    /**
-     * Creates a UserName object for SCIM user
-     *
-     * @param givenName given name
-     * @param familyName family name
-     * @return UserName object
-     */
-    @SuppressWarnings("SameParameterValue")
-    private UserName getName(
-            String givenName,
-            String familyName
-    ) {
-        UserName result = new UserName();
-        result.setGivenName(givenName);
-        result.setFamilyName(familyName);
-        return result;
-    }
-
-    /**
-     * Returns a list of email addresses for SCIM user
-     *
-     * @param value email address
-     * @return list of email addresses
-     */
-    @SuppressWarnings("SameParameterValue")
-    private List<UserEmailsInner> getEmails(String value) {
-        UserEmailsInner result = new UserEmailsInner();
-        result.setValue(value);
-        return Collections.singletonList(result);
-    }
-
 }

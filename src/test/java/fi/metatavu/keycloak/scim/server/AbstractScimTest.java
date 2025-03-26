@@ -2,6 +2,8 @@ package fi.metatavu.keycloak.scim.server;
 
 import dasniko.testcontainers.keycloak.KeycloakContainer;
 import fi.metatavu.keycloak.scim.server.test.client.model.User;
+import fi.metatavu.keycloak.scim.server.test.client.model.UserEmailsInner;
+import fi.metatavu.keycloak.scim.server.test.client.model.UserName;
 import org.junit.jupiter.api.BeforeAll;
 import org.keycloak.OAuth2Constants;
 import org.keycloak.admin.client.Keycloak;
@@ -12,6 +14,7 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.junit.jupiter.Container;
 
 import java.net.URI;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -149,6 +152,37 @@ public class AbstractScimTest {
         assertEquals(expectedFamilyName, user.getName().getFamilyName());
         assertEquals(1, user.getEmails().size());
         assertEquals(expectedEmail, user.getEmails().getFirst().getValue());
+    }
+
+    /**
+     * Creates a UserName object for SCIM user
+     *
+     * @param givenName given name
+     * @param familyName family name
+     * @return UserName object
+     */
+    @SuppressWarnings("SameParameterValue")
+    protected UserName getName(
+            String givenName,
+            String familyName
+    ) {
+        UserName result = new UserName();
+        result.setGivenName(givenName);
+        result.setFamilyName(familyName);
+        return result;
+    }
+
+    /**
+     * Returns a list of email addresses for SCIM user
+     *
+     * @param value email address
+     * @return list of email addresses
+     */
+    @SuppressWarnings("SameParameterValue")
+    protected List<UserEmailsInner> getEmails(String value) {
+        UserEmailsInner result = new UserEmailsInner();
+        result.setValue(value);
+        return Collections.singletonList(result);
     }
 
 }

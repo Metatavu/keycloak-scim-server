@@ -116,18 +116,17 @@ public class ScimResources {
 
         UserModel user = session.users().getUserById(realm, userId);
         if (user == null) {
-            logger.warnv("User not found: {}", userId);
+            logger.warn(String.format("User not found: %s", userId));
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
         RoleModel scimManagedRole = realm.getRole("scim-managed");
         if (scimManagedRole != null && !user.hasRole(scimManagedRole)) {
-            logger.warnv("User is not SCIM-managed: {}", userId);
+            logger.warn(String.format("User is not SCIM-managed: %s", userId));
             return Response.status(Response.Status.FORBIDDEN).entity("User is not managed by SCIM").build();
         }
 
         session.users().removeUser(realm, user);
-        logger.infov("Deleted SCIM user: {}", userId);
 
         return Response.noContent().build();
     }

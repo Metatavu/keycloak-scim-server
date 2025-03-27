@@ -11,9 +11,8 @@ public enum UserAttribute {
 
     USERNAME ("userName", "User name", TypeEnum.STRING, MutabilityEnum.READWRITE, UniquenessEnum.SERVER),
     EMAIL ("email", "Email", TypeEnum.STRING, MutabilityEnum.READWRITE, UniquenessEnum.SERVER),
-    FIRST_NAME ("firstName", "First name", TypeEnum.STRING, MutabilityEnum.READWRITE, UniquenessEnum.NONE),
-    LAST_NAME ("lastName", "Last name", TypeEnum.STRING, MutabilityEnum.READWRITE, UniquenessEnum.NONE),
-    FAMILY_NAME ("familyName", "Family name", TypeEnum.STRING, MutabilityEnum.READWRITE, UniquenessEnum.NONE),
+    FIRST_NAME ("name.firstName", "First name", TypeEnum.STRING, MutabilityEnum.READWRITE, UniquenessEnum.NONE),
+    FAMILY_NAME ("name.familyName", "Family name", TypeEnum.STRING, MutabilityEnum.READWRITE, UniquenessEnum.NONE),
     ACTIVE ("active", "Whether user is active", TypeEnum.BOOLEAN, MutabilityEnum.READWRITE, UniquenessEnum.NONE);
 
     private final String name;

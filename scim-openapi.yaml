@@ -104,6 +104,43 @@ paths:
                 $ref: '#/components/schemas/User'
         '404':
           description: User not found
+    put:
+      summary: Update user
+      operationId: updateUser
+      tags: [ Users ]
+      description: >
+        Updates a user's full SCIM representation with the provided one.
+        
+        Requires:
+        - OAuth2 access token (Bearer token)
+        - The service account must have the realm role `scim-access`
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/scim+json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: User replaced
+          content:
+            application/scim+json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Bad request (e.g., invalid schema)
+        '404':
+          description: User not found
+        '409':
+          description: Conflict (e.g., username already exists)
     delete:
       summary: Delete user
       operationId: deleteUser

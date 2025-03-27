@@ -123,7 +123,7 @@ public class UsersController extends AbstractController {
                     case UserAttribute.USERNAME -> searchParams.put(UserModel.USERNAME, value);
                     case UserAttribute.EMAIL -> searchParams.put(UserModel.EMAIL, value);
                     case UserAttribute.FIRST_NAME -> searchParams.put(UserModel.FIRST_NAME, value);
-                    case UserAttribute.LAST_NAME, UserAttribute.FAMILY_NAME -> searchParams.put(UserModel.LAST_NAME, value);
+                    case UserAttribute.FAMILY_NAME -> searchParams.put(UserModel.LAST_NAME, value);
                     case UserAttribute.ACTIVE -> searchParams.put(UserModel.ENABLED, value);
                 }
             }
@@ -177,7 +177,7 @@ public class UsersController extends AbstractController {
                     case UserAttribute.USERNAME -> user.getUsername();
                     case UserAttribute.EMAIL -> user.getEmail();
                     case UserAttribute.FIRST_NAME -> user.getFirstName();
-                    case UserAttribute.LAST_NAME, UserAttribute.FAMILY_NAME -> user.getLastName();
+                    case UserAttribute.FAMILY_NAME -> user.getLastName();
                     case UserAttribute.ACTIVE -> Boolean.toString(user.isEnabled());
                 };
 
@@ -211,7 +211,7 @@ public class UsersController extends AbstractController {
                     case UserAttribute.USERNAME -> user.getUsername() != null;
                     case UserAttribute.EMAIL -> user.getEmail() != null;
                     case UserAttribute.FIRST_NAME -> user.getFirstName() != null;
-                    case UserAttribute.LAST_NAME, UserAttribute.FAMILY_NAME -> user.getLastName() != null;
+                    case UserAttribute.FAMILY_NAME -> user.getLastName() != null;
                     case UserAttribute.ACTIVE -> true;
                 };
             }
@@ -252,4 +252,31 @@ public class UsersController extends AbstractController {
             );
     }
 
+    /**
+     * Updates a user with SCIM user data
+     *
+     * @param scimContext SCIM context
+     * @param existing existing user
+     * @param scimUser SCIM user
+     * @return updated user
+     */
+    public fi.metatavu.keycloak.scim.server.model.User updateUser(
+        ScimContext scimContext,
+        UserModel existing,
+        User scimUser
+    ) {
+        existing.setUsername(scimUser.getUserName());
+        existing.setEnabled(scimUser.getActive() == null || Boolean.TRUE.equals(scimUser.getActive()));
+
+        if (scimUser.getName() != null) {
+            existing.setFirstName(scimUser.getName().getGivenName());
+            existing.setLastName(scimUser.getName().getFamilyName());
+        }
+
+        if (scimUser.getEmails() != null && !scimUser.getEmails().isEmpty()) {
+            existing.setEmail(scimUser.getEmails().getFirst().getValue());
+        }
+
+        return translateUser(scimContext, existing);
+    }
 }

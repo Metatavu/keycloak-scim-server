@@ -66,6 +66,18 @@ public class ScimClient {
     }
 
     /**
+     * Updates a user
+     *
+     * @param id user ID
+     * @param user user to update
+     * @return updated user
+     * @throws ApiException thrown when API call fails
+     */
+    public User updateUser(String id, User user) throws ApiException {
+        return getUsersApi().updateUser(id, user);
+    }
+
+    /**
      * Deletes a user
      *
      * @param userId user ID
@@ -110,5 +122,4 @@ public class ScimClient {
         result.setRequestInterceptor(builder -> builder.header("Authorization", "Bearer " + accessToken));
         return result;
     }
-
 }

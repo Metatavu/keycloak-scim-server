@@ -123,6 +123,48 @@ public class ScimResources {
         return Response.ok(user).build();
     }
 
+    @PUT
+    @Path("v2/Users/{id}")
+    @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response updateUser(
+            @Context KeycloakSession session,
+            @PathParam("id") String userId,
+            fi.metatavu.keycloak.scim.server.model.User scimUser
+    ) {
+        verifyPermissions(session);
+
+        RealmModel realm = session.getContext().getRealm();
+        if (realm == null) {
+            throw new NotFoundException("Realm not found");
+        }
+
+        if (scimUser.getUserName().isBlank()) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("Missing userName").build();
+        }
+
+        UserModel user = session.users().getUserById(realm, userId);
+        if (user == null) {
+            return Response.status(Response.Status.NOT_FOUND).entity("User not found").build();
+        }
+
+        // Check if username is being changed to an already existing one
+        UserModel existing = session.users().getUserByUsername(realm, scimUser.getUserName());
+        if (existing == null) {
+            return Response.status(Response.Status.NOT_FOUND).entity("User not found").build();
+        }
+
+        if (!existing.getId().equals(user.getId())) {
+            return Response.status(Response.Status.CONFLICT).entity("User name already taken").build();
+        }
+
+        ScimContext scimContext = getScimContext(session);
+        User result = usersController.updateUser(scimContext, existing, scimUser);
+
+        return Response.ok(result).build();
+    }
+
     @DELETE
     @Path("v2/Users/{id}")
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)

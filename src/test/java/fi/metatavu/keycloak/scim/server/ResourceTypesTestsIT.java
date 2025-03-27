@@ -33,8 +33,8 @@ public class ResourceTypesTestsIT extends AbstractScimTest {
         assertNotNull(resourceTypes.getFirst().getSchemaExtensions());
         assertEquals(0, resourceTypes.getFirst().getSchemaExtensions().size());
         assertNotNull(resourceTypes.getFirst().getMeta());
-        assertEquals("ResourceType", resourceTypes.getFirst().getMeta().getResourceType());
-        assertEquals(getScimUri().resolve("/realms/test/scim/v2/ResourceTypes/User"), resourceTypes.getFirst().getMeta().getLocation());
+        assertEquals("User", resourceTypes.getFirst().getMeta().getResourceType());
+        assertEquals(getScimUri().resolve("/realms/test/scim/v2/Users"), resourceTypes.getFirst().getMeta().getLocation());
     }
 
 }

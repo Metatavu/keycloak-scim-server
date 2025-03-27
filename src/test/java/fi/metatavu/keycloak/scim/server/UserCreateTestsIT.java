@@ -2,14 +2,11 @@ package fi.metatavu.keycloak.scim.server;
 
 import fi.metatavu.keycloak.scim.server.test.client.ApiException;
 import fi.metatavu.keycloak.scim.server.test.client.model.User;
-import fi.metatavu.keycloak.scim.server.test.client.model.UserEmailsInner;
-import fi.metatavu.keycloak.scim.server.test.client.model.UserName;
 import org.junit.jupiter.api.Test;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;

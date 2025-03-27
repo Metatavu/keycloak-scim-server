@@ -1,4 +1,5 @@
 package fi.metatavu.keycloak.scim.server;
+
 import fi.metatavu.keycloak.scim.server.filter.*;
 import org.junit.jupiter.api.Test;
 
@@ -77,9 +78,38 @@ public class ScimFilterParserTest {
     }
 
     @Test
+    public void testContainsFilter() {
+        ScimFilter result = parser.parse("name.familyName co \"Stark\"");
+        assertInstanceOf(ComparisonFilter.class, result);
+        ComparisonFilter filter = (ComparisonFilter) result;
+        assertEquals("name.familyName", filter.attribute());
+        assertEquals(ScimFilter.Operator.CO, filter.operator());
+        assertEquals("Stark", filter.value());
+    }
+
+    @Test
+    public void testStartsWithFilter() {
+        ScimFilter result = parser.parse("userName sw \"test\"");
+        assertInstanceOf(ComparisonFilter.class, result);
+        ComparisonFilter filter = (ComparisonFilter) result;
+        assertEquals("userName", filter.attribute());
+        assertEquals(ScimFilter.Operator.SW, filter.operator());
+        assertEquals("test", filter.value());
+    }
+
+    @Test
+    public void testEndsWithFilter() {
+        ScimFilter result = parser.parse("email ew \"@example.com\"");
+        assertInstanceOf(ComparisonFilter.class, result);
+        ComparisonFilter filter = (ComparisonFilter) result;
+        assertEquals("email", filter.attribute());
+        assertEquals(ScimFilter.Operator.EW, filter.operator());
+        assertEquals("@example.com", filter.value());
+    }
+
+    @Test
     public void testInvalidFilterThrows() {
         assertThrows(UnsupportedFilter.class, () -> parser.parse("userName foo \"x\""));
         assertThrows(UnsupportedFilter.class, () -> parser.parse("something = wrong"));
     }
-
 }

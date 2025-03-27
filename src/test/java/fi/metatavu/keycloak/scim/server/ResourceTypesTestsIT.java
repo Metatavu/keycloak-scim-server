@@ -2,6 +2,7 @@ package fi.metatavu.keycloak.scim.server;
 
 import fi.metatavu.keycloak.scim.server.test.client.ApiException;
 import fi.metatavu.keycloak.scim.server.test.client.model.ResourceType;
+import fi.metatavu.keycloak.scim.server.test.client.model.ResourceTypeListResponse;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -19,7 +20,8 @@ public class ResourceTypesTestsIT extends AbstractScimTest {
     void testResourceTypes() throws ApiException {
         ScimClient scimClient = getAuthenticatedScimClient();
 
-        List<ResourceType> resourceTypes = scimClient.listResourceTypes();
+        ResourceTypeListResponse listResponse = scimClient.getResourceTypes();
+        List<ResourceType> resourceTypes = listResponse.getResources();
         assertNotNull(resourceTypes);
         assertEquals(1, resourceTypes.size());
         assertArrayEquals(new String[] { "urn:ietf:params:scim:schemas:core:2.0:ResourceType" }, resourceTypes.getFirst().getSchemas().toArray());

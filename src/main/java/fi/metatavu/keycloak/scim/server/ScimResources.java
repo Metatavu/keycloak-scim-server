@@ -59,8 +59,8 @@ public class ScimResources {
             return Response.status(Response.Status.CONFLICT).entity("User already exists").build();
         }
 
-        User user = usersController.createUser(session, realm, scimUser);
-
+        ScimContext scimContext = getScimContext(session);
+        User user = usersController.createUser(scimContext, scimUser);
         URI location = UriBuilder.fromPath("v2/Users/{id}").build(user.getId());
 
         return Response
@@ -85,12 +85,12 @@ public class ScimResources {
         try {
             scimFilter = parseFilter(filter);
         } catch (Exception e) {
+            logger.warn(String.format("Failed to parse filter: '%s'", filter), e);
             return Response.status(Response.Status.BAD_REQUEST).entity("Invalid filter").build();
         }
 
         UsersList usersList = usersController.listUsers(
-            session.getContext().getRealm(),
-            session,
+            getScimContext(session),
             scimFilter,
             startIndex,
             count
@@ -114,7 +114,7 @@ public class ScimResources {
             throw new NotFoundException("Realm not found");
         }
 
-        User user = usersController.findUser(session, userId);
+        User user = usersController.findUser(getScimContext(session), userId);
         if (user == null) {
             logger.warn(String.format("User not found: %s", userId));
             return Response.status(Response.Status.NOT_FOUND).build();
@@ -177,7 +177,63 @@ public class ScimResources {
             throw new NotFoundException("Realm not found");
         }
 
-        return Response.ok(metadataController.listResourceTypes(uriInfo.getBaseUri(), realm)).build();
+        ScimContext scimContext = getScimContext(session);
+
+        return Response.ok(metadataController.getResourceTypes(scimContext)).build();
+    }
+
+    @GET
+    @Path("v2/Schemas")
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response listSchemas(
+            @Context KeycloakSession session,
+            @Context UriInfo uriInfo
+    ) {
+        verifyPermissions(session);
+
+        KeycloakContext context = session.getContext();
+        if (context == null) {
+            logger.warn("Keycloak context not found");
+            throw new InternalServerErrorException("Keycloak context not found");
+        }
+
+        RealmModel realm = context.getRealm();
+        if (realm == null) {
+            logger.warn("Realm not found");
+            throw new NotFoundException("Realm not found");
+        }
+
+        ScimContext scimContext = getScimContext(session);
+
+        return Response.ok(metadataController.listSchemas(scimContext)).build();
+    }
+
+    @GET
+    @Path("v2/ServiceProviderConfig")
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response getServiceProviderConfig(
+            @Context KeycloakSession session,
+            @Context UriInfo uriInfo
+    ) {
+        verifyPermissions(session);
+
+        KeycloakContext context = session.getContext();
+        if (context == null) {
+            logger.warn("Keycloak context not found");
+            throw new InternalServerErrorException("Keycloak context not found");
+        }
+
+        RealmModel realm = context.getRealm();
+        if (realm == null) {
+            logger.warn("Realm not found");
+            throw new NotFoundException("Realm not found");
+        }
+
+        ScimContext scimContext = getScimContext(session);
+
+        return Response.ok(metadataController.getServiceProviderConfig(scimContext)).build();
     }
 
     /**
@@ -255,6 +311,16 @@ public class ScimResources {
      */
     private boolean hasServiceAccountRole(UserModel user, RoleModel serviceAccountRole) {
         return user != null && user.hasRole(serviceAccountRole);
+    }
+
+    /**
+     * Returns SCIM context
+     *
+     * @param session Keycloak session
+     * @return SCIM context
+     */
+    private ScimContext getScimContext(KeycloakSession session) {
+        return new ScimContext(session.getContext().getUri().getBaseUri(), session, session.getContext().getRealm());
     }
 
 }

@@ -1,9 +1,13 @@
 package fi.metatavu.keycloak.scim.server.users;
 
-import fi.metatavu.keycloak.scim.server.consts.FilterAttributes;
+import fi.metatavu.keycloak.scim.server.AbstractController;
+import fi.metatavu.keycloak.scim.server.ScimContext;
 import fi.metatavu.keycloak.scim.server.consts.Schemas;
 import fi.metatavu.keycloak.scim.server.consts.ScimRoles;
+import fi.metatavu.keycloak.scim.server.consts.UserAttribute;
 import fi.metatavu.keycloak.scim.server.filter.ComparisonFilter;
+import fi.metatavu.keycloak.scim.server.filter.LogicalFilter;
+import fi.metatavu.keycloak.scim.server.filter.PresenceFilter;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
 import fi.metatavu.keycloak.scim.server.model.User;
 import fi.metatavu.keycloak.scim.server.model.UsersList;
@@ -21,17 +25,22 @@ import java.util.Map;
 /**
  * Users controller
  */
-public class UsersController {
+public class UsersController extends AbstractController {
 
     /**
      * Creates a user
      *
-     * @param session Keycloak session
-     * @param realm Keycloak realm
+     * @param scimContext SCIM context
      * @param scimUser SCIM user
      * @return created user
      */
-    public fi.metatavu.keycloak.scim.server.model.User createUser(KeycloakSession session, RealmModel realm, fi.metatavu.keycloak.scim.server.model.User scimUser) {
+    public fi.metatavu.keycloak.scim.server.model.User createUser(
+        ScimContext scimContext,
+        fi.metatavu.keycloak.scim.server.model.User scimUser
+    ) {
+        KeycloakSession session = scimContext.getSession();
+        RealmModel realm = scimContext.getRealm();
+
         UserModel user = session.users().addUser(realm, scimUser.getUserName());
         user.setEnabled(scimUser.getActive() == null || Boolean.TRUE.equals(scimUser.getActive()));
 
@@ -49,22 +58,32 @@ public class UsersController {
             user.grantRole(scimRole);
         }
 
-        return translateUser(user);
+        return translateUser(
+            scimContext,
+            user
+        );
     }
 
     /**
      * Finds a user
      *
-     * @param session Keycloak session
+     * @param scimContext SCIM context
      * @param userId user ID
      * @return found user
      */
     public User findUser(
-        KeycloakSession session,
+        ScimContext scimContext,
         String userId
     ) {
         try {
-            return translateUser(session.users().getUserById(session.getContext().getRealm(), userId));
+            KeycloakSession session = scimContext.getSession();
+            RealmModel realm = scimContext.getRealm();
+            UserModel userModel = session.users().getUserById(realm, userId);
+
+            return translateUser(
+                scimContext,
+                userModel
+            );
         } catch (NotFoundException e) {
             return null;
         }
@@ -73,39 +92,40 @@ public class UsersController {
     /**
      * Lists users
      *
-     * @param realm realm
-     * @param session session
+     * @param scimContext SCIM context
      * @param scimFilter SCIM filter
      * @param firstResult first result
      * @param maxResults max results
      * @return users list
      */
     public UsersList listUsers(
-            RealmModel realm,
-            KeycloakSession session,
+            ScimContext scimContext,
             ScimFilter scimFilter,
             Integer firstResult,
             Integer maxResults
     ) {
         UsersList result = new UsersList();
+        RealmModel realm = scimContext.getRealm();
+        KeycloakSession session = scimContext.getSession();
 
         Map<String, String> searchParams = new HashMap<>();
 
         if (scimFilter instanceof ComparisonFilter cmp) {
             if (cmp.operator() == ScimFilter.Operator.EQ) {
-                String attr = cmp.attribute();
+                UserAttribute userAttribute = UserAttribute.findByName(cmp.attribute());
+                if (userAttribute == null) {
+                    throw new UnsupportedUserFilter("Unsupported attribute: " + cmp.attribute());
+                }
+
                 String value = cmp.value();
 
-                switch (attr) {
-                    case FilterAttributes.USERNAME -> searchParams.put(UserModel.USERNAME, value);
-                    case FilterAttributes.EMAIL -> searchParams.put(UserModel.EMAIL, value);
-                    case FilterAttributes.FIRST_NAME -> searchParams.put(UserModel.FIRST_NAME, value);
-                    case FilterAttributes.LAST_NAME, FilterAttributes.FAMILY_NAME -> searchParams.put(UserModel.LAST_NAME, value);
-                    case FilterAttributes.ACTIVE -> searchParams.put(UserModel.ENABLED, value);
-                    default -> throw new UnsupportedUserFilter("Unsupported equals comparison filter: " + attr);
+                switch (userAttribute) {
+                    case UserAttribute.USERNAME -> searchParams.put(UserModel.USERNAME, value);
+                    case UserAttribute.EMAIL -> searchParams.put(UserModel.EMAIL, value);
+                    case UserAttribute.FIRST_NAME -> searchParams.put(UserModel.FIRST_NAME, value);
+                    case UserAttribute.LAST_NAME, UserAttribute.FAMILY_NAME -> searchParams.put(UserModel.LAST_NAME, value);
+                    case UserAttribute.ACTIVE -> searchParams.put(UserModel.ENABLED, value);
                 }
-            } else {
-               throw new UnsupportedUserFilter("Unsupported operator: " + cmp.operator());
             }
         }
 
@@ -115,14 +135,15 @@ public class UsersController {
         }
 
         List<UserModel> filteredUsers = session.users()
-            .searchForUserStream(realm, searchParams)
+            .searchForUserStream(scimContext.getRealm(), searchParams)
+            .filter(user -> !searchParams.isEmpty() || matchScimFilter(user, scimFilter))
             .filter(user -> user.hasRole(scimManagedRole))
             .toList();
 
         List<User> users = filteredUsers.stream()
             .skip(firstResult)
             .limit(maxResults)
-            .map(this::translateUser)
+            .map(user -> translateUser(scimContext, user))
             .toList();
 
         result.setTotalResults(filteredUsers.size());
@@ -134,12 +155,83 @@ public class UsersController {
     }
 
     /**
+     * Tests if user matches SCIM filter
+     *
+     * @param user user
+     * @param filter SCIM filter
+     * @return true if user matches filter
+     */
+    private boolean matchScimFilter(UserModel user, ScimFilter filter) {
+        switch (filter) {
+            case null -> {
+                return true;
+            }
+            case ComparisonFilter cmp -> {
+                UserAttribute attr = UserAttribute.findByName(cmp.attribute());
+                if (attr == null) {
+                    throw new UnsupportedUserFilter("Unsupported attribute: " + cmp.attribute());
+                }
+
+                String value = cmp.value();
+                String actual = switch (attr) {
+                    case UserAttribute.USERNAME -> user.getUsername();
+                    case UserAttribute.EMAIL -> user.getEmail();
+                    case UserAttribute.FIRST_NAME -> user.getFirstName();
+                    case UserAttribute.LAST_NAME, UserAttribute.FAMILY_NAME -> user.getLastName();
+                    case UserAttribute.ACTIVE -> Boolean.toString(user.isEnabled());
+                };
+
+                if (actual == null) return false;
+
+                return switch (cmp.operator()) {
+                    case EQ -> actual.equalsIgnoreCase(value);
+                    case CO -> actual.toLowerCase().contains(value.toLowerCase());
+                    case SW -> actual.toLowerCase().startsWith(value.toLowerCase());
+                    case EW -> actual.toLowerCase().endsWith(value.toLowerCase());
+                    default -> false;
+                };
+            }
+            case LogicalFilter logical -> {
+                boolean left = matchScimFilter(user, logical.left());
+                boolean right = matchScimFilter(user, logical.right());
+
+                return switch (logical.operator()) {
+                    case AND -> left && right;
+                    case OR -> left || right;
+                    default -> false;
+                };
+            }
+            case PresenceFilter presence -> {
+                UserAttribute presenceAttribute = UserAttribute.findByName(presence.attribute());
+                if (presenceAttribute == null) {
+                    throw new UnsupportedUserFilter("Unsupported attribute: " + presence.attribute());
+                }
+
+                return switch (presenceAttribute) {
+                    case UserAttribute.USERNAME -> user.getUsername() != null;
+                    case UserAttribute.EMAIL -> user.getEmail() != null;
+                    case UserAttribute.FIRST_NAME -> user.getFirstName() != null;
+                    case UserAttribute.LAST_NAME, UserAttribute.FAMILY_NAME -> user.getLastName() != null;
+                    case UserAttribute.ACTIVE -> true;
+                };
+            }
+            default -> {
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Translates Keycloak user to SCIM user
      *
      * @param user Keycloak user
      * @return SCIM user
      */
-    private fi.metatavu.keycloak.scim.server.model.User translateUser(UserModel user) {
+    private fi.metatavu.keycloak.scim.server.model.User translateUser(
+        ScimContext scimContext,
+        UserModel user
+    ) {
         if (user == null) {
             return null;
         }
@@ -152,10 +244,12 @@ public class UsersController {
                     .value(user.getEmail())
                     .primary(true)
             ))
+            .meta(getMeta(scimContext, "User", String.format("Users/%s", user.getId())))
             .schemas(Collections.singletonList(Schemas.USER_SCHEMA))
             .name(new fi.metatavu.keycloak.scim.server.model.UserName()
                     .familyName(user.getLastName())
                     .givenName(user.getFirstName())
             );
     }
+
 }

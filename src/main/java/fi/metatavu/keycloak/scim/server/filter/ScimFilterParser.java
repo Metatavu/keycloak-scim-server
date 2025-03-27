@@ -12,6 +12,21 @@ public class ScimFilterParser {
             Pattern.CASE_INSENSITIVE
     );
 
+    private static final Pattern CO_PATTERN = Pattern.compile(
+            "(\\w+(\\.\\w+)*)\\s+co\\s+(\"[^\"]+\")",
+            Pattern.CASE_INSENSITIVE
+    );
+
+    private static final Pattern SW_PATTERN = Pattern.compile(
+            "(\\w+(\\.\\w+)*)\\s+sw\\s+(\"[^\"]+\")",
+            Pattern.CASE_INSENSITIVE
+    );
+
+    private static final Pattern EW_PATTERN = Pattern.compile(
+            "(\\w+(\\.\\w+)*)\\s+ew\\s+(\"[^\"]+\")",
+            Pattern.CASE_INSENSITIVE
+    );
+
     private static final Pattern PR_PATTERN = Pattern.compile(
             "(\\w+(\\.\\w+)*)\\s+pr",
             Pattern.CASE_INSENSITIVE
@@ -50,17 +65,33 @@ public class ScimFilterParser {
 
         Matcher eq = EQ_PATTERN.matcher(filter);
         if (eq.matches()) {
-            String attr = eq.group(1).trim();
-            String rawValue = eq.group(3).trim().stripLeading();
+            return parseComparison(eq, ScimFilter.Operator.EQ);
+        }
 
-            if (rawValue.startsWith("\"") && rawValue.endsWith("\"")) {
-                rawValue = rawValue.substring(1, rawValue.length() - 1);
-            }
+        Matcher co = CO_PATTERN.matcher(filter);
+        if (co.matches()) {
+            return parseComparison(co, ScimFilter.Operator.CO);
+        }
 
-            return new ComparisonFilter(attr, ScimFilter.Operator.EQ, rawValue);
+        Matcher sw = SW_PATTERN.matcher(filter);
+        if (sw.matches()) {
+            return parseComparison(sw, ScimFilter.Operator.SW);
+        }
+
+        Matcher ew = EW_PATTERN.matcher(filter);
+        if (ew.matches()) {
+            return parseComparison(ew, ScimFilter.Operator.EW);
         }
 
         throw new UnsupportedFilter(filter);
     }
 
+    private ComparisonFilter parseComparison(Matcher matcher, ScimFilter.Operator operator) {
+        String attr = matcher.group(1).trim();
+        String rawValue = matcher.group(3).trim();
+        if (rawValue.startsWith("\"") && rawValue.endsWith("\"")) {
+            rawValue = rawValue.substring(1, rawValue.length() - 1);
+        }
+        return new ComparisonFilter(attr, operator, rawValue);
+    }
 }

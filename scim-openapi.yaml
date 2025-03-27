@@ -162,25 +162,72 @@ paths:
     get:
       summary: List SCIM resource types
       operationId: listResourceTypes
-      tags: [Metadata]
+      tags: [ Metadata ]
       description: >
         Returns the SCIM resource types supported by the server (e.g., User, Group).
-
+        
+        Required for SCIM discovery.
+        
         Requires:
         - OAuth2 access token (Bearer token)
         - The client must be authenticated via client credentials
         - The service account must have the realm role `scim-access`
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       responses:
         '200':
           description: List of SCIM resource types
           content:
             application/scim+json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ResourceType'
+                $ref: '#/components/schemas/ResourceTypeListResponse'
+
+  /Schemas:
+    get:
+      summary: List SCIM schemas
+      operationId: listSchemas
+      tags: [ Metadata ]
+      description: >
+        Returns the supported SCIM schemas used by Resources like Users and Groups.
+        
+        Required for SCIM discovery.
+        
+        Requires:
+        - OAuth2 access token (Bearer token)
+        - The service account must have the realm role `scim-access`
+      security:
+        - bearerAuth: [ ]
+      responses:
+        '200':
+          description: List of SCIM schema definitions
+          content:
+            application/scim+json:
+              schema:
+                $ref: '#/components/schemas/SchemaListResponse'
+
+  /ServiceProviderConfig:
+    get:
+      summary: Get SCIM service provider configuration
+      operationId: getServiceProviderConfig
+      tags: [Metadata]
+      description: >
+        Returns the service provider configuration, which describes SCIM capabilities such as
+        patch support, filtering, bulk operations, sorting, authentication schemes, etc.
+
+        Required for SCIM discovery.
+
+        Requires:
+        - OAuth2 access token (Bearer token)
+        - The service account must have the realm role `scim-access`
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: SCIM service provider configuration
+          content:
+            application/scim+json:
+              schema:
+                $ref: '#/components/schemas/ServiceProviderConfig'
 
 components:
   securitySchemes:
@@ -198,7 +245,7 @@ components:
           type: integer
         itemsPerPage:
           type: integer
-        resources:
+        Resources:
           type: array
           items:
             $ref: '#/components/schemas/User'
@@ -235,6 +282,8 @@ components:
           type: array
           items:
             type: string
+        meta:
+          $ref: '#/components/schemas/Meta'
 
     PatchRequest:
       type: object
@@ -259,6 +308,36 @@ components:
                 type: string
               value:
                 type: object
+
+    ResourceTypeListResponse:
+      type: object
+      required:
+        - schemas
+        - totalResults
+        - startIndex
+        - itemsPerPage
+        - Resources
+      properties:
+        schemas:
+          type: array
+          items:
+            type: string
+          example:
+            - "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+        totalResults:
+          type: integer
+          example: 2
+        startIndex:
+          type: integer
+          example: 1
+        itemsPerPage:
+          type: integer
+          example: 2
+        Resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceType'
+
     ResourceType:
       type: object
       required:
@@ -303,15 +382,234 @@ components:
               required:
                 type: boolean
         meta:
+          $ref: '#/components/schemas/Meta'
+
+    SchemaListResponse:
+      type: object
+      required:
+        - schemas
+        - totalResults
+        - startIndex
+        - itemsPerPage
+        - Resources
+      properties:
+        schemas:
+          type: array
+          items:
+            type: string
+          example:
+            - "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+        totalResults:
+          type: integer
+          example: 1
+        startIndex:
+          type: integer
+          example: 1
+        itemsPerPage:
+          type: integer
+          example: 10
+        Resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/SchemaListItem'
+
+    SchemaListItem:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - attributes
+        - meta
+      properties:
+        id:
+          type: string
+          example: "urn:ietf:params:scim:schemas:core:2.0:User"
+        name:
+          type: string
+          example: "User"
+        description:
+          type: string
+          example: "SCIM core resource for representing users"
+        attributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SchemaAttribute'
+        schemas:
+            type: array
+            items:
+                type: string
+            example:
+                - "urn:ietf:params:scim:schemas:core:2.0:Schema"
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    SchemaAttribute:
+      type: object
+      required:
+        - name
+        - description
+        - type
+        - multiValued
+        - required
+        - caseExact
+        - mutability
+        - returned
+        - uniqueness
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+          enum: [string, boolean, decimal, integer, dateTime, reference, complex]
+        multiValued:
+          type: boolean
+        required:
+          type: boolean
+        caseExact:
+          type: boolean
+        mutability:
+          type: string
+          enum: [readOnly, readWrite, immutable, writeOnly]
+        returned:
+          type: string
+          enum: [always, never, default, request]
+        uniqueness:
+          type: string
+          enum: [none, server, global]
+        subAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SchemaAttribute'
+        referenceTypes:
+          type: array
+          items:
+            type: string
+              
+    ServiceProviderConfig:
+      type: object
+      required:
+        - schemas
+        - patch
+        - bulk
+        - filter
+        - changePassword
+        - sort
+        - etag
+        - authenticationSchemes
+        - meta
+      properties:
+        schemas:
+          type: array
+          items:
+            type: string
+          example:
+            - "urn:ietf:params:scim:schemas:core:2.0:ServiceProviderConfig"
+        documentationUri:
+          type: string
+          format: uri
+          example: "http://example.com/help/scim.html"
+        patch:
+          $ref: '#/components/schemas/ServiceFeatureSupport'
+        bulk:
           type: object
           required:
-            - location
-            - resourceType
+            - supported
+            - maxOperations
+            - maxPayloadSize
           properties:
-            location:
-              type: string
-              format: uri
-              example: "https://example.com/v2/ResourceTypes/User"
-            resourceType:
-              type: string
-              example: "ResourceType"
+            supported:
+              type: boolean
+              example: true
+            maxOperations:
+              type: integer
+              example: 1000
+            maxPayloadSize:
+              type: integer
+              example: 1048576
+        filter:
+          type: object
+          required:
+            - supported
+            - maxResults
+          properties:
+            supported:
+              type: boolean
+              example: true
+            maxResults:
+              type: integer
+              example: 200
+        changePassword:
+          $ref: '#/components/schemas/ServiceFeatureSupport'
+        sort:
+          $ref: '#/components/schemas/ServiceFeatureSupport'
+        etag:
+          $ref: '#/components/schemas/ServiceFeatureSupport'
+        authenticationSchemes:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthenticationScheme'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    ServiceFeatureSupport:
+      type: object
+      required:
+        - supported
+      properties:
+        supported:
+          type: boolean
+          example: true
+
+    AuthenticationScheme:
+      type: object
+      required:
+        - name
+        - description
+        - type
+        - primary
+      properties:
+        name:
+          type: string
+          example: "OAuth Bearer Token"
+        description:
+          type: string
+          example: "Authentication scheme using the OAuth Bearer Token Standard"
+        specUri:
+          type: string
+          format: uri
+          example: "http://www.rfc-editor.org/info/rfc6750"
+        documentationUri:
+          type: string
+          format: uri
+          example: "http://example.com/help/oauth.html"
+        type:
+          type: string
+          example: "oauthbearertoken"
+        primary:
+          type: boolean
+          example: true
+
+    Meta:
+      type: object
+      required:
+        - location
+        - resourceType
+      properties:
+        location:
+          type: string
+          format: uri
+          example: "https://example.com/v2/ServiceProviderConfig"
+        resourceType:
+          type: string
+          example: "ServiceProviderConfig"
+        created:
+          type: string
+          format: date-time
+          example: "2010-01-23T04:56:22Z"
+        lastModified:
+          type: string
+          format: date-time
+          example: "2011-05-13T04:42:34Z"

@@ -158,6 +158,30 @@ paths:
               schema:
                 $ref: '#/components/schemas/User'
 
+  /ResourceTypes:
+    get:
+      summary: List SCIM resource types
+      operationId: listResourceTypes
+      tags: [Metadata]
+      description: >
+        Returns the SCIM resource types supported by the server (e.g., User, Group).
+
+        Requires:
+        - OAuth2 access token (Bearer token)
+        - The client must be authenticated via client credentials
+        - The service account must have the realm role `scim-access`
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of SCIM resource types
+          content:
+            application/scim+json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ResourceType'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -235,3 +259,59 @@ components:
                 type: string
               value:
                 type: object
+    ResourceType:
+      type: object
+      required:
+        - schemas
+        - id
+        - name
+        - endpoint
+        - schema
+        - meta
+      properties:
+        schemas:
+          type: array
+          items:
+            type: string
+          example:
+            - "urn:ietf:params:scim:schemas:core:2.0:ResourceType"
+        id:
+          type: string
+          example: "User"
+        name:
+          type: string
+          example: "User"
+        endpoint:
+          type: string
+          example: "/Users"
+        description:
+          type: string
+          example: "User Account"
+        schema:
+          type: string
+          example: "urn:ietf:params:scim:schemas:core:2.0:User"
+        schemaExtensions:
+          type: array
+          items:
+            type: object
+            required:
+              - schema
+              - required
+            properties:
+              schema:
+                type: string
+              required:
+                type: boolean
+        meta:
+          type: object
+          required:
+            - location
+            - resourceType
+          properties:
+            location:
+              type: string
+              format: uri
+              example: "https://example.com/v2/ResourceTypes/User"
+            resourceType:
+              type: string
+              example: "ResourceType"

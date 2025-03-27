@@ -4,14 +4,12 @@ import fi.metatavu.keycloak.scim.server.consts.ContentTypes;
 import fi.metatavu.keycloak.scim.server.consts.ScimRoles;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilterParser;
+import fi.metatavu.keycloak.scim.server.metadata.MetadataController;
 import fi.metatavu.keycloak.scim.server.model.User;
 import fi.metatavu.keycloak.scim.server.model.UsersList;
 import fi.metatavu.keycloak.scim.server.users.UsersController;
 import jakarta.ws.rs.*;
-import jakarta.ws.rs.core.Context;
-import jakarta.ws.rs.core.HttpHeaders;
-import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.core.UriBuilder;
+import jakarta.ws.rs.core.*;
 import org.jboss.logging.Logger;
 import org.keycloak.common.ClientConnection;
 import org.keycloak.models.*;
@@ -27,10 +25,12 @@ public class ScimResources {
 
     private static final Logger logger = Logger.getLogger(ScimResources.class.getName());
     private final UsersController usersController;
+    private final MetadataController metadataController;
     private final ScimFilterParser scimFilterParser;
 
     ScimResources() {
         usersController = new UsersController();
+        metadataController = new MetadataController();
         scimFilterParser = new ScimFilterParser();
     }
 
@@ -153,6 +153,31 @@ public class ScimResources {
         session.users().removeUser(realm, user);
 
         return Response.noContent().build();
+    }
+
+    @GET
+    @Path("v2/ResourceTypes")
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response listResourceTypes(
+            @Context KeycloakSession session,
+            @Context UriInfo uriInfo
+    ) {
+        verifyPermissions(session);
+
+        KeycloakContext context = session.getContext();
+        if (context == null) {
+            logger.warn("Keycloak context not found");
+            throw new InternalServerErrorException("Keycloak context not found");
+        }
+
+        RealmModel realm = context.getRealm();
+        if (realm == null) {
+            logger.warn("Realm not found");
+            throw new NotFoundException("Realm not found");
+        }
+
+        return Response.ok(metadataController.listResourceTypes(uriInfo.getBaseUri(), realm)).build();
     }
 
     /**

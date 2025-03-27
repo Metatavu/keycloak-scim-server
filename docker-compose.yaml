@@ -1,0 +1,20 @@
+services:
+  keycloak:
+    hostname: scim-keycloak
+    build: .
+    environment:
+      - KC_BOOTSTRAP_ADMIN_USERNAME=admin
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=admin
+    ports:
+      - "8080:8080"
+    command:
+      - start-dev
+      - --import-realm
+    volumes:
+      - ./src/test/resources/kc-test.json:/opt/keycloak/data/import/kc-test.json
+      - ./build/libs/:/opt/keycloak/providers/
+  scim2-compliance-test:
+    image: suvera/scim2-compliance-test-utility:1.0.2
+    hostname: scim2-compliance-test
+    ports:
+      - "8081:8081"

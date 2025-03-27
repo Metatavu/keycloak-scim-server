@@ -198,7 +198,7 @@ components:
           type: integer
         itemsPerPage:
           type: integer
-        Resources:
+        resources:
           type: array
           items:
             $ref: '#/components/schemas/User'

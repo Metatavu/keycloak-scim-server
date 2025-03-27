@@ -122,7 +122,7 @@ public class UsersController extends AbstractController {
                 switch (userAttribute) {
                     case UserAttribute.USERNAME -> searchParams.put(UserModel.USERNAME, value);
                     case UserAttribute.EMAIL -> searchParams.put(UserModel.EMAIL, value);
-                    case UserAttribute.FIRST_NAME -> searchParams.put(UserModel.FIRST_NAME, value);
+                    case UserAttribute.GIVEN_NAME -> searchParams.put(UserModel.FIRST_NAME, value);
                     case UserAttribute.FAMILY_NAME -> searchParams.put(UserModel.LAST_NAME, value);
                     case UserAttribute.ACTIVE -> searchParams.put(UserModel.ENABLED, value);
                 }
@@ -176,7 +176,7 @@ public class UsersController extends AbstractController {
                 String actual = switch (attr) {
                     case UserAttribute.USERNAME -> user.getUsername();
                     case UserAttribute.EMAIL -> user.getEmail();
-                    case UserAttribute.FIRST_NAME -> user.getFirstName();
+                    case UserAttribute.GIVEN_NAME -> user.getFirstName();
                     case UserAttribute.FAMILY_NAME -> user.getLastName();
                     case UserAttribute.ACTIVE -> Boolean.toString(user.isEnabled());
                 };
@@ -210,7 +210,7 @@ public class UsersController extends AbstractController {
                 return switch (presenceAttribute) {
                     case UserAttribute.USERNAME -> user.getUsername() != null;
                     case UserAttribute.EMAIL -> user.getEmail() != null;
-                    case UserAttribute.FIRST_NAME -> user.getFirstName() != null;
+                    case UserAttribute.GIVEN_NAME -> user.getFirstName() != null;
                     case UserAttribute.FAMILY_NAME -> user.getLastName() != null;
                     case UserAttribute.ACTIVE -> true;
                 };

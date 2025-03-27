@@ -34,7 +34,7 @@ public class UserUpdateTestsIT extends AbstractScimTest {
 
         // Replace user with updated data
         User replacement = new User();
-        replacement.setUserName("replace-user-renamed");
+        replacement.setUserName(user.getUserName());
         replacement.setActive(false);
         replacement.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
         replacement.setName(getName("Replaced", "User"));
@@ -43,8 +43,11 @@ public class UserUpdateTestsIT extends AbstractScimTest {
         User updated = scimClient.updateUser(userId, replacement);
 
         assertNotNull(updated);
+        assertNotNull(updated.getName());
+        assertNotNull(updated.getEmails());
+        assertNotNull(updated.getActive());
         assertEquals(userId, updated.getId());
-        assertEquals("replace-user-renamed", updated.getUserName());
+        assertEquals("replace-user", updated.getUserName());
         assertEquals("Replaced", updated.getName().getGivenName());
         assertEquals("User", updated.getName().getFamilyName());
         assertEquals("replaced.user@example.com", updated.getEmails().getFirst().getValue());
@@ -53,7 +56,7 @@ public class UserUpdateTestsIT extends AbstractScimTest {
         // Also verify state in Keycloak
         UserRepresentation realmUser = findRealmUser(userId);
         assertNotNull(realmUser);
-        assertEquals("replace-user-renamed", realmUser.getUsername());
+        assertEquals("replace-user", realmUser.getUsername());
         assertEquals("Replaced", realmUser.getFirstName());
         assertEquals("User", realmUser.getLastName());
         assertEquals("replaced.user@example.com", realmUser.getEmail());

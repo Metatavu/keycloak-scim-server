@@ -70,7 +70,7 @@ class UserListTestsIT extends AbstractScimTest {
   @Test
   void testFilterByFirstName() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient();
-    UsersList usersList = scimClient.listUsers("firstName eq \"Test\"", 0, 10);
+    UsersList usersList = scimClient.listUsers("name.givenName eq \"Test\"", 0, 10);
 
     assertEquals(1, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -83,7 +83,7 @@ class UserListTestsIT extends AbstractScimTest {
   @Test
   void testFilterByLastName() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient();
-    UsersList usersList = scimClient.listUsers("lastName eq \"Admin\"", 0, 10);
+    UsersList usersList = scimClient.listUsers("name.familyName eq \"Admin\"", 0, 10);
 
     assertEquals(1, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -96,7 +96,7 @@ class UserListTestsIT extends AbstractScimTest {
   @Test
   void testFilterByFamilyName() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient();
-    UsersList usersList = scimClient.listUsers("familyName eq \"Admin\"", 0, 10);
+    UsersList usersList = scimClient.listUsers("name.familyName eq \"Admin\"", 0, 10);
 
     assertEquals(1, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -160,7 +160,7 @@ class UserListTestsIT extends AbstractScimTest {
   @Test
   void testFilterByFirstNameNoMatch() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient();
-    UsersList usersList = scimClient.listUsers("firstName eq \"NoSuchName\"", 0, 10);
+    UsersList usersList = scimClient.listUsers("name.givenName eq \"NoSuchName\"", 0, 10);
 
     assertEquals(0, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -170,7 +170,7 @@ class UserListTestsIT extends AbstractScimTest {
   @Test
   void testFilterByLastNameNoMatch() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient();
-    UsersList usersList = scimClient.listUsers("lastName eq \"Unknown\"", 0, 10);
+    UsersList usersList = scimClient.listUsers("name.familyName eq \"Unknown\"", 0, 10);
 
     assertEquals(0, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -180,7 +180,7 @@ class UserListTestsIT extends AbstractScimTest {
   @Test
   void testFilterByFamilyNameNoMatch() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient();
-    UsersList usersList = scimClient.listUsers("familyName eq \"Ghost\"", 0, 10);
+    UsersList usersList = scimClient.listUsers("name.familyName eq \"Ghost\"", 0, 10);
 
     assertEquals(0, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -260,7 +260,7 @@ class UserListTestsIT extends AbstractScimTest {
     }
 
     // Page 1: count=2, startIndex=0
-    UsersList page1 = scimClient.listUsers("firstName eq \"Paginated\"", 0, 2);
+    UsersList page1 = scimClient.listUsers("name.givenName eq \"Paginated\"", 0, 2);
     assertEquals(2, page1.getItemsPerPage());
     assertEquals(0, page1.getStartIndex());
     assertEquals(5, page1.getTotalResults());
@@ -268,7 +268,7 @@ class UserListTestsIT extends AbstractScimTest {
     assertEquals(2, page1.getResources().size());
 
     // Page 2: count=2, startIndex=2
-    UsersList page2 = scimClient.listUsers("firstName eq \"Paginated\"", 2, 2);
+    UsersList page2 = scimClient.listUsers("name.givenName eq \"Paginated\"", 2, 2);
     assertEquals(2, page2.getItemsPerPage());
     assertEquals(2, page2.getStartIndex());
     assertEquals(5, page2.getTotalResults());
@@ -276,7 +276,7 @@ class UserListTestsIT extends AbstractScimTest {
     assertEquals(2, page2.getResources().size());
 
     // Page 3: count=2, startIndex=4 (only one user expected)
-    UsersList page3 = scimClient.listUsers("firstName eq \"Paginated\"", 4, 2);
+    UsersList page3 = scimClient.listUsers("name.givenName eq \"Paginated\"", 4, 2);
     assertEquals(2, page3.getItemsPerPage());
     assertEquals(4, page3.getStartIndex());
     assertEquals(5, page3.getTotalResults());

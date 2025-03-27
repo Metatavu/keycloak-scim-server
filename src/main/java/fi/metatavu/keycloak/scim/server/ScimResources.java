@@ -15,6 +15,7 @@ import org.keycloak.common.ClientConnection;
 import org.keycloak.models.*;
 import org.keycloak.services.managers.AuthenticationManager;
 import org.keycloak.services.managers.AppAuthManager;
+import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 
@@ -24,6 +25,7 @@ import java.net.URI;
 public class ScimResources {
 
     private static final Logger logger = Logger.getLogger(ScimResources.class.getName());
+    private static final org.slf4j.Logger log = LoggerFactory.getLogger(ScimResources.class);
     private final UsersController usersController;
     private final MetadataController metadataController;
     private final ScimFilterParser scimFilterParser;
@@ -137,25 +139,30 @@ public class ScimResources {
 
         RealmModel realm = session.getContext().getRealm();
         if (realm == null) {
+            logger.warn("Realm not found");
             throw new NotFoundException("Realm not found");
         }
 
         if (scimUser.getUserName().isBlank()) {
+            logger.warn("Missing userName");
             return Response.status(Response.Status.BAD_REQUEST).entity("Missing userName").build();
         }
 
         UserModel user = session.users().getUserById(realm, userId);
         if (user == null) {
+            logger.warn(String.format("User not found: %s", userId));
             return Response.status(Response.Status.NOT_FOUND).entity("User not found").build();
         }
 
         // Check if username is being changed to an already existing one
         UserModel existing = session.users().getUserByUsername(realm, scimUser.getUserName());
         if (existing == null) {
+            logger.warn(String.format("User not found: %s", scimUser.getUserName()));
             return Response.status(Response.Status.NOT_FOUND).entity("User not found").build();
         }
 
-        if (!existing.getId().equals(user.getId())) {
+        if (!existing.getId().equals(userId)) {
+            logger.warn(String.format("User name already taken: %s", scimUser.getUserName()));
             return Response.status(Response.Status.CONFLICT).entity("User name already taken").build();
         }
 

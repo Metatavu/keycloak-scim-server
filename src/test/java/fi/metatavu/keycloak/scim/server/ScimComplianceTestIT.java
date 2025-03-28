@@ -36,7 +36,7 @@ public class ScimComplianceTestIT extends AbstractScimTest {
         .withNetwork(network)
         .withNetworkAliases("scim-tester")
         .waitingFor(Wait.forLogMessage(".*Started Scim2Application.*", 1))
-        .withLogConsumer(outputFrame -> System.out.printf("COMPLIANCE-TEST: %s%n", outputFrame.getUtf8String()));
+        .withLogConsumer(outputFrame -> System.out.printf("COMPLIANCE-TEST: %s", outputFrame.getUtf8String()));
 
     @Test
     void scimComplianceShouldPass() throws IOException, InterruptedException {

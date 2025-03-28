@@ -15,7 +15,6 @@ repositories {
 val keycloakVersion: String by project
 val testContainersVersion: String by project
 val testContainersKeycloakVersion: String by project
-val restAssuredVersion: String by project
 val junitVersion: String by project
 val awaitilityVersion: String by project
 
@@ -56,7 +55,7 @@ val generateModels = tasks.register("generateModels", GenerateTask::class) {
     setProperty("generatorName", "java")
     setProperty("library", "native")
     setProperty("inputSpec", "$rootDir/scim-openapi.yaml")
-    setProperty("outputDir", "${layout.buildDirectory}/generated/scim-models")
+    setProperty("outputDir", "$buildDir/generated/scim-models")
     setProperty("modelPackage", "${project.group}.model")
 
     this.configOptions.put("dateLibrary", "string")
@@ -71,7 +70,7 @@ val generateScimClient = tasks.register("generateScimClient",GenerateTask::class
     setProperty("generatorName", "java")
     setProperty("library", "native")
     setProperty("inputSpec",  "$rootDir/scim-openapi.yaml")
-    setProperty("outputDir", "${layout.buildDirectory}/generated/scim-client")
+    setProperty("outputDir", "$buildDir/generated/scim-client")
     setProperty("apiPackage", "${project.group}.test.client.api")
     setProperty("modelPackage", "${project.group}.test.client.model")
 

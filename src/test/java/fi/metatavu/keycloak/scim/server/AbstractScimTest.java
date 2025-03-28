@@ -33,7 +33,7 @@ public class AbstractScimTest {
         .withNetworkAliases("scim-keycloak")
         .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
         .withRealmImportFile("kc-test.json")
-        .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s%n", outputFrame.getUtf8String()));
+        .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
 
     @BeforeAll
     static void setUp() {

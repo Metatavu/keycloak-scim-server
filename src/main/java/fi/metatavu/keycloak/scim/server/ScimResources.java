@@ -13,6 +13,7 @@ import fi.metatavu.keycloak.scim.server.model.User;
 import fi.metatavu.keycloak.scim.server.model.UsersList;
 import fi.metatavu.keycloak.scim.server.model.Group;
 import fi.metatavu.keycloak.scim.server.model.GroupsList;
+import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
 import fi.metatavu.keycloak.scim.server.users.UsersController;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.*;
@@ -239,9 +240,13 @@ public class ScimResources {
         }
 
         ScimContext scimContext = getScimContext(session);
-        User result = usersController.patchUser(scimContext, existing, patchRequest);
 
-        return Response.ok(result).build();
+        try {
+            User result = usersController.patchUser(scimContext, existing, patchRequest);
+            return Response.ok(result).build();
+        } catch (UnsupportedPatchOperation e) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("Unsupported patch operation").build();
+        }
     }
 
     @DELETE
@@ -430,6 +435,8 @@ public class ScimResources {
             return Response.ok(updated).build();
         } catch (UnsupportedGroupPath e) {
             return Response.status(Response.Status.BAD_REQUEST).entity("Unsupported group path").build();
+        } catch (UnsupportedPatchOperation e) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("Unsupported patch operation").build();
         }
     }
 

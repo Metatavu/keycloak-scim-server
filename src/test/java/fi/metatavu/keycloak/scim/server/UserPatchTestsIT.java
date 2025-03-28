@@ -56,7 +56,7 @@ public class UserPatchTestsIT extends AbstractScimTest {
         User deactivated = scimClient.patchUser(created.getId(), new PatchRequest()
             .schemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"))
             .operations(List.of(new PatchRequestOperationsInner()
-                    .op(PatchRequestOperationsInner.OpEnum.REPLACE)
+                    .op("Replace")
                     .path("active")
                     .value(Boolean.FALSE)
             )));
@@ -73,7 +73,7 @@ public class UserPatchTestsIT extends AbstractScimTest {
         User activated = scimClient.patchUser(created.getId(), new PatchRequest()
             .schemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"))
             .operations(List.of(new PatchRequestOperationsInner()
-                    .op(PatchRequestOperationsInner.OpEnum.REPLACE)
+                    .op("Replace")
                     .path("active")
                     .value(Boolean.TRUE)
             )));

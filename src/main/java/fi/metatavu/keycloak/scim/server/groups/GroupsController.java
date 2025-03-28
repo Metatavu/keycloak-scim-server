@@ -2,16 +2,17 @@ package fi.metatavu.keycloak.scim.server.groups;
 
 import fi.metatavu.keycloak.scim.server.AbstractController;
 import fi.metatavu.keycloak.scim.server.ScimContext;
+import fi.metatavu.keycloak.scim.server.patch.PatchOperation;
 import fi.metatavu.keycloak.scim.server.consts.Schemas;
 import fi.metatavu.keycloak.scim.server.model.Group;
 import fi.metatavu.keycloak.scim.server.model.GroupMembersInner;
 import fi.metatavu.keycloak.scim.server.model.GroupsList;
+import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
 import org.jboss.logging.Logger;
 import org.keycloak.models.GroupModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
-import fi.metatavu.keycloak.scim.server.model.PatchRequestOperationsInner;
 
 import java.util.Collections;
 import java.util.List;
@@ -135,14 +136,19 @@ public class GroupsController extends AbstractController {
             ScimContext scimContext,
             GroupModel existing,
             fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
-    ) throws UnsupportedGroupPath {
+    ) throws UnsupportedGroupPath, UnsupportedPatchOperation {
         KeycloakSession session = scimContext.getSession();
         RealmModel realm = scimContext.getRealm();
 
         for (var operation : patchRequest.getOperations()) {
-            PatchRequestOperationsInner.OpEnum op = operation.getOp();
+            PatchOperation op = PatchOperation.fromString(operation.getOp());
             String path = operation.getPath();
             Object value = operation.getValue();
+
+            if (op == null) {
+                logger.warn("Invalid patch operation: " + operation.getOp());
+                throw new UnsupportedPatchOperation("Unsupported patch operation: " + operation.getOp());
+            }
 
             if (value == null) {
                 logger.warn("Value is null for patch operation: " + op);
@@ -160,7 +166,7 @@ public class GroupsController extends AbstractController {
                         case DISPLAY_NAME -> existing.setName((String) value);
                         case MEMBERS -> {
                             // Clear current members if REPLACE, just add if ADD
-                            if (op == PatchRequestOperationsInner.OpEnum.REPLACE) {
+                            if (op == PatchOperation.REPLACE) {
                                 session.users().getGroupMembersStream(realm, existing)
                                     .forEach(user -> user.leaveGroup(existing));
                             }

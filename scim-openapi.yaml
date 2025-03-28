@@ -605,7 +605,6 @@ components:
             properties:
               op:
                 type: string
-                enum: [ add, remove, replace ]
               path:
                 type: string
                 description: Attribute path to target

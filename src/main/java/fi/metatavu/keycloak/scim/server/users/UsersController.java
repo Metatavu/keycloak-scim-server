@@ -8,9 +8,10 @@ import fi.metatavu.keycloak.scim.server.filter.ComparisonFilter;
 import fi.metatavu.keycloak.scim.server.filter.LogicalFilter;
 import fi.metatavu.keycloak.scim.server.filter.PresenceFilter;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
-import fi.metatavu.keycloak.scim.server.model.PatchRequestOperationsInner;
 import fi.metatavu.keycloak.scim.server.model.User;
 import fi.metatavu.keycloak.scim.server.model.UsersList;
+import fi.metatavu.keycloak.scim.server.patch.PatchOperation;
+import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
 import jakarta.ws.rs.NotFoundException;
 import org.jboss.logging.Logger;
 import org.keycloak.models.KeycloakSession;
@@ -296,9 +297,14 @@ public class UsersController extends AbstractController {
         ScimContext scimContext,
         UserModel existing,
         fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
-    ) {
+    ) throws UnsupportedPatchOperation {
         for (var operation : patchRequest.getOperations()) {
-            PatchRequestOperationsInner.OpEnum op = operation.getOp();
+            PatchOperation op = PatchOperation.fromString(operation.getOp());
+            if (op == null) {
+                logger.warn("Invalid patch operation: " + operation.getOp());
+                throw new UnsupportedPatchOperation("Unsupported patch operation: " + operation.getOp());
+            }
+
             UserPath userPath = UserPath.findByName(operation.getPath());
             Object value = operation.getValue();
 

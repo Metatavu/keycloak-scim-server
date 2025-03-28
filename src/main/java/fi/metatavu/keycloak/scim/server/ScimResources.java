@@ -66,6 +66,7 @@ public class ScimResources {
         }
 
         if (scimUser.getUserName().isBlank()) {
+            logger.warn("Cannot create user: Missing userName");
             return Response.status(Response.Status.BAD_REQUEST).entity("Missing userName").build();
         }
 

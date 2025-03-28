@@ -504,7 +504,13 @@ components:
       properties:
         id:
           type: string
+        externalId:
+          type: string
         userName:
+          type: string
+        displayName:
+          type: string
+        preferredLanguage:
           type: string
         name:
           type: object
@@ -518,6 +524,8 @@ components:
           items:
             type: object
             properties:
+              type:
+                type: string
               value:
                 type: string
               primary:

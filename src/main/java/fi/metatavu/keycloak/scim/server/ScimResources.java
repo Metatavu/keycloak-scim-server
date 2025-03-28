@@ -431,13 +431,13 @@ public class ScimResources {
         ClientConnection clientConnection = context.getConnection();
 
         AuthenticationManager.AuthResult auth = new AppAuthManager.BearerTokenAuthenticator(session)
-                .setRealm(realm)
-                .setConnection(clientConnection)
-                .setHeaders(headers)
-                .authenticate();
+            .setRealm(realm)
+            .setConnection(clientConnection)
+            .setHeaders(headers)
+            .authenticate();
 
         if (auth == null || auth.getUser() == null || auth.getToken() == null) {
-            logger.warn("Authentication failed");
+            logger.warn("Authentication failed. Headers: " + headers.getRequestHeaders());
             throw new NotAuthorizedException("Authentication failed");
         }
 

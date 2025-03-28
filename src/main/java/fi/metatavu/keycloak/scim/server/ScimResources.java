@@ -4,9 +4,12 @@ import fi.metatavu.keycloak.scim.server.consts.ContentTypes;
 import fi.metatavu.keycloak.scim.server.consts.ScimRoles;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilterParser;
+import fi.metatavu.keycloak.scim.server.groups.GroupsController;
 import fi.metatavu.keycloak.scim.server.metadata.MetadataController;
 import fi.metatavu.keycloak.scim.server.model.User;
 import fi.metatavu.keycloak.scim.server.model.UsersList;
+import fi.metatavu.keycloak.scim.server.model.Group;
+import fi.metatavu.keycloak.scim.server.model.GroupsList;
 import fi.metatavu.keycloak.scim.server.users.UsersController;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.*;
@@ -29,11 +32,13 @@ public class ScimResources {
     private final UsersController usersController;
     private final MetadataController metadataController;
     private final ScimFilterParser scimFilterParser;
+    private final GroupsController groupsController;
 
     ScimResources() {
         usersController = new UsersController();
         metadataController = new MetadataController();
         scimFilterParser = new ScimFilterParser();
+        groupsController = new GroupsController();
     }
 
     @POST
@@ -105,7 +110,7 @@ public class ScimResources {
     @Path("v2/Users/{id}")
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
-    public Response getUser(
+    public Response findUser(
             @Context KeycloakSession session,
             @PathParam("id") String userId
     ) {
@@ -204,6 +209,113 @@ public class ScimResources {
         return Response.noContent().build();
     }
 
+    @POST
+    @Path("v2/Groups")
+    @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    public Response createGroup(
+            @Context KeycloakSession session,
+            fi.metatavu.keycloak.scim.server.model.Group scimGroup
+    ) {
+        verifyPermissions(session);
+
+        // TODO: conflict check
+
+        ScimContext context = getScimContext(session);
+        Group created = groupsController.createGroup(context, scimGroup);
+        URI location = UriBuilder.fromPath("v2/Groups/{id}").build(created.getId());
+
+        return Response
+            .created(location)
+            .entity(created)
+            .build();
+    }
+
+    @GET
+    @Path("v2/Groups")
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response listGroups(
+            @Context KeycloakSession session,
+            @QueryParam("startIndex") @DefaultValue("0") int startIndex,
+            @QueryParam("count") @DefaultValue("100") int count
+    ) {
+        verifyPermissions(session);
+
+        ScimContext context = getScimContext(session);
+        GroupsList groupList = groupsController.listGroups(context, startIndex, count);
+        return Response.ok(groupList).build();
+    }
+
+    @GET
+    @Path("v2/Groups/{id}")
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response findGroup(
+            @Context KeycloakSession session,
+            @PathParam("id") String id
+    ) {
+        verifyPermissions(session);
+
+        ScimContext context = getScimContext(session);
+        Group group = groupsController.findGroup(context, id);
+        if (group == null) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        return Response.ok(group).build();
+    }
+
+    @PUT
+    @Path("v2/Groups/{id}")
+    @Consumes("application/scim+json")
+    @Produces("application/scim+json")
+    public Response updateGroup(
+            @PathParam("id") String id,
+            @Context KeycloakSession session,
+            Group group
+    ) {
+        verifyPermissions(session);
+        ScimContext scimContext = getScimContext(session);
+
+        GroupModel existing = session.groups().getGroupById(scimContext.getRealm(), id);
+        if (existing == null) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        if (!id.equals(existing.getId())) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("Group ID mismatch").build();
+        }
+
+        Group updated = groupsController.updateGroup(
+            scimContext,
+            existing,
+            group
+        );
+
+        return Response.ok(updated).build();
+    }
+
+    @DELETE
+    @Path("v2/Groups/{id}")
+    @SuppressWarnings("unused")
+    public Response deleteGroup(
+            @Context KeycloakSession session,
+            @PathParam("id") String id
+    ) {
+        verifyPermissions(session);
+
+        ScimContext context = getScimContext(session);
+        GroupModel group = session.groups().getGroupById(context.getRealm(), id);
+        if (group == null) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        groupsController.deleteGroup(context, group);
+
+        return Response.noContent().build();
+    }
+
     @GET
     @Path("v2/ResourceTypes")
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
@@ -213,22 +325,21 @@ public class ScimResources {
             @Context UriInfo uriInfo
     ) {
         verifyPermissions(session);
-
-        KeycloakContext context = session.getContext();
-        if (context == null) {
-            logger.warn("Keycloak context not found");
-            throw new InternalServerErrorException("Keycloak context not found");
-        }
-
-        RealmModel realm = context.getRealm();
-        if (realm == null) {
-            logger.warn("Realm not found");
-            throw new NotFoundException("Realm not found");
-        }
-
         ScimContext scimContext = getScimContext(session);
+        return Response.ok(metadataController.getResourceTypeList(scimContext)).build();
+    }
 
-        return Response.ok(metadataController.getResourceTypes(scimContext)).build();
+    @GET
+    @Path("v2/ResourceTypes/{id}")
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response getResourceType(
+            @Context KeycloakSession session,
+            @PathParam("id") String id
+    ) {
+        verifyPermissions(session);
+        ScimContext scimContext = getScimContext(session);
+        return Response.ok(metadataController.getResourceType(scimContext, id)).build();
     }
 
     @GET
@@ -256,6 +367,19 @@ public class ScimResources {
         ScimContext scimContext = getScimContext(session);
 
         return Response.ok(metadataController.listSchemas(scimContext)).build();
+    }
+
+    @GET
+    @Path("v2/Schemas/{id}")
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response getSchema(
+            @Context KeycloakSession session,
+            @PathParam("id") String id
+    ) {
+        verifyPermissions(session);
+        ScimContext scimContext = getScimContext(session);
+        return Response.ok(metadataController.getSchema(scimContext, id)).build();
     }
 
     @GET

@@ -195,6 +195,177 @@ paths:
               schema:
                 $ref: '#/components/schemas/User'
 
+  /Groups:
+    get:
+      summary: List groups
+      operationId: listGroups
+      tags: [Groups]
+      description: >
+        Returns a list of groups in the current realm.
+
+        Requires:
+        - OAuth2 access token (Bearer token)
+        - The client must be authenticated via client credentials
+        - The service account must have the realm role `scim-access`
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: filter
+          in: query
+          description: SCIM filter expression (e.g. `displayName eq "Engineering"`)
+          required: false
+          schema:
+            type: string
+        - name: startIndex
+          in: query
+          schema:
+            type: integer
+        - name: count
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of groups
+          content:
+            application/scim+json:
+              schema:
+                $ref: '#/components/schemas/GroupsList'
+
+    post:
+      summary: Create group
+      operationId: createGroup
+      tags: [Groups]
+      description: >
+        Creates a new group in the realm.
+
+        Requires:
+        - OAuth2 access token (Bearer token)
+        - The service account must have the realm role `scim-access`
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/scim+json:
+            schema:
+              $ref: '#/components/schemas/Group'
+      responses:
+        '201':
+          description: Group created
+          content:
+            application/scim+json:
+              schema:
+                $ref: '#/components/schemas/Group'
+
+  /Groups/{id}:
+    get:
+      summary: Get group
+      operationId: getGroup
+      tags: [Groups]
+      description: >
+        Retrieves a group by ID.
+
+        Requires:
+        - OAuth2 access token (Bearer token)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Group found
+          content:
+            application/scim+json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '404':
+          description: Group not found
+
+    put:
+      summary: Update group
+      operationId: updateGroup
+      tags: [ Groups ]
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/scim+json:
+            schema:
+              $ref: '#/components/schemas/Group'
+      responses:
+        '200':
+          description: Group updated
+          content:
+            application/scim+json:
+              schema:
+                $ref: '#/components/schemas/Group'
+
+    delete:
+      summary: Delete group
+      operationId: deleteGroup
+      tags: [Groups]
+      description: >
+        Deletes a group by ID.
+
+        Requires:
+        - OAuth2 access token (Bearer token)
+        - The service account must have the realm role `scim-access`
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Group deleted
+
+    patch:
+      summary: Update group
+      operationId: patchGroup
+      tags: [Groups]
+      description: >
+        Updates a group using SCIM PATCH semantics.
+
+        Requires:
+        - OAuth2 access token (Bearer token)
+        - The service account must have the realm role `scim-access`
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/scim+json:
+            schema:
+              $ref: '#/components/schemas/PatchRequest'
+      responses:
+        '200':
+          description: Group updated
+          content:
+            application/scim+json:
+              schema:
+                $ref: '#/components/schemas/Group'
+
   /ResourceTypes:
     get:
       summary: List SCIM resource types
@@ -219,6 +390,25 @@ paths:
               schema:
                 $ref: '#/components/schemas/ResourceTypeListResponse'
 
+  /ResourceTypes/{id}:
+    get:
+      summary: Get resource type
+      operationId: getResourceType
+      tags: [ Metadata ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource type
+          content:
+            application/scim+json:
+              schema:
+                $ref: '#/components/schemas/ResourceType'
+
   /Schemas:
     get:
       summary: List SCIM schemas
@@ -241,6 +431,25 @@ paths:
             application/scim+json:
               schema:
                 $ref: '#/components/schemas/SchemaListResponse'
+
+  /Schemas/{id}:
+    get:
+      summary: Get SCIM schema
+      operationId: getSchema
+      tags: [ Metadata ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: SCIM schema definition
+          content:
+            application/scim+json:
+              schema:
+                $ref: '#/components/schemas/SchemaListItem'
 
   /ServiceProviderConfig:
     get:
@@ -321,6 +530,52 @@ components:
             type: string
         meta:
           $ref: '#/components/schemas/Meta'
+
+    Group:
+      type: object
+      required:
+        - schemas
+        - displayName
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+        members:
+          type: array
+          items:
+            type: object
+            properties:
+              value:
+                type: string
+              display:
+                type: string
+        schemas:
+          type: array
+          items:
+            type: string
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    GroupsList:
+      type: object
+      properties:
+        schemas:
+          type: array
+          items:
+            type: string
+          default:
+            - urn:ietf:params:scim:api:messages:2.0:ListResponse
+        totalResults:
+          type: integer
+        startIndex:
+          type: integer
+        itemsPerPage:
+          type: integer
+        Resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/Group'
 
     PatchRequest:
       type: object

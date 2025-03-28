@@ -28,23 +28,12 @@ public class MetadataController extends AbstractController {
      * @param scimContext SCIM context
      * @return resource types
      */
-    public ResourceTypeListResponse getResourceTypes(
+    public ResourceTypeListResponse getResourceTypeList(
         ScimContext scimContext
     ) {
         ResourceTypeListResponse result = new ResourceTypeListResponse();
 
-        ResourceType usersResourceType = new ResourceType();
-        usersResourceType.setEndpoint("/Users");
-        usersResourceType.setName("User");
-        usersResourceType.setDescription("User Account");
-        usersResourceType.setSchema("urn:ietf:params:scim:schemas:core:2.0:User");
-        usersResourceType.setId("User");
-        usersResourceType.setSchemas(Collections.singletonList("urn:ietf:params:scim:schemas:core:2.0:ResourceType"));
-        usersResourceType.setMeta(getMeta(scimContext, "User", "Users"));
-        usersResourceType.setSchemaExtensions(Collections.emptyList());
-
-        List<ResourceType> resourceTypes = Collections.singletonList(usersResourceType);
-
+        List<ResourceType> resourceTypes = getResourceTypes(scimContext);
         result.setSchemas(Collections.singletonList("urn:ietf:params:scim:api:messages:2.0:ListResponse"));
         result.setResources(resourceTypes);
         result.setItemsPerPage(resourceTypes.size());
@@ -52,6 +41,23 @@ public class MetadataController extends AbstractController {
         result.setStartIndex(1);
 
         return result;
+    }
+
+    /**
+     * Returns resource type
+     *
+     * @param scimContext SCIM context
+     * @param resourceTypeId resource type id
+     * @return resource type
+     */
+    public ResourceType getResourceType(
+        ScimContext scimContext,
+        String resourceTypeId
+    ) {
+        return getResourceTypes(scimContext).stream()
+            .filter(resourceType -> resourceType.getId().equals(resourceTypeId))
+            .findFirst()
+            .orElse(null);
     }
 
     /**
@@ -118,7 +124,23 @@ public class MetadataController extends AbstractController {
         ScimContext scimContext
     ) {
         SchemaListResponse result = new SchemaListResponse();
-        List<SchemaListItem> schemas = Collections.singletonList(getUserSchema(scimContext));
+        List<SchemaListItem> schemas = Arrays.asList(
+            new SchemaListItem()
+                .id("urn:ietf:params:scim:schemas:core:2.0:User")
+                .name("User")
+                .description("SCIM core resource for representing users")
+                .meta(getMeta(scimContext, "User", "Schemas/urn:ietf:params:scim:schemas:core:2.0:User"))
+                .attributes(Arrays.stream(UserAttribute.values()).map(this::getSchemaAttribute).toList())
+                .schemas(Collections.singletonList("urn:ietf:params:scim:schemas:core:2.0:Schema")),
+            new SchemaListItem()
+                .id("urn:ietf:params:scim:schemas:core:2.0:Group")
+                .name("Group")
+                .description("SCIM core resource for representing groups")
+                .meta(getMeta(scimContext, "Group", "Schemas/urn:ietf:params:scim:schemas:core:2.0:Group"))
+                .attributes(Collections.emptyList())
+                .schemas(Collections.singletonList("urn:ietf:params:scim:schemas:core:2.0:Schema"))
+        );
+
         result.setSchemas(Collections.singletonList("urn:ietf:params:scim:api:messages:2.0:ListResponse"));
         result.setResources(schemas);
         result.setTotalResults(schemas.size());
@@ -129,23 +151,46 @@ public class MetadataController extends AbstractController {
     }
 
     /**
-     * Returns user schema
+     * Returns resource types
      *
      * @param scimContext SCIM context
-     * @return user schema
+     * @return resource types
      */
-    private SchemaListItem getUserSchema(
-        ScimContext scimContext
-    ) {
-        SchemaListItem userSchema = new SchemaListItem();
-        userSchema.setId("urn:ietf:params:scim:schemas:core:2.0:User");
-        userSchema.setName("User");
-        userSchema.setDescription("SCIM core resource for representing users");
-        userSchema.setMeta(getMeta(scimContext, "User", "Users"));
-        userSchema.setAttributes(Arrays.stream(UserAttribute.values()).map(this::getSchemaAttribute).toList());
-        userSchema.setSchemas(Collections.singletonList("urn:ietf:params:scim:schemas:core:2.0:Schema"));
+    private List<ResourceType> getResourceTypes(ScimContext scimContext) {
+        return Arrays.asList(
+            new ResourceType()
+                .endpoint("/Users")
+                .name("User")
+                .description("User Account")
+                .schema("urn:ietf:params:scim:schemas:core:2.0:User")
+                .id("User")
+                .schemas(Collections.singletonList("urn:ietf:params:scim:schemas:core:2.0:ResourceType"))
+                .meta(getMeta(scimContext, "User", "ResourceTypes/User"))
+                .schemaExtensions(Collections.emptyList()),
+            new ResourceType()
+                .endpoint("/Groups")
+                .name("Group")
+                .description("Group")
+                .schema("urn:ietf:params:scim:schemas:core:2.0:Group")
+                .id("Group")
+                .schemas(Collections.singletonList("urn:ietf:params:scim:schemas:core:2.0:ResourceType"))
+                .meta(getMeta(scimContext, "Group", "ResourceTypes/Group"))
+                .schemaExtensions(Collections.emptyList())
+        );
+    }
 
-        return userSchema;
+    /**
+     * Returns schema
+     *
+     * @param scimContext SCIM context
+     * @param id schema id
+     * @return schema
+     */
+    public SchemaListItem getSchema(ScimContext scimContext, String id) {
+        return listSchemas(scimContext).getResources().stream()
+            .filter(schema -> schema.getId().equals(id))
+            .findFirst()
+            .orElse(null);
     }
 
     /**
@@ -172,5 +217,4 @@ public class MetadataController extends AbstractController {
 
         return result;
     }
-
 }

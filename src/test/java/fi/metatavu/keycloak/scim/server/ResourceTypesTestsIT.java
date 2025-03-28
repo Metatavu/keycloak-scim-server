@@ -23,18 +23,36 @@ public class ResourceTypesTestsIT extends AbstractScimTest {
         ResourceTypeListResponse listResponse = scimClient.getResourceTypes();
         List<ResourceType> resourceTypes = listResponse.getResources();
         assertNotNull(resourceTypes);
-        assertEquals(1, resourceTypes.size());
-        assertArrayEquals(new String[] { "urn:ietf:params:scim:schemas:core:2.0:ResourceType" }, resourceTypes.getFirst().getSchemas().toArray());
-        assertEquals("User", resourceTypes.getFirst().getId());
-        assertEquals("User", resourceTypes.getFirst().getName());
-        assertEquals("/Users", resourceTypes.getFirst().getEndpoint());
-        assertEquals("User Account", resourceTypes.getFirst().getDescription());
-        assertEquals("urn:ietf:params:scim:schemas:core:2.0:User", resourceTypes.getFirst().getSchema());
-        assertNotNull(resourceTypes.getFirst().getSchemaExtensions());
-        assertEquals(0, resourceTypes.getFirst().getSchemaExtensions().size());
-        assertNotNull(resourceTypes.getFirst().getMeta());
-        assertEquals("User", resourceTypes.getFirst().getMeta().getResourceType());
-        assertEquals(getScimUri().resolve("/realms/test/scim/v2/Users"), resourceTypes.getFirst().getMeta().getLocation());
+        assertEquals(2, resourceTypes.size());
+        assertResourceType(resourceTypes.get(0), "User", "/Users", "User Account");
+        assertResourceType(resourceTypes.get(1), "Group", "/Groups", "Group");
+    }
+
+    /**
+     * Asserts resource type
+     *
+     * @param resourceType resource type
+     * @param id id
+     * @param path path
+     * @param description description
+     */
+    private void assertResourceType(
+        ResourceType resourceType,
+        String id,
+        String path,
+        String description
+    ) {
+        assertArrayEquals(new String[] { "urn:ietf:params:scim:schemas:core:2.0:ResourceType" }, resourceType.getSchemas().toArray());
+        assertEquals(id, resourceType.getId());
+        assertEquals(id, resourceType.getName());
+        assertEquals(path, resourceType.getEndpoint());
+        assertEquals(description, resourceType.getDescription());
+        assertEquals("urn:ietf:params:scim:schemas:core:2.0:" + id, resourceType.getSchema());
+        assertNotNull(resourceType.getSchemaExtensions());
+        assertEquals(0, resourceType.getSchemaExtensions().size());
+        assertNotNull(resourceType.getMeta());
+        assertEquals(id, resourceType.getMeta().getResourceType());
+        assertEquals(getScimUri().resolve("/realms/test/scim/v2/ResourceTypes/" + id), resourceType.getMeta().getLocation());
     }
 
 }

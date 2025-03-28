@@ -16,9 +16,8 @@ val keycloakVersion: String by project
 val testContainersVersion: String by project
 val testContainersKeycloakVersion: String by project
 val restAssuredVersion: String by project
-val wiremockTestContainerVersion: String by project
 val junitVersion: String by project
-val wiremockVersion: String by project
+val awaitilityVersion: String by project
 
 dependencies {
     implementation(enforcedPlatform("org.keycloak.bom:keycloak-bom-parent:$keycloakVersion"))
@@ -30,9 +29,7 @@ dependencies {
     testImplementation("org.testcontainers:testcontainers:$testContainersVersion")
     testImplementation("org.testcontainers:junit-jupiter:$testContainersVersion")
     testImplementation("com.github.dasniko:testcontainers-keycloak:$testContainersKeycloakVersion")
-    testImplementation("org.wiremock.integrations.testcontainers:wiremock-testcontainers-module:$wiremockTestContainerVersion")
-    testImplementation("io.rest-assured:rest-assured:$restAssuredVersion")
-    testImplementation("org.wiremock:wiremock:$wiremockVersion")
+    testImplementation("org.awaitility:awaitility:$awaitilityVersion")
 }
 
 group = "fi.metatavu.keycloak.scim.server"

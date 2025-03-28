@@ -25,14 +25,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  */
 public class AbstractScimTest {
 
-    private static final Network network = Network.newNetwork();
+    protected static final Network network = Network.newNetwork();
 
     @Container
-    private static final KeycloakContainer keycloak = new KeycloakContainer("quay.io/keycloak/keycloak:26.1.2")
-            .withNetwork(network)
-            .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
-            .withRealmImportFile("kc-test.json")
-            .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
+    protected static final KeycloakContainer keycloak = new KeycloakContainer("quay.io/keycloak/keycloak:26.1.2")
+        .withNetwork(network)
+        .withNetworkAliases("scim-keycloak")
+        .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
+        .withRealmImportFile("kc-test.json")
+        .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s%n", outputFrame.getUtf8String()));
 
     @BeforeAll
     static void setUp() {
@@ -110,17 +111,17 @@ public class AbstractScimTest {
      */
     protected String getServiceAccountToken() {
         try (Keycloak keycloakAdmin = KeycloakBuilder.builder()
-                .serverUrl(keycloak.getAuthServerUrl())
-                .realm(TestConsts.REALM)
-                .grantType(OAuth2Constants.CLIENT_CREDENTIALS)
-                .clientId(TestConsts.SCIM_CLIENT_ID)
-                .clientSecret(TestConsts.SCIM_CLIENT_SECRET)
-                .build()) {
+            .serverUrl(keycloak.getAuthServerUrl())
+            .realm(TestConsts.REALM)
+            .grantType(OAuth2Constants.CLIENT_CREDENTIALS)
+            .clientId(TestConsts.SCIM_CLIENT_ID)
+            .clientSecret(TestConsts.SCIM_CLIENT_SECRET)
+            .build()) {
 
             return keycloakAdmin
-                    .tokenManager()
-                    .getAccessToken()
-                    .getToken();
+                .tokenManager()
+                .getAccessToken()
+                .getToken();
         }
     }
 

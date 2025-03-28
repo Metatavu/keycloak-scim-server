@@ -6,19 +6,24 @@ import fi.metatavu.keycloak.scim.server.consts.Schemas;
 import fi.metatavu.keycloak.scim.server.model.Group;
 import fi.metatavu.keycloak.scim.server.model.GroupMembersInner;
 import fi.metatavu.keycloak.scim.server.model.GroupsList;
+import org.jboss.logging.Logger;
 import org.keycloak.models.GroupModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
+import fi.metatavu.keycloak.scim.server.model.PatchRequestOperationsInner;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
  * Groups controller
  */
 public class GroupsController extends AbstractController {
+
+    private static final Logger logger = Logger.getLogger(GroupsController.class);
 
     /**
      * Creates a group
@@ -115,6 +120,99 @@ public class GroupsController extends AbstractController {
      */
     public Group updateGroup(ScimContext scimContext, GroupModel existing, fi.metatavu.keycloak.scim.server.model.Group group) {
         existing.setName(group.getDisplayName());
+        return translateGroup(scimContext, existing);
+    }
+
+    /**
+     * Patch group with SCIM group data
+     *
+     * @param scimContext SCIM context
+     * @param existing existing group
+     * @param patchRequest patch request
+     * @return patched group
+     */
+    public fi.metatavu.keycloak.scim.server.model.Group patchGroup(
+            ScimContext scimContext,
+            GroupModel existing,
+            fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
+    ) throws UnsupportedGroupPath {
+        KeycloakSession session = scimContext.getSession();
+        RealmModel realm = scimContext.getRealm();
+
+        for (var operation : patchRequest.getOperations()) {
+            PatchRequestOperationsInner.OpEnum op = operation.getOp();
+            String path = operation.getPath();
+            Object value = operation.getValue();
+
+            if (value == null) {
+                logger.warn("Value is null for patch operation: " + op);
+                break;
+            }
+
+            GroupPath groupPath = GroupPath.findByPath(operation.getPath());
+            if (groupPath == null) {
+                throw new UnsupportedGroupPath("Unsupported patch path: " + path);
+            }
+
+            switch (op) {
+                case REPLACE, ADD -> {
+                    switch (groupPath) {
+                        case DISPLAY_NAME -> existing.setName((String) value);
+                        case MEMBERS -> {
+                            // Clear current members if REPLACE, just add if ADD
+                            if (op == PatchRequestOperationsInner.OpEnum.REPLACE) {
+                                session.users().getGroupMembersStream(realm, existing)
+                                    .forEach(user -> user.leaveGroup(existing));
+                            }
+
+                            for (Object obj : (List<?>) value) {
+                                if (!(obj instanceof Map<?, ?> memberMap)) {
+                                    logger.warn("Invalid member object: " + obj);
+                                    continue;
+                                }
+
+                                String memberId = (String) memberMap.get("value");
+                                if (memberId == null) {
+                                    logger.warn("Member value missing: " + obj);
+                                    continue;
+                                }
+
+                                UserModel user = scimContext.getSession().users().getUserById(scimContext.getRealm(), memberId);
+                                if (user != null) {
+                                    user.joinGroup(existing);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                case REMOVE -> {
+                    switch (groupPath) {
+                        case DISPLAY_NAME -> existing.setName(null);
+                        case MEMBERS -> {
+                            for (Object obj : (List<?>) value) {
+                                if (!(obj instanceof Map<?, ?> memberMap)) {
+                                    logger.warn("Invalid member object: " + obj);
+                                    continue;
+                                }
+
+                                String memberId = (String) memberMap.get("value");
+                                if (memberId == null) {
+                                    logger.warn("Member value missing: " + obj);
+                                    continue;
+                                }
+
+                                UserModel user = scimContext.getSession().users().getUserById(scimContext.getRealm(), memberId);
+                                if (user != null) {
+                                    user.leaveGroup(existing);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         return translateGroup(scimContext, existing);
     }
 

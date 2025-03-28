@@ -4,6 +4,7 @@ import fi.metatavu.keycloak.scim.server.test.client.ApiClient;
 import fi.metatavu.keycloak.scim.server.test.client.ApiException;
 import fi.metatavu.keycloak.scim.server.test.client.api.MetadataApi;
 import fi.metatavu.keycloak.scim.server.test.client.api.UsersApi;
+import fi.metatavu.keycloak.scim.server.test.client.model.PatchRequest;
 import fi.metatavu.keycloak.scim.server.test.client.model.ResourceTypeListResponse;
 import fi.metatavu.keycloak.scim.server.test.client.model.User;
 import fi.metatavu.keycloak.scim.server.test.client.model.UsersList;
@@ -77,6 +78,18 @@ public class ScimClient {
         return getUsersApi().updateUser(id, user);
     }
 
+
+    /**
+     * Patches a user
+     *
+     * @param id user ID
+     * @param patchRequest user to patch
+     * @return patched user
+     */
+    public User patchUser(String id, PatchRequest patchRequest) throws ApiException {
+        return getUsersApi().patchUser(id, patchRequest);
+    }
+
     /**
      * Deletes a user
      *
@@ -122,4 +135,5 @@ public class ScimClient {
         result.setRequestInterceptor(builder -> builder.header("Authorization", "Bearer " + accessToken));
         return result;
     }
+
 }

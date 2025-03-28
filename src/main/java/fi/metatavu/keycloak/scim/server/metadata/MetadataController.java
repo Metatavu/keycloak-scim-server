@@ -5,7 +5,7 @@ import java.util.*;
 
 import fi.metatavu.keycloak.scim.server.AbstractController;
 import fi.metatavu.keycloak.scim.server.ScimContext;
-import fi.metatavu.keycloak.scim.server.consts.UserAttribute;
+import fi.metatavu.keycloak.scim.server.users.UserPath;
 import fi.metatavu.keycloak.scim.server.model.ResourceType;
 import fi.metatavu.keycloak.scim.server.model.SchemaListResponse;
 import fi.metatavu.keycloak.scim.server.model.SchemaListItem;
@@ -75,7 +75,7 @@ public class MetadataController extends AbstractController {
         config.setDocumentationUri(URI.create("http://example.com/help/scim.html"));
 
         ServiceFeatureSupport patch = new ServiceFeatureSupport();
-        patch.setSupported(false);
+        patch.setSupported(true);
         config.setPatch(patch);
 
         ServiceProviderConfigBulk bulk = new ServiceProviderConfigBulk();
@@ -130,7 +130,7 @@ public class MetadataController extends AbstractController {
                 .name("User")
                 .description("SCIM core resource for representing users")
                 .meta(getMeta(scimContext, "User", "Schemas/urn:ietf:params:scim:schemas:core:2.0:User"))
-                .attributes(Arrays.stream(UserAttribute.values()).map(this::getSchemaAttribute).toList())
+                .attributes(Arrays.stream(UserPath.values()).map(this::getSchemaAttribute).toList())
                 .schemas(Collections.singletonList("urn:ietf:params:scim:schemas:core:2.0:Schema")),
             new SchemaListItem()
                 .id("urn:ietf:params:scim:schemas:core:2.0:Group")
@@ -196,24 +196,24 @@ public class MetadataController extends AbstractController {
     /**
      * Returns schema attribute
      *
-     * @param userAttribute user attribute
+     * @param userPath user attribute
      * @return schema attribute
      */
     private SchemaAttribute getSchemaAttribute(
-            UserAttribute userAttribute
+            UserPath userPath
     ) {
         SchemaAttribute result = new SchemaAttribute();
-        result.setName(userAttribute.getName());
-        result.setDescription(userAttribute.getDescription());
-        result.setType(userAttribute.getType());
+        result.setName(userPath.getName());
+        result.setDescription(userPath.getDescription());
+        result.setType(userPath.getType());
         result.setMultiValued(false);
         result.setRequired(false);
         result.setCaseExact(false);
-        result.setMutability(userAttribute.getMutability());
+        result.setMutability(userPath.getMutability());
         result.setReturned(SchemaAttribute.ReturnedEnum.DEFAULT);
         result.setReferenceTypes(null);
         result.setSubAttributes(Collections.emptyList());
-        result.setUniqueness(userAttribute.getUniqueness());
+        result.setUniqueness(userPath.getUniqueness());
 
         return result;
     }

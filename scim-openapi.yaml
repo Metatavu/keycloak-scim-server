@@ -595,18 +595,23 @@ components:
           type: array
           items:
             type: string
-          example: ["urn:ietf:params:scim:api:messages:2.0:PatchOp"]
+          example: [ "urn:ietf:params:scim:api:messages:2.0:PatchOp" ]
         Operations:
           type: array
           items:
             type: object
+            required:
+              - op
             properties:
               op:
                 type: string
-                enum: [add, remove, replace]
+                enum: [ add, remove, replace ]
               path:
                 type: string
+                description: Attribute path to target
               value:
+                description: >
+                  Value to be applied. Can be a string, boolean, number, object, or array depending on the patch.
                 type: object
 
     ResourceTypeListResponse:

@@ -1,4 +1,4 @@
-package fi.metatavu.keycloak.scim.server.consts;
+package fi.metatavu.keycloak.scim.server.users;
 
 import fi.metatavu.keycloak.scim.server.model.SchemaAttribute.TypeEnum;
 import fi.metatavu.keycloak.scim.server.model.SchemaAttribute.MutabilityEnum;
@@ -7,7 +7,7 @@ import fi.metatavu.keycloak.scim.server.model.SchemaAttribute.UniquenessEnum;
 /**
  * User attributes
  */
-public enum UserAttribute {
+public enum UserPath {
 
     USERNAME ("userName", "User name", TypeEnum.STRING, MutabilityEnum.READWRITE, UniquenessEnum.SERVER),
     EMAIL ("email", "Email", TypeEnum.STRING, MutabilityEnum.READWRITE, UniquenessEnum.SERVER),
@@ -21,7 +21,7 @@ public enum UserAttribute {
     private final MutabilityEnum mutability;
     private final UniquenessEnum uniqueness;
 
-    UserAttribute(String name, String description, TypeEnum type, MutabilityEnum mutability, UniquenessEnum uniqueness) {
+    UserPath(String name, String description, TypeEnum type, MutabilityEnum mutability, UniquenessEnum uniqueness) {
         this.name = name;
         this.description = description;
         this.type = type;
@@ -55,8 +55,8 @@ public enum UserAttribute {
      * @param name attribute name
      * @return user attribute or null if not found
      */
-    public static UserAttribute findByName(String name) {
-        for (UserAttribute userAttribute : values()) {
+    public static UserPath findByName(String name) {
+        for (UserPath userAttribute : values()) {
             if (userAttribute.getName().equals(name)) {
                 return userAttribute;
             }

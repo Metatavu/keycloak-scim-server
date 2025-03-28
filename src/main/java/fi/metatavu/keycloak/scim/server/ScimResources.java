@@ -7,6 +7,7 @@ import fi.metatavu.keycloak.scim.server.consts.ScimRoles;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilterParser;
 import fi.metatavu.keycloak.scim.server.groups.GroupsController;
+import fi.metatavu.keycloak.scim.server.groups.UnsupportedGroupPath;
 import fi.metatavu.keycloak.scim.server.metadata.MetadataController;
 import fi.metatavu.keycloak.scim.server.model.User;
 import fi.metatavu.keycloak.scim.server.model.UsersList;
@@ -209,7 +210,7 @@ public class ScimResources {
     public Response patchUser(
             @Context KeycloakSession session,
             @PathParam("id") String userId,
-            fi.metatavu.keycloak.scim.server.model.User scimUser
+            fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
     ) {
         try {
             verifyPermissions(session);
@@ -233,12 +234,12 @@ public class ScimResources {
         // Check if username is being changed to an already existing one
         UserModel existing = session.users().getUserById(realm, userId);
         if (existing == null) {
-            logger.warn(String.format("User not found: %s", scimUser.getUserName()));
+            logger.warn(String.format("User not found: %s", userId));
             return Response.status(Response.Status.NOT_FOUND).entity("User not found").build();
         }
 
         ScimContext scimContext = getScimContext(session);
-        User result = usersController.patchUser(scimContext, existing, scimUser);
+        User result = usersController.patchUser(scimContext, existing, patchRequest);
 
         return Response.ok(result).build();
     }
@@ -388,6 +389,48 @@ public class ScimResources {
         );
 
         return Response.ok(updated).build();
+    }
+
+    @PATCH
+    @Path("v2/Groups/{id}")
+    @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response patchGroup(
+            @Context KeycloakSession session,
+            @PathParam("id") String groupId,
+            fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
+    ) {
+        try {
+            verifyPermissions(session);
+        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
+            logger.warn("Failed to verify permissions", e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
+        }
+
+        RealmModel realm = session.getContext().getRealm();
+        if (realm == null) {
+            logger.warn("Realm not found");
+            throw new NotFoundException("Realm not found");
+        }
+
+        ScimContext scimContext = getScimContext(session);
+
+        GroupModel existing = session.groups().getGroupById(scimContext.getRealm(), groupId);
+        if (existing == null) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        if (!groupId.equals(existing.getId())) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("Group ID mismatch").build();
+        }
+
+        try {
+            Group updated = groupsController.patchGroup(scimContext, existing, patchRequest);
+            return Response.ok(updated).build();
+        } catch (UnsupportedGroupPath e) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("Unsupported group path").build();
+        }
     }
 
     @DELETE

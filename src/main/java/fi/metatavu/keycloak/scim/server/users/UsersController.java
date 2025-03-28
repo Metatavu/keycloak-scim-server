@@ -4,14 +4,15 @@ import fi.metatavu.keycloak.scim.server.AbstractController;
 import fi.metatavu.keycloak.scim.server.ScimContext;
 import fi.metatavu.keycloak.scim.server.consts.Schemas;
 import fi.metatavu.keycloak.scim.server.consts.ScimRoles;
-import fi.metatavu.keycloak.scim.server.consts.UserAttribute;
 import fi.metatavu.keycloak.scim.server.filter.ComparisonFilter;
 import fi.metatavu.keycloak.scim.server.filter.LogicalFilter;
 import fi.metatavu.keycloak.scim.server.filter.PresenceFilter;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
+import fi.metatavu.keycloak.scim.server.model.PatchRequestOperationsInner;
 import fi.metatavu.keycloak.scim.server.model.User;
 import fi.metatavu.keycloak.scim.server.model.UsersList;
 import jakarta.ws.rs.NotFoundException;
+import org.jboss.logging.Logger;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.RoleModel;
@@ -26,6 +27,8 @@ import java.util.Map;
  * Users controller
  */
 public class UsersController extends AbstractController {
+
+    private static final Logger logger = Logger.getLogger(UsersController.class);
 
     /**
      * Creates a user
@@ -112,19 +115,19 @@ public class UsersController extends AbstractController {
 
         if (scimFilter instanceof ComparisonFilter cmp) {
             if (cmp.operator() == ScimFilter.Operator.EQ) {
-                UserAttribute userAttribute = UserAttribute.findByName(cmp.attribute());
-                if (userAttribute == null) {
-                    throw new UnsupportedUserFilter("Unsupported attribute: " + cmp.attribute());
+                UserPath userPath = UserPath.findByName(cmp.attribute());
+                if (userPath == null) {
+                    throw new UnsupportedUserPath("Unsupported attribute: " + cmp.attribute());
                 }
 
                 String value = cmp.value();
 
-                switch (userAttribute) {
-                    case UserAttribute.USERNAME -> searchParams.put(UserModel.USERNAME, value);
-                    case UserAttribute.EMAIL -> searchParams.put(UserModel.EMAIL, value);
-                    case UserAttribute.GIVEN_NAME -> searchParams.put(UserModel.FIRST_NAME, value);
-                    case UserAttribute.FAMILY_NAME -> searchParams.put(UserModel.LAST_NAME, value);
-                    case UserAttribute.ACTIVE -> searchParams.put(UserModel.ENABLED, value);
+                switch (userPath) {
+                    case UserPath.USERNAME -> searchParams.put(UserModel.USERNAME, value);
+                    case UserPath.EMAIL -> searchParams.put(UserModel.EMAIL, value);
+                    case UserPath.GIVEN_NAME -> searchParams.put(UserModel.FIRST_NAME, value);
+                    case UserPath.FAMILY_NAME -> searchParams.put(UserModel.LAST_NAME, value);
+                    case UserPath.ACTIVE -> searchParams.put(UserModel.ENABLED, value);
                 }
             }
         }
@@ -167,18 +170,18 @@ public class UsersController extends AbstractController {
                 return true;
             }
             case ComparisonFilter cmp -> {
-                UserAttribute attr = UserAttribute.findByName(cmp.attribute());
+                UserPath attr = UserPath.findByName(cmp.attribute());
                 if (attr == null) {
-                    throw new UnsupportedUserFilter("Unsupported attribute: " + cmp.attribute());
+                    throw new UnsupportedUserPath("Unsupported attribute: " + cmp.attribute());
                 }
 
                 String value = cmp.value();
                 String actual = switch (attr) {
-                    case UserAttribute.USERNAME -> user.getUsername();
-                    case UserAttribute.EMAIL -> user.getEmail();
-                    case UserAttribute.GIVEN_NAME -> user.getFirstName();
-                    case UserAttribute.FAMILY_NAME -> user.getLastName();
-                    case UserAttribute.ACTIVE -> Boolean.toString(user.isEnabled());
+                    case UserPath.USERNAME -> user.getUsername();
+                    case UserPath.EMAIL -> user.getEmail();
+                    case UserPath.GIVEN_NAME -> user.getFirstName();
+                    case UserPath.FAMILY_NAME -> user.getLastName();
+                    case UserPath.ACTIVE -> Boolean.toString(user.isEnabled());
                 };
 
                 if (actual == null) return false;
@@ -202,17 +205,17 @@ public class UsersController extends AbstractController {
                 };
             }
             case PresenceFilter presence -> {
-                UserAttribute presenceAttribute = UserAttribute.findByName(presence.attribute());
+                UserPath presenceAttribute = UserPath.findByName(presence.attribute());
                 if (presenceAttribute == null) {
-                    throw new UnsupportedUserFilter("Unsupported attribute: " + presence.attribute());
+                    throw new UnsupportedUserPath("Unsupported attribute: " + presence.attribute());
                 }
 
                 return switch (presenceAttribute) {
-                    case UserAttribute.USERNAME -> user.getUsername() != null;
-                    case UserAttribute.EMAIL -> user.getEmail() != null;
-                    case UserAttribute.GIVEN_NAME -> user.getFirstName() != null;
-                    case UserAttribute.FAMILY_NAME -> user.getLastName() != null;
-                    case UserAttribute.ACTIVE -> true;
+                    case UserPath.USERNAME -> user.getUsername() != null;
+                    case UserPath.EMAIL -> user.getEmail() != null;
+                    case UserPath.GIVEN_NAME -> user.getFirstName() != null;
+                    case UserPath.FAMILY_NAME -> user.getLastName() != null;
+                    case UserPath.ACTIVE -> true;
                 };
             }
             default -> {
@@ -285,30 +288,48 @@ public class UsersController extends AbstractController {
      *
      * @param scimContext SCIM context
      * @param existing existing user
-     * @param scimUser SCIM user
+     * @param patchRequest patch request
      * @return patched user
      */
     public fi.metatavu.keycloak.scim.server.model.User patchUser(
         ScimContext scimContext,
         UserModel existing,
-        User scimUser
+        fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
     ) {
-        if (scimUser.getActive() != null) {
-            existing.setEnabled(scimUser.getActive());
-        }
+        for (var operation : patchRequest.getOperations()) {
+            PatchRequestOperationsInner.OpEnum op = operation.getOp();
+            UserPath userPath = UserPath.findByName(operation.getPath());
+            Object value = operation.getValue();
 
-        if (scimUser.getName() != null) {
-            if (scimUser.getName().getGivenName() != null) {
-                existing.setFirstName(scimUser.getName().getGivenName());
+            if (userPath == null) {
+                throw new UnsupportedUserPath("Unsupported attribute: " + operation.getPath());
             }
 
-            if (scimUser.getName().getFamilyName() != null) {
-                existing.setLastName(scimUser.getName().getFamilyName());
+            if (value == null) {
+                logger.warn("Value is null for patch operation: " + op);
+                break;
             }
-        }
 
-        if (scimUser.getEmails() != null && !scimUser.getEmails().isEmpty()) {
-            existing.setEmail(scimUser.getEmails().getFirst().getValue());
+            switch (op) {
+                case REPLACE, ADD -> {
+                    switch (userPath) {
+                        case UserPath.USERNAME -> existing.setUsername((String) value);
+                        case UserPath.EMAIL -> existing.setEmail((String) value);
+                        case UserPath.GIVEN_NAME -> existing.setFirstName((String) value);
+                        case UserPath.FAMILY_NAME -> existing.setLastName((String) value);
+                        case UserPath.ACTIVE -> existing.setEnabled((Boolean) value);
+                    }
+                }
+                case REMOVE -> {
+                    switch (userPath) {
+                        case UserPath.USERNAME -> existing.setUsername(null);
+                        case UserPath.EMAIL -> existing.setEmail(null);
+                        case UserPath.GIVEN_NAME -> existing.setFirstName(null);
+                        case UserPath.FAMILY_NAME -> existing.setLastName(null);
+                        case UserPath.ACTIVE -> existing.setEnabled(false);
+                    }
+                }
+            }
         }
 
         return translateUser(scimContext, existing);

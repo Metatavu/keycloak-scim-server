@@ -64,6 +64,7 @@ val generateModels = tasks.register("generateModels", GenerateTask::class) {
     this.configOptions.put("enumPropertyNaming", "UPPERCASE")
     this.configOptions.put("openApiNullable", "false")
     this.configOptions.put("useJakartaEe", "true")
+    this.configOptions.put("additionalModelTypeAnnotations", "@com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)")
 }
 
 val generateScimClient = tasks.register("generateScimClient",GenerateTask::class){

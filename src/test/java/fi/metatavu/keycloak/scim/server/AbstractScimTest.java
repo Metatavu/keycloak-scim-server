@@ -4,14 +4,12 @@ import dasniko.testcontainers.keycloak.KeycloakContainer;
 import fi.metatavu.keycloak.scim.server.test.client.model.User;
 import fi.metatavu.keycloak.scim.server.test.client.model.UserEmailsInner;
 import fi.metatavu.keycloak.scim.server.test.client.model.UserName;
-import org.junit.jupiter.api.BeforeAll;
 import org.keycloak.OAuth2Constants;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.KeycloakBuilder;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.testcontainers.containers.Network;
-import org.testcontainers.junit.jupiter.Container;
 
 import java.net.URI;
 import java.util.Collections;
@@ -23,22 +21,16 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * Abstract base class for SCIM tests
  */
-public class AbstractScimTest {
+public abstract class AbstractScimTest {
 
     protected static final Network network = Network.newNetwork();
 
-    @Container
-    protected static final KeycloakContainer keycloak = new KeycloakContainer("quay.io/keycloak/keycloak:26.1.2")
-        .withNetwork(network)
-        .withNetworkAliases("scim-keycloak")
-        .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
-        .withRealmImportFile("kc-test.json")
-        .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
-
-    @BeforeAll
-    static void setUp() {
-        assertTrue(keycloak.isRunning());
-    }
+    /**
+     * Returns the Keycloak container
+     *
+     * @return Keycloak container
+     */
+    protected abstract KeycloakContainer getKeycloakContainer();
 
     /**
      * Finds user from the test realm
@@ -47,9 +39,9 @@ public class AbstractScimTest {
      * @return user representation
      */
     protected UserRepresentation findRealmUser(String userId) {
-        return keycloak.getKeycloakAdminClient()
+        return getKeycloakContainer().getKeycloakAdminClient()
             .realms()
-            .realm(TestConsts.REALM)
+            .realm(TestConsts.TEST_REALM)
             .users()
             .get(userId)
             .toRepresentation();
@@ -62,9 +54,9 @@ public class AbstractScimTest {
      * @return user realm role mappings
      */
     protected List<RoleRepresentation> getUserRealmRoleMappings(String userId) {
-        return keycloak.getKeycloakAdminClient()
+        return getKeycloakContainer().getKeycloakAdminClient()
             .realms()
-            .realm(TestConsts.REALM)
+            .realm(TestConsts.TEST_REALM)
             .users()
             .get(userId)
             .roles()
@@ -78,9 +70,9 @@ public class AbstractScimTest {
      * @param userId user ID
      */
     protected void deleteRealmUser(String userId) {
-        keycloak.getKeycloakAdminClient()
+        getKeycloakContainer().getKeycloakAdminClient()
             .realms()
-            .realm(TestConsts.REALM)
+            .realm(TestConsts.TEST_REALM)
             .users()
             .get(userId)
             .remove();
@@ -92,7 +84,7 @@ public class AbstractScimTest {
      * @return SCIM URI
      */
     protected URI getScimUri() {
-        return URI.create(keycloak.getAuthServerUrl()).resolve(String.format("/realms/%s/scim/v2/", TestConsts.REALM));
+        return URI.create(getKeycloakContainer().getAuthServerUrl()).resolve(String.format("/realms/%s/scim/v2/", TestConsts.TEST_REALM));
     }
 
     /**
@@ -111,11 +103,11 @@ public class AbstractScimTest {
      */
     protected String getServiceAccountToken() {
         try (Keycloak keycloakAdmin = KeycloakBuilder.builder()
-            .serverUrl(keycloak.getAuthServerUrl())
-            .realm(TestConsts.REALM)
+            .serverUrl(getKeycloakContainer().getAuthServerUrl())
+            .realm(TestConsts.TEST_REALM)
             .grantType(OAuth2Constants.CLIENT_CREDENTIALS)
-            .clientId(TestConsts.SCIM_CLIENT_ID)
-            .clientSecret(TestConsts.SCIM_CLIENT_SECRET)
+            .clientId(TestConsts.TEST_SCIM_CLIENT_ID)
+            .clientSecret(TestConsts.TEST_SCIM_CLIENT_SECRET)
             .build()) {
 
             return keycloakAdmin

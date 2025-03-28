@@ -1,5 +1,7 @@
 package fi.metatavu.keycloak.scim.server;
 
+import fi.metatavu.keycloak.scim.server.authentication.ExternalTokenVerifier;
+import fi.metatavu.keycloak.scim.server.config.SCIMConfig;
 import fi.metatavu.keycloak.scim.server.consts.ContentTypes;
 import fi.metatavu.keycloak.scim.server.consts.ScimRoles;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
@@ -15,11 +17,14 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.*;
 import org.jboss.logging.Logger;
 import org.keycloak.common.ClientConnection;
+import org.keycloak.jose.jws.JWSInputException;
 import org.keycloak.models.*;
 import org.keycloak.services.managers.AuthenticationManager;
 import org.keycloak.services.managers.AppAuthManager;
 
+import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 
 /**
  * SCIM REST resources
@@ -48,7 +53,12 @@ public class ScimResources {
             @Context KeycloakSession session,
             fi.metatavu.keycloak.scim.server.model.User scimUser
     ) {
-        verifyPermissions(session);
+        try {
+            verifyPermissions(session);
+        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
+            logger.warn("Failed to verify permissions", e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
+        }
 
         RealmModel realm = session.getContext().getRealm();
         if (realm == null) {
@@ -84,7 +94,12 @@ public class ScimResources {
         @QueryParam("startIndex") @DefaultValue("0") Integer startIndex,
         @QueryParam("count") @DefaultValue("100") Integer count
     ) {
-        verifyPermissions(session);
+        try {
+            verifyPermissions(session);
+        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
+            logger.warn("Failed to verify permissions", e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
+        }
 
         ScimFilter scimFilter;
         try {
@@ -112,7 +127,12 @@ public class ScimResources {
             @Context KeycloakSession session,
             @PathParam("id") String userId
     ) {
-        verifyPermissions(session);
+        try {
+            verifyPermissions(session);
+        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
+            logger.warn("Failed to verify permissions", e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
+        }
 
         RealmModel realm = session.getContext().getRealm();
         if (realm == null) {
@@ -138,7 +158,12 @@ public class ScimResources {
             @PathParam("id") String userId,
             fi.metatavu.keycloak.scim.server.model.User scimUser
     ) {
-        verifyPermissions(session);
+        try {
+            verifyPermissions(session);
+        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
+            logger.warn("Failed to verify permissions", e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
+        }
 
         RealmModel realm = session.getContext().getRealm();
         if (realm == null) {
@@ -183,7 +208,12 @@ public class ScimResources {
             @Context KeycloakSession session,
             @PathParam("id") String userId
     ) {
-        verifyPermissions(session);
+        try {
+            verifyPermissions(session);
+        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
+            logger.warn("Failed to verify permissions", e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
+        }
 
         RealmModel realm = session.getContext().getRealm();
         if (realm == null) {
@@ -216,7 +246,12 @@ public class ScimResources {
             @Context KeycloakSession session,
             fi.metatavu.keycloak.scim.server.model.Group scimGroup
     ) {
-        verifyPermissions(session);
+        try {
+            verifyPermissions(session);
+        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
+            logger.warn("Failed to verify permissions", e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
+        }
 
         // TODO: conflict check
 
@@ -239,7 +274,12 @@ public class ScimResources {
             @QueryParam("startIndex") @DefaultValue("0") int startIndex,
             @QueryParam("count") @DefaultValue("100") int count
     ) {
-        verifyPermissions(session);
+        try {
+            verifyPermissions(session);
+        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
+            logger.warn("Failed to verify permissions", e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
+        }
 
         ScimContext context = getScimContext(session);
         GroupsList groupList = groupsController.listGroups(context, startIndex, count);
@@ -254,7 +294,12 @@ public class ScimResources {
             @Context KeycloakSession session,
             @PathParam("id") String id
     ) {
-        verifyPermissions(session);
+        try {
+            verifyPermissions(session);
+        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
+            logger.warn("Failed to verify permissions", e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
+        }
 
         ScimContext context = getScimContext(session);
         Group group = groupsController.findGroup(context, id);
@@ -275,7 +320,13 @@ public class ScimResources {
             @Context KeycloakSession session,
             Group group
     ) {
-        verifyPermissions(session);
+        try {
+            verifyPermissions(session);
+        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
+            logger.warn("Failed to verify permissions", e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
+        }
+
         ScimContext scimContext = getScimContext(session);
 
         GroupModel existing = session.groups().getGroupById(scimContext.getRealm(), id);
@@ -303,7 +354,12 @@ public class ScimResources {
             @Context KeycloakSession session,
             @PathParam("id") String id
     ) {
-        verifyPermissions(session);
+        try {
+            verifyPermissions(session);
+        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
+            logger.warn("Failed to verify permissions", e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
+        }
 
         ScimContext context = getScimContext(session);
         GroupModel group = session.groups().getGroupById(context.getRealm(), id);
@@ -324,7 +380,13 @@ public class ScimResources {
             @Context KeycloakSession session,
             @Context UriInfo uriInfo
     ) {
-        verifyPermissions(session);
+        try {
+            verifyPermissions(session);
+        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
+            logger.warn("Failed to verify permissions", e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
+        }
+
         ScimContext scimContext = getScimContext(session);
         return Response.ok(metadataController.getResourceTypeList(scimContext)).build();
     }
@@ -337,7 +399,13 @@ public class ScimResources {
             @Context KeycloakSession session,
             @PathParam("id") String id
     ) {
-        verifyPermissions(session);
+        try {
+            verifyPermissions(session);
+        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
+            logger.warn("Failed to verify permissions", e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
+        }
+
         ScimContext scimContext = getScimContext(session);
         return Response.ok(metadataController.getResourceType(scimContext, id)).build();
     }
@@ -350,7 +418,12 @@ public class ScimResources {
             @Context KeycloakSession session,
             @Context UriInfo uriInfo
     ) {
-        verifyPermissions(session);
+        try {
+            verifyPermissions(session);
+        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
+            logger.warn("Failed to verify permissions", e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
+        }
 
         KeycloakContext context = session.getContext();
         if (context == null) {
@@ -377,7 +450,13 @@ public class ScimResources {
             @Context KeycloakSession session,
             @PathParam("id") String id
     ) {
-        verifyPermissions(session);
+        try {
+            verifyPermissions(session);
+        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
+            logger.warn("Failed to verify permissions", e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
+        }
+
         ScimContext scimContext = getScimContext(session);
         return Response.ok(metadataController.getSchema(scimContext, id)).build();
     }
@@ -390,7 +469,12 @@ public class ScimResources {
             @Context KeycloakSession session,
             @Context UriInfo uriInfo
     ) {
-        verifyPermissions(session);
+        try {
+            verifyPermissions(session);
+        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
+            logger.warn("Failed to verify permissions", e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
+        }
 
         KeycloakContext context = session.getContext();
         if (context == null) {
@@ -414,8 +498,12 @@ public class ScimResources {
      *
      * @param session Keycloak session
      */
-    private void verifyPermissions(KeycloakSession session) {
+    private void verifyPermissions(KeycloakSession session) throws URISyntaxException, IOException, InterruptedException, JWSInputException {
+        SCIMConfig scimConfig = new SCIMConfig();
         KeycloakContext context = session.getContext();
+
+        System.out.println("##### scimConfig.getAuthenticationMode() = " + scimConfig.getAuthenticationMode());
+
         if (context == null) {
             logger.warn("Keycloak context not found");
             throw new InternalServerErrorException("Keycloak context not found");
@@ -428,36 +516,58 @@ public class ScimResources {
         }
 
         HttpHeaders headers = context.getRequestHeaders();
-        ClientConnection clientConnection = context.getConnection();
+        String authorization = headers.getHeaderString(HttpHeaders.AUTHORIZATION);
 
-        AuthenticationManager.AuthResult auth = new AppAuthManager.BearerTokenAuthenticator(session)
-            .setRealm(realm)
-            .setConnection(clientConnection)
-            .setHeaders(headers)
-            .authenticate();
-
-        if (auth == null || auth.getUser() == null || auth.getToken() == null) {
-            logger.warn("Authentication failed. Headers: " + headers.getRequestHeaders());
-            throw new NotAuthorizedException("Authentication failed");
+        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            logger.warn("Missing or invalid Authorization header");
+            throw new NotAuthorizedException("Missing or invalid Authorization header");
         }
 
-        ClientModel client = auth.getClient();
-        if (client == null) {
-            logger.warn("Client not found");
-            throw new NotAuthorizedException("Client not found");
-        }
+        String tokenString = authorization.substring("Bearer ".length()).trim();
 
-        UserModel serviceAccount = session.users().getServiceAccount(client);
+        if (scimConfig.getAuthenticationMode() == SCIMConfig.AuthenticationMode.KEYCLOAK) {
+            ClientConnection clientConnection = context.getConnection();
 
-        RoleModel roleModel = realm.getRole(ScimRoles.SERVICE_ACCOUNT_ROLE);
-        if (roleModel == null) {
-            logger.warn("Service account role not configured");
-            throw new ForbiddenException("Service account role not configured");
-        }
+            AuthenticationManager.AuthResult auth = new AppAuthManager.BearerTokenAuthenticator(session)
+                .setRealm(realm)
+                .setConnection(clientConnection)
+                .setHeaders(headers)
+                .authenticate();
 
-        if (!hasServiceAccountRole(serviceAccount, roleModel)) {
-            logger.warn("Service account does not have required role");
-            throw new ForbiddenException("Service account does not have required role");
+            if (auth == null || auth.getUser() == null || auth.getToken() == null) {
+                logger.warn("Keycloak authentication failed");
+                throw new NotAuthorizedException("Keycloak authentication failed");
+            }
+
+            ClientModel client = auth.getClient();
+            if (client == null) {
+                logger.warn("Client not found");
+                throw new NotAuthorizedException("Client not found");
+            }
+
+            UserModel serviceAccount = session.users().getServiceAccount(client);
+
+            RoleModel roleModel = realm.getRole(ScimRoles.SERVICE_ACCOUNT_ROLE);
+            if (roleModel == null) {
+                logger.warn("Service account role not configured");
+                throw new ForbiddenException("Service account role not configured");
+            }
+
+            if (!hasServiceAccountRole(serviceAccount, roleModel)) {
+                logger.warn("Service account does not have required role");
+                throw new ForbiddenException("Service account does not have required role");
+            }
+        } else {
+            ExternalTokenVerifier verifier = new ExternalTokenVerifier(
+                scimConfig.getExternalIssuer(),
+                scimConfig.getExternalJwksUri(),
+                scimConfig.getExternalAudience()
+            );
+
+            if (!verifier.verify(tokenString)) {
+                logger.warn("External token verification failed");
+                throw new NotAuthorizedException("External token verification failed");
+            }
         }
     }
 

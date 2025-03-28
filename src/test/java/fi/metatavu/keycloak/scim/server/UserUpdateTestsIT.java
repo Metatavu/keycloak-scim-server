@@ -1,9 +1,11 @@
 package fi.metatavu.keycloak.scim.server;
 
+import dasniko.testcontainers.keycloak.KeycloakContainer;
 import fi.metatavu.keycloak.scim.server.test.client.ApiException;
 import fi.metatavu.keycloak.scim.server.test.client.model.User;
 import org.junit.jupiter.api.Test;
 import org.keycloak.representations.idm.UserRepresentation;
+import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.util.List;
@@ -15,6 +17,19 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 @Testcontainers
 public class UserUpdateTestsIT extends AbstractScimTest {
+
+    @Container
+    protected static final KeycloakContainer keycloakContainer = new KeycloakContainer("quay.io/keycloak/keycloak:26.1.2")
+        .withNetwork(network)
+        .withNetworkAliases("scim-keycloak")
+        .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
+        .withRealmImportFile("kc-test.json")
+        .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
+
+    @Override
+    protected KeycloakContainer getKeycloakContainer() {
+        return keycloakContainer;
+    }
 
     @Test
     void testReplaceUser() throws ApiException {

@@ -2,6 +2,7 @@ package fi.metatavu.keycloak.scim.server;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dasniko.testcontainers.keycloak.KeycloakContainer;
 import jakarta.ws.rs.core.UriBuilder;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -30,6 +31,14 @@ import java.util.Objects;
 public class ScimComplianceTestIT extends AbstractScimTest {
 
     @Container
+    protected static final KeycloakContainer keycloakContainer = new KeycloakContainer("quay.io/keycloak/keycloak:26.1.2")
+        .withNetwork(network)
+        .withNetworkAliases("scim-keycloak")
+        .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
+        .withRealmImportFile("kc-test.json")
+        .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
+
+    @Container
     @SuppressWarnings({"try", "resource"})
     private static final GenericContainer<?> scimCompliance = new GenericContainer<>("suvera/scim2-compliance-test-utility:1.0.2")
         .withExposedPorts(8081)
@@ -37,6 +46,11 @@ public class ScimComplianceTestIT extends AbstractScimTest {
         .withNetworkAliases("scim-tester")
         .waitingFor(Wait.forLogMessage(".*Started Scim2Application.*", 1))
         .withLogConsumer(outputFrame -> System.out.printf("COMPLIANCE-TEST: %s", outputFrame.getUtf8String()));
+
+    @Override
+    protected KeycloakContainer getKeycloakContainer() {
+        return keycloakContainer;
+    }
 
     @Test
     void scimComplianceShouldPass() throws IOException, InterruptedException {
@@ -134,8 +148,8 @@ public class ScimComplianceTestIT extends AbstractScimTest {
         String curlCommand = String.format(
             "curl -s -X POST %s -d \"grant_type=client_credentials\" -d \"client_id=%s\" -d \"client_secret=%s\"",
             "http://scim-keycloak:8080/realms/test/protocol/openid-connect/token",
-            TestConsts.SCIM_CLIENT_ID,
-            TestConsts.SCIM_CLIENT_SECRET
+            TestConsts.TEST_SCIM_CLIENT_ID,
+            TestConsts.TEST_SCIM_CLIENT_SECRET
         );
 
         ExecResult execResult = scimCompliance.execInContainer("sh", "-c", curlCommand);

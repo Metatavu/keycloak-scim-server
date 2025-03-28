@@ -18,7 +18,6 @@ import org.keycloak.common.ClientConnection;
 import org.keycloak.models.*;
 import org.keycloak.services.managers.AuthenticationManager;
 import org.keycloak.services.managers.AppAuthManager;
-import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 
@@ -28,7 +27,6 @@ import java.net.URI;
 public class ScimResources {
 
     private static final Logger logger = Logger.getLogger(ScimResources.class.getName());
-    private static final org.slf4j.Logger log = LoggerFactory.getLogger(ScimResources.class);
     private final UsersController usersController;
     private final MetadataController metadataController;
     private final ScimFilterParser scimFilterParser;
@@ -213,6 +211,7 @@ public class ScimResources {
     @Path("v2/Groups")
     @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
     public Response createGroup(
             @Context KeycloakSession session,
             fi.metatavu.keycloak.scim.server.model.Group scimGroup
@@ -270,6 +269,7 @@ public class ScimResources {
     @Path("v2/Groups/{id}")
     @Consumes("application/scim+json")
     @Produces("application/scim+json")
+    @SuppressWarnings("unused")
     public Response updateGroup(
             @PathParam("id") String id,
             @Context KeycloakSession session,

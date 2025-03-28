@@ -46,6 +46,7 @@ public class AbstractController {
      * @param date date
      * @return date
      */
+    @SuppressWarnings("SameParameterValue")
     private Date getDate(int year, int month, int date) {
         return Date.from(OffsetDateTime.of(year, month, date, 0, 0, 0, 0, ZoneOffset.UTC).toInstant());
     }

@@ -30,7 +30,7 @@ import java.util.Objects;
 public class ScimComplianceTestIT extends AbstractScimTest {
 
     @Container
-    @SuppressWarnings("try")
+    @SuppressWarnings({"try", "resource"})
     private static final GenericContainer<?> scimCompliance = new GenericContainer<>("suvera/scim2-compliance-test-utility:1.0.2")
         .withExposedPorts(8081)
         .withNetwork(network)

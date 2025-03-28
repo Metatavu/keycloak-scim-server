@@ -279,4 +279,39 @@ public class UsersController extends AbstractController {
 
         return translateUser(scimContext, existing);
     }
+
+    /**
+     * Patch user with SCIM user data
+     *
+     * @param scimContext SCIM context
+     * @param existing existing user
+     * @param scimUser SCIM user
+     * @return patched user
+     */
+    public fi.metatavu.keycloak.scim.server.model.User patchUser(
+        ScimContext scimContext,
+        UserModel existing,
+        User scimUser
+    ) {
+        if (scimUser.getActive() != null) {
+            existing.setEnabled(scimUser.getActive());
+        }
+
+        if (scimUser.getName() != null) {
+            if (scimUser.getName().getGivenName() != null) {
+                existing.setFirstName(scimUser.getName().getGivenName());
+            }
+
+            if (scimUser.getName().getFamilyName() != null) {
+                existing.setLastName(scimUser.getName().getFamilyName());
+            }
+        }
+
+        if (scimUser.getEmails() != null && !scimUser.getEmails().isEmpty()) {
+            existing.setEmail(scimUser.getEmails().getFirst().getValue());
+        }
+
+        return translateUser(scimContext, existing);
+    }
+
 }

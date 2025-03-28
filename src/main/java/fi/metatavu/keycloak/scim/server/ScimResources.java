@@ -201,6 +201,48 @@ public class ScimResources {
         return Response.ok(result).build();
     }
 
+    @PATCH
+    @Path("v2/Users/{id}")
+    @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response patchUser(
+            @Context KeycloakSession session,
+            @PathParam("id") String userId,
+            fi.metatavu.keycloak.scim.server.model.User scimUser
+    ) {
+        try {
+            verifyPermissions(session);
+        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
+            logger.warn("Failed to verify permissions", e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
+        }
+
+        RealmModel realm = session.getContext().getRealm();
+        if (realm == null) {
+            logger.warn("Realm not found");
+            throw new NotFoundException("Realm not found");
+        }
+
+        UserModel user = session.users().getUserById(realm, userId);
+        if (user == null) {
+            logger.warn(String.format("User not found: %s", userId));
+            return Response.status(Response.Status.NOT_FOUND).entity("User not found").build();
+        }
+
+        // Check if username is being changed to an already existing one
+        UserModel existing = session.users().getUserById(realm, userId);
+        if (existing == null) {
+            logger.warn(String.format("User not found: %s", scimUser.getUserName()));
+            return Response.status(Response.Status.NOT_FOUND).entity("User not found").build();
+        }
+
+        ScimContext scimContext = getScimContext(session);
+        User result = usersController.patchUser(scimContext, existing, scimUser);
+
+        return Response.ok(result).build();
+    }
+
     @DELETE
     @Path("v2/Users/{id}")
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)

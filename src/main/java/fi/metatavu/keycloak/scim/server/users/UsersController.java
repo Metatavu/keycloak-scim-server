@@ -54,6 +54,7 @@ public class UsersController extends AbstractController {
 
         if (scimUser.getEmails() != null && !scimUser.getEmails().isEmpty()) {
             user.setEmail(scimUser.getEmails().getFirst().getValue());
+            user.setEmailVerified(true);
         }
 
         RoleModel scimRole = realm.getRole(ScimRoles.SCIM_MANAGED_ROLE);

@@ -128,7 +128,7 @@ public class MetadataController extends AbstractController {
         ScimContext scimContext
     ) {
         SchemaListResponse result = new SchemaListResponse();
-        List<UserAttributeMapping> userAttributeMappings = getUserAttributeMappings(scimContext);
+        List<UserAttribute<?>> userAttributes = getUserAttributeMappingList(scimContext);
 
         List<SchemaListItem> schemas = Arrays.asList(
             new SchemaListItem()
@@ -136,7 +136,7 @@ public class MetadataController extends AbstractController {
                 .name("User")
                 .description("SCIM core resource for representing users")
                 .meta(getMeta(scimContext, "User", "Schemas/urn:ietf:params:scim:schemas:core:2.0:User"))
-                .attributes(userAttributeMappings.stream().map(this::getUserSchemaAttribute).toList())
+                .attributes(userAttributes.stream().map(this::getUserSchemaAttribute).toList())
                 .schemas(Collections.singletonList("urn:ietf:params:scim:schemas:core:2.0:Schema")),
             new SchemaListItem()
                 .id("urn:ietf:params:scim:schemas:core:2.0:Group")
@@ -200,48 +200,120 @@ public class MetadataController extends AbstractController {
     }
 
     /**
+     * Returns user attributes
+     *
+     * @param scimContext SCIM context
+     * @return user attributes
+     */
+    public UserAttributes getUserAttributes(ScimContext scimContext) {
+        return new UserAttributes(getUserAttributeMappingList(scimContext));
+    }
+
+    /**
      * Returns user attribute mappings
      *
      * @param scimContext SCIM context
      * @return user attribute mappings
      */
-    public List<UserAttributeMapping> getUserAttributeMappings(ScimContext scimContext) {
+    private List<UserAttribute<?>> getUserAttributeMappingList(ScimContext scimContext) {
         KeycloakSession session = scimContext.getSession();
         UserProfileProvider userProfileProvider = session.getProvider(UserProfileProvider.class);
 
-        List<UserAttributeMapping> builtIn = List.of(
-            new UserAttributeMapping(UserAttributeMapping.Source.USER_MODEL, UserModel.USERNAME,"userName", "User name", SchemaAttribute.TypeEnum.STRING, SchemaAttribute.MutabilityEnum.READWRITE, SchemaAttribute.UniquenessEnum.SERVER),
-            new UserAttributeMapping(UserAttributeMapping.Source.USER_MODEL, UserModel.EMAIL, "email", "Email", SchemaAttribute.TypeEnum.STRING, SchemaAttribute.MutabilityEnum.READWRITE, SchemaAttribute.UniquenessEnum.SERVER),
-            new UserAttributeMapping(UserAttributeMapping.Source.USER_MODEL, UserModel.FIRST_NAME, "name.givenName", "First name", SchemaAttribute.TypeEnum.STRING, SchemaAttribute.MutabilityEnum.READWRITE, SchemaAttribute.UniquenessEnum.NONE),
-            new UserAttributeMapping(UserAttributeMapping.Source.USER_MODEL, UserModel.LAST_NAME, "name.familyName", "Family name", SchemaAttribute.TypeEnum.STRING, SchemaAttribute.MutabilityEnum.READWRITE, SchemaAttribute.UniquenessEnum.NONE),
-            new UserAttributeMapping(UserAttributeMapping.Source.USER_MODEL, UserModel.ENABLED, "active", "Whether user is active", SchemaAttribute.TypeEnum.BOOLEAN, SchemaAttribute.MutabilityEnum.READWRITE, SchemaAttribute.UniquenessEnum.NONE),
-            new UserAttributeMapping(UserAttributeMapping.Source.USER_PROFILE, "locale", "preferredLanguage", "Preferred language", SchemaAttribute.TypeEnum.STRING, SchemaAttribute.MutabilityEnum.READWRITE, SchemaAttribute.UniquenessEnum.NONE)
+        List<UserAttribute<?>> builtIn = List.of(
+            new StringUserAttribute(
+                UserAttribute.Source.USER_MODEL,
+                UserModel.USERNAME,
+                "userName",
+                "User name",
+                SchemaAttribute.TypeEnum.STRING,
+                SchemaAttribute.MutabilityEnum.READWRITE,
+                SchemaAttribute.UniquenessEnum.SERVER,
+                    UserModel::getUsername,
+                    UserModel::setUsername
+            ),
+            new StringUserAttribute(
+                UserAttribute.Source.USER_MODEL,
+                UserModel.EMAIL,
+                "email",
+                "Email",
+                SchemaAttribute.TypeEnum.STRING,
+                SchemaAttribute.MutabilityEnum.READWRITE,
+                SchemaAttribute.UniquenessEnum.SERVER,
+                UserModel::getEmail,
+                UserModel::setEmail
+            ),
+            new StringUserAttribute(
+                UserAttribute.Source.USER_MODEL,
+                UserModel.FIRST_NAME,
+                "name.givenName",
+                "First name",
+                SchemaAttribute.TypeEnum.STRING,
+                SchemaAttribute.MutabilityEnum.READWRITE,
+                SchemaAttribute.UniquenessEnum.NONE,
+                UserModel::getFirstName,
+                UserModel::setFirstName
+            ),
+            new StringUserAttribute(
+                UserAttribute.Source.USER_MODEL,
+                UserModel.LAST_NAME,
+                "name.familyName",
+                "Family name",
+                SchemaAttribute.TypeEnum.STRING,
+                SchemaAttribute.MutabilityEnum.READWRITE,
+                SchemaAttribute.UniquenessEnum.NONE,
+                UserModel::getLastName,
+                UserModel::setLastName
+            ),
+            new BooleanUserAttribute(
+                UserAttribute.Source.USER_MODEL,
+                UserModel.ENABLED,
+                "active",
+                "Whether user is active",
+                SchemaAttribute.TypeEnum.BOOLEAN,
+                SchemaAttribute.MutabilityEnum.READWRITE,
+                SchemaAttribute.UniquenessEnum.NONE,
+                UserModel::isEnabled,
+                UserModel::setEnabled
+            ),
+            new StringUserAttribute(
+                UserAttribute.Source.USER_PROFILE,
+                "locale",
+                "preferredLanguage",
+                "Preferred language",
+                SchemaAttribute.TypeEnum.STRING,
+                SchemaAttribute.MutabilityEnum.READWRITE,
+                SchemaAttribute.UniquenessEnum.NONE,
+                user ->  user.getFirstAttribute("locale"),
+                (user, value) -> user.setAttribute("locale", List.of(value))
+            )
         );
 
         List<String> builtInAttributeNames = builtIn.stream()
-                .map(UserAttributeMapping::getSourceId)
+                .map(UserAttribute::getSourceId)
                 .toList();
 
-        List<UserAttributeMapping> customAttributes = new ArrayList<>();
+        List<UserAttribute<String>> customAttributes = new ArrayList<>();
 
         if (userProfileProvider != null) {
             UPConfig userProfileConfiguration = userProfileProvider.getConfiguration();
             for (UPAttribute userProfileAttribute : userProfileConfiguration.getAttributes()) {
                 if (!builtInAttributeNames.contains(userProfileAttribute.getName())) {
-                    customAttributes.add(new UserAttributeMapping(
-                        UserAttributeMapping.Source.USER_PROFILE,
+                    customAttributes.add(new StringUserAttribute(
+                        UserAttribute.Source.USER_PROFILE,
                         userProfileAttribute.getName(),
                         userProfileAttribute.getName(),
                         userProfileAttribute.getName(),
                         SchemaAttribute.TypeEnum.STRING,
                         SchemaAttribute.MutabilityEnum.READWRITE,
-                        SchemaAttribute.UniquenessEnum.NONE
+                        SchemaAttribute.UniquenessEnum.NONE,
+                        user -> user.getFirstAttribute(userProfileAttribute.getName()),
+                        (user, value) -> user.setAttribute(userProfileAttribute.getName(), List.of(value))
                     ));
                 }
             }
         }
 
-        List<UserAttributeMapping> result = new ArrayList<>(builtIn);
+        List<UserAttribute<?>> result = new ArrayList<>(builtIn);
         result.addAll(customAttributes);
         return result;
     }
@@ -284,24 +356,24 @@ public class MetadataController extends AbstractController {
     /**
      * Returns user schema attribute
      *
-     * @param userAttributeMapping user attribute mapping
+     * @param userAttribute user attribute mapping
      * @return schema attribute
      */
     private SchemaAttribute getUserSchemaAttribute(
-        UserAttributeMapping userAttributeMapping
+        UserAttribute<?> userAttribute
     ) {
         SchemaAttribute result = new SchemaAttribute();
-        result.setName(userAttributeMapping.getScimPath());
-        result.setDescription(userAttributeMapping.getDescription());
-        result.setType(userAttributeMapping.getType());
+        result.setName(userAttribute.getScimPath());
+        result.setDescription(userAttribute.getDescription());
+        result.setType(userAttribute.getType());
         result.setMultiValued(false);
         result.setRequired(false);
         result.setCaseExact(false);
-        result.setMutability(userAttributeMapping.getMutability());
+        result.setMutability(userAttribute.getMutability());
         result.setReturned(SchemaAttribute.ReturnedEnum.DEFAULT);
         result.setReferenceTypes(null);
         result.setSubAttributes(Collections.emptyList());
-        result.setUniqueness(userAttributeMapping.getUniqueness());
+        result.setUniqueness(userAttribute.getUniqueness());
 
         return result;
     }

@@ -91,7 +91,7 @@ public class UserUpdateTestsIT extends AbstractScimTest {
         replacement.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
 
         ApiException exception = assertThrows(ApiException.class, () ->
-                scimClient.updateUser("non-existent-id", replacement)
+            scimClient.updateUser("non-existent-id", replacement)
         );
 
         assertEquals(404, exception.getCode());

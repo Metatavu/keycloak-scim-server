@@ -8,7 +8,10 @@ import fi.metatavu.keycloak.scim.server.filter.ComparisonFilter;
 import fi.metatavu.keycloak.scim.server.filter.LogicalFilter;
 import fi.metatavu.keycloak.scim.server.filter.PresenceFilter;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
-import fi.metatavu.keycloak.scim.server.model.SchemaAttribute;
+import fi.metatavu.keycloak.scim.server.metadata.BooleanUserAttribute;
+import fi.metatavu.keycloak.scim.server.metadata.StringUserAttribute;
+import fi.metatavu.keycloak.scim.server.metadata.UserAttribute;
+import fi.metatavu.keycloak.scim.server.metadata.UserAttributes;
 import fi.metatavu.keycloak.scim.server.model.User;
 import fi.metatavu.keycloak.scim.server.model.UsersList;
 import fi.metatavu.keycloak.scim.server.patch.PatchOperation;
@@ -38,6 +41,7 @@ public class UsersController extends AbstractController {
      */
     public fi.metatavu.keycloak.scim.server.model.User createUser(
         ScimContext scimContext,
+        UserAttributes userAttributes,
         fi.metatavu.keycloak.scim.server.model.User scimUser
     ) {
         KeycloakSession session = scimContext.getSession();
@@ -61,8 +65,36 @@ public class UsersController extends AbstractController {
             user.grantRole(scimRole);
         }
 
+        if (scimUser.getDisplayName() != null) {
+            UserAttribute<?> userAttribute = userAttributes.findByScimPath("displayName");
+            if (userAttribute instanceof StringUserAttribute) {
+                ((StringUserAttribute) userAttribute).write(user, scimUser.getDisplayName());
+            } else {
+                logger.warn("Unsupported attribute displayName");
+            }
+        }
+
+        if (scimUser.getExternalId() != null) {
+            UserAttribute<?> userAttribute = userAttributes.findByScimPath("externalId");
+            if (userAttribute instanceof StringUserAttribute) {
+                ((StringUserAttribute) userAttribute).write(user, scimUser.getExternalId());
+            } else {
+                logger.warn("Unsupported attribute externalId");
+            }
+        }
+
+        if (scimUser.getPreferredLanguage() != null) {
+            UserAttribute<?> userAttribute = userAttributes.findByScimPath("preferredLanguage");
+            if (userAttribute instanceof StringUserAttribute) {
+                ((StringUserAttribute) userAttribute).write(user, scimUser.getPreferredLanguage());
+            } else {
+                logger.warn("Unsupported attribute preferredLanguage");
+            }
+        }
+
         return translateUser(
             scimContext,
+            userAttributes,
             user
         );
     }
@@ -71,11 +103,13 @@ public class UsersController extends AbstractController {
      * Finds a user
      *
      * @param scimContext SCIM context
+     * @param userAttributes user attributes
      * @param userId user ID
      * @return found user
      */
     public User findUser(
         ScimContext scimContext,
+        UserAttributes userAttributes,
         String userId
     ) {
         try {
@@ -85,6 +119,7 @@ public class UsersController extends AbstractController {
 
             return translateUser(
                 scimContext,
+                userAttributes,
                 userModel
             );
         } catch (NotFoundException e) {
@@ -102,10 +137,11 @@ public class UsersController extends AbstractController {
      * @return users list
      */
     public UsersList listUsers(
-            ScimContext scimContext,
-            ScimFilter scimFilter,
-            Integer firstResult,
-            Integer maxResults
+        ScimContext scimContext,
+        ScimFilter scimFilter,
+        UserAttributes userAttributes,
+        Integer firstResult,
+        Integer maxResults
     ) {
         UsersList result = new UsersList();
         RealmModel realm = scimContext.getRealm();
@@ -115,19 +151,15 @@ public class UsersController extends AbstractController {
 
         if (scimFilter instanceof ComparisonFilter cmp) {
             if (cmp.operator() == ScimFilter.Operator.EQ) {
-                UserPath userPath = UserPath.findByName(cmp.attribute());
-                if (userPath == null) {
+                UserAttribute<?> userAttribute = userAttributes.findByScimPath(cmp.attribute());
+                if (userAttribute == null) {
                     throw new UnsupportedUserPath("Unsupported attribute: " + cmp.attribute());
                 }
 
                 String value = cmp.value();
 
-                switch (userPath) {
-                    case UserPath.USERNAME -> searchParams.put(UserModel.USERNAME, value);
-                    case UserPath.EMAIL -> searchParams.put(UserModel.EMAIL, value);
-                    case UserPath.GIVEN_NAME -> searchParams.put(UserModel.FIRST_NAME, value);
-                    case UserPath.FAMILY_NAME -> searchParams.put(UserModel.LAST_NAME, value);
-                    case UserPath.ACTIVE -> searchParams.put(UserModel.ENABLED, value);
+                if (userAttribute.getSource() == UserAttribute.Source.USER_MODEL || userAttribute.getSource() == UserAttribute.Source.USER_PROFILE) {
+                    searchParams.put(userAttribute.getSourceId(), value);
                 }
             }
         }
@@ -139,14 +171,14 @@ public class UsersController extends AbstractController {
 
         List<UserModel> filteredUsers = session.users()
             .searchForUserStream(scimContext.getRealm(), searchParams)
-            .filter(user -> !searchParams.isEmpty() || matchScimFilter(user, scimFilter))
+            .filter(user -> !searchParams.isEmpty() || matchScimFilter(user, userAttributes, scimFilter))
             .filter(user -> user.hasRole(scimManagedRole))
             .toList();
 
         List<User> users = filteredUsers.stream()
             .skip(firstResult)
             .limit(maxResults)
-            .map(user -> translateUser(scimContext, user))
+            .map(user -> translateUser(scimContext, userAttributes, user))
             .toList();
 
         result.setTotalResults(filteredUsers.size());
@@ -161,42 +193,49 @@ public class UsersController extends AbstractController {
      * Tests if user matches SCIM filter
      *
      * @param user user
+     * @param userAttributes user attributes
      * @param filter SCIM filter
      * @return true if user matches filter
      */
-    private boolean matchScimFilter(UserModel user, ScimFilter filter) {
+    private boolean matchScimFilter(
+        UserModel user,
+        UserAttributes userAttributes,
+        ScimFilter filter
+    ) {
         switch (filter) {
             case null -> {
                 return true;
             }
             case ComparisonFilter cmp -> {
-                UserPath attr = UserPath.findByName(cmp.attribute());
-                if (attr == null) {
+                UserAttribute<?> userAttribute = userAttributes.findByScimPath(cmp.attribute());
+                if (userAttribute == null) {
                     throw new UnsupportedUserPath("Unsupported attribute: " + cmp.attribute());
                 }
 
                 String value = cmp.value();
-                String actual = switch (attr) {
-                    case UserPath.USERNAME -> user.getUsername();
-                    case UserPath.EMAIL -> user.getEmail();
-                    case UserPath.GIVEN_NAME -> user.getFirstName();
-                    case UserPath.FAMILY_NAME -> user.getLastName();
-                    case UserPath.ACTIVE -> Boolean.toString(user.isEnabled());
-                };
-
+                Object actual = userAttribute.read(user);
                 if (actual == null) return false;
 
+                String actualString;
+                if (actual instanceof String) {
+                    actualString = (String) actual;
+                } else if (actual instanceof Boolean) {
+                    actualString = Boolean.toString((Boolean) actual);
+                } else {
+                    throw new UnsupportedUserPath("Unsupported attribute type: " + actual.getClass());
+                }
+
                 return switch (cmp.operator()) {
-                    case EQ -> actual.equalsIgnoreCase(value);
-                    case CO -> actual.toLowerCase().contains(value.toLowerCase());
-                    case SW -> actual.toLowerCase().startsWith(value.toLowerCase());
-                    case EW -> actual.toLowerCase().endsWith(value.toLowerCase());
+                    case EQ -> actualString.equalsIgnoreCase(value);
+                    case CO -> actualString.toLowerCase().contains(value.toLowerCase());
+                    case SW -> actualString.toLowerCase().startsWith(value.toLowerCase());
+                    case EW -> actualString.toLowerCase().endsWith(value.toLowerCase());
                     default -> false;
                 };
             }
             case LogicalFilter logical -> {
-                boolean left = matchScimFilter(user, logical.left());
-                boolean right = matchScimFilter(user, logical.right());
+                boolean left = matchScimFilter(user, userAttributes, logical.left());
+                boolean right = matchScimFilter(user, userAttributes, logical.right());
 
                 return switch (logical.operator()) {
                     case AND -> left && right;
@@ -205,18 +244,17 @@ public class UsersController extends AbstractController {
                 };
             }
             case PresenceFilter presence -> {
-                UserPath presenceAttribute = UserPath.findByName(presence.attribute());
+                UserAttribute<?> presenceAttribute = userAttributes.findByScimPath(presence.attribute());
                 if (presenceAttribute == null) {
                     throw new UnsupportedUserPath("Unsupported attribute: " + presence.attribute());
                 }
 
-                return switch (presenceAttribute) {
-                    case UserPath.USERNAME -> user.getUsername() != null;
-                    case UserPath.EMAIL -> user.getEmail() != null;
-                    case UserPath.GIVEN_NAME -> user.getFirstName() != null;
-                    case UserPath.FAMILY_NAME -> user.getLastName() != null;
-                    case UserPath.ACTIVE -> true;
-                };
+                Object value = presenceAttribute.read(user);
+                if (value instanceof Boolean) {
+                    return (Boolean) value;
+                }
+
+                return value != null;
             }
             default -> {
             }
@@ -233,16 +271,38 @@ public class UsersController extends AbstractController {
      */
     private fi.metatavu.keycloak.scim.server.model.User translateUser(
         ScimContext scimContext,
+        UserAttributes userAttributes,
         UserModel user
     ) {
         if (user == null) {
             return null;
         }
 
+        String externalId = null;
+        Object externalIdValue = userAttributes.findByScimPath("externalId").read(user);
+        if (externalIdValue instanceof String) {
+            externalId = (String) externalIdValue;
+        }
+
+        String preferredLanguage = null;
+        Object preferredLanguageValue = userAttributes.findByScimPath("preferredLanguage").read(user);
+        if (preferredLanguageValue instanceof String) {
+            preferredLanguage = (String) preferredLanguageValue;
+        }
+
+        String displayName = null;
+        Object displayNameValue = userAttributes.findByScimPath("displayName").read(user);
+        if (displayNameValue instanceof String) {
+            displayName = (String) displayNameValue;
+        }
+
         return new fi.metatavu.keycloak.scim.server.model.User()
             .id(user.getId())
             .userName(user.getUsername())
             .active(user.isEnabled())
+            .externalId(externalId)
+            .preferredLanguage(preferredLanguage)
+            .displayName(displayName)
             .emails(Collections.singletonList(new fi.metatavu.keycloak.scim.server.model.UserEmailsInner()
                     .value(user.getEmail())
                     .primary(true)
@@ -259,12 +319,14 @@ public class UsersController extends AbstractController {
      * Updates a user with SCIM user data
      *
      * @param scimContext SCIM context
+     * @param userAttributes user attributes
      * @param existing existing user
      * @param scimUser SCIM user
      * @return updated user
      */
     public fi.metatavu.keycloak.scim.server.model.User updateUser(
         ScimContext scimContext,
+        UserAttributes userAttributes,
         UserModel existing,
         User scimUser
     ) {
@@ -280,19 +342,21 @@ public class UsersController extends AbstractController {
             existing.setEmail(scimUser.getEmails().getFirst().getValue());
         }
 
-        return translateUser(scimContext, existing);
+        return translateUser(scimContext, userAttributes, existing);
     }
 
     /**
      * Patch user with SCIM user data
      *
      * @param scimContext SCIM context
+     * @param userAttributes user attributes
      * @param existing existing user
      * @param patchRequest patch request
      * @return patched user
      */
     public fi.metatavu.keycloak.scim.server.model.User patchUser(
         ScimContext scimContext,
+        UserAttributes userAttributes,
         UserModel existing,
         fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
     ) throws UnsupportedPatchOperation {
@@ -303,41 +367,36 @@ public class UsersController extends AbstractController {
                 throw new UnsupportedPatchOperation("Unsupported patch operation: " + operation.getOp());
             }
 
-            UserPath userPath = UserPath.findByName(operation.getPath());
+            UserAttribute<?> userAttribute = userAttributes.findByScimPath(operation.getPath());
             Object value = operation.getValue();
 
-            if (userPath == null) {
+            if (userAttribute == null) {
                 throw new UnsupportedUserPath("Unsupported attribute: " + operation.getPath());
-            }
-
-            if (value == null) {
-                logger.warn("Value is null for patch operation: " + op);
-                break;
             }
 
             switch (op) {
                 case REPLACE, ADD -> {
-                    switch (userPath) {
-                        case UserPath.USERNAME -> existing.setUsername((String) value);
-                        case UserPath.EMAIL -> existing.setEmail((String) value);
-                        case UserPath.GIVEN_NAME -> existing.setFirstName((String) value);
-                        case UserPath.FAMILY_NAME -> existing.setLastName((String) value);
-                        case UserPath.ACTIVE -> existing.setEnabled((Boolean) value);
+                    switch (value) {
+                        case null:
+                            logger.warn("Value is null for patch operation: " + op);
+                        break;
+                        case String s when userAttribute instanceof StringUserAttribute:
+                            ((StringUserAttribute) userAttribute).write(existing, s);
+                        break;
+                        case Boolean b when userAttribute instanceof BooleanUserAttribute:
+                            ((BooleanUserAttribute) userAttribute).write(existing, b);
+                        break;
+                        default:
+                            logger.warn("Unsupported value type for patch operation: " + value.getClass());
+                        break;
                     }
+
                 }
-                case REMOVE -> {
-                    switch (userPath) {
-                        case UserPath.USERNAME -> existing.setUsername(null);
-                        case UserPath.EMAIL -> existing.setEmail(null);
-                        case UserPath.GIVEN_NAME -> existing.setFirstName(null);
-                        case UserPath.FAMILY_NAME -> existing.setLastName(null);
-                        case UserPath.ACTIVE -> existing.setEnabled(false);
-                    }
-                }
+                case REMOVE -> userAttribute.write(existing, null);
             }
         }
 
-        return translateUser(scimContext, existing);
+        return translateUser(scimContext, userAttributes, existing);
     }
 
 }

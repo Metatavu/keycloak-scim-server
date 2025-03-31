@@ -133,7 +133,10 @@ public abstract class AbstractScimTest {
             String expectedUserName,
             String expectedGivenName,
             String expectedFamilyName,
-            String expectedEmail
+            String expectedEmail,
+            String expectedExternalId,
+            String expectedPreferredLanguage,
+            String expectedDisplayName
     ) {
         assertNotNull(user.getId());
         assertNotNull(user.getName());
@@ -145,6 +148,10 @@ public abstract class AbstractScimTest {
         assertEquals(expectedFamilyName, user.getName().getFamilyName());
         assertEquals(1, user.getEmails().size());
         assertEquals(expectedEmail, user.getEmails().getFirst().getValue());
+
+        assertEquals(expectedExternalId, user.getExternalId());
+        assertEquals(expectedPreferredLanguage, user.getPreferredLanguage());
+        assertEquals(expectedDisplayName, user.getDisplayName());
     }
 
     /**

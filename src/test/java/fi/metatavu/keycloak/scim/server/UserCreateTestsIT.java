@@ -42,10 +42,21 @@ public class UserCreateTestsIT extends AbstractScimTest {
         user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
         user.setName(getName("New", "User"));
         user.setEmails(getEmails("new.user@example.com"));
-
+        user.setExternalId("my-external-id");
+        user.setPreferredLanguage("fi-FI");
+        user.setDisplayName("The New User");
         User created = scimClient.createUser(user);
 
-        assertUser(created, created.getId(), "new-user", "New", "User", "new.user@example.com");
+        assertUser(created,
+            created.getId(),
+            "new-user",
+            "New",
+            "User",
+            "new.user@example.com",
+            "my-external-id",
+            "fi-FI",
+            "The New User"
+        );
 
         // Assert that the user was created in Keycloak
         UserRepresentation realmUser = findRealmUser(created.getId());
@@ -55,6 +66,9 @@ public class UserCreateTestsIT extends AbstractScimTest {
         assertEquals("User", realmUser.getLastName());
         assertEquals("new.user@example.com", realmUser.getEmail());
         assertEquals(true, realmUser.isEnabled());
+        assertEquals("my-external-id", realmUser.getAttributes().get("externalId").getFirst());
+        assertEquals("fi-FI", realmUser.getAttributes().get("locale").getFirst());
+        assertEquals("The New User", realmUser.getAttributes().get("displayName").getFirst());
 
         // Assert that user has correct roles
 

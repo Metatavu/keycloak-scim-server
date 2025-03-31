@@ -52,7 +52,10 @@ class UserListTestsIT extends AbstractScimTest {
         "testadmin",
         "Test",
         "Admin",
-        "testadmin@example.com"
+        "testadmin@example.com",
+        null,
+        null,
+        null
     );
   }
 

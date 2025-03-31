@@ -9,6 +9,7 @@ import fi.metatavu.keycloak.scim.server.filter.ScimFilterParser;
 import fi.metatavu.keycloak.scim.server.groups.GroupsController;
 import fi.metatavu.keycloak.scim.server.groups.UnsupportedGroupPath;
 import fi.metatavu.keycloak.scim.server.metadata.MetadataController;
+import fi.metatavu.keycloak.scim.server.metadata.UserAttributes;
 import fi.metatavu.keycloak.scim.server.model.User;
 import fi.metatavu.keycloak.scim.server.model.UsersList;
 import fi.metatavu.keycloak.scim.server.model.Group;
@@ -52,8 +53,8 @@ public class ScimResources {
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
     public Response createUser(
-            @Context KeycloakSession session,
-            fi.metatavu.keycloak.scim.server.model.User scimUser
+        @Context KeycloakSession session,
+        fi.metatavu.keycloak.scim.server.model.User scimUser
     ) {
         try {
             verifyPermissions(session);
@@ -78,7 +79,14 @@ public class ScimResources {
         }
 
         ScimContext scimContext = getScimContext(session);
-        User user = usersController.createUser(scimContext, scimUser);
+        UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
+
+        User user = usersController.createUser(
+            scimContext,
+            userAttributes,
+            scimUser
+        );
+
         URI location = UriBuilder.fromPath("v2/Users/{id}").build(user.getId());
 
         return Response
@@ -112,9 +120,12 @@ public class ScimResources {
             return Response.status(Response.Status.BAD_REQUEST).entity("Invalid filter").build();
         }
 
+        UserAttributes userAttributes = metadataController.getUserAttributes(getScimContext(session));
+
         UsersList usersList = usersController.listUsers(
             getScimContext(session),
             scimFilter,
+            userAttributes,
             startIndex,
             count
         );
@@ -142,7 +153,8 @@ public class ScimResources {
             throw new NotFoundException("Realm not found");
         }
 
-        User user = usersController.findUser(getScimContext(session), userId);
+        UserAttributes userAttributes = metadataController.getUserAttributes(getScimContext(session));
+        User user = usersController.findUser(getScimContext(session), userAttributes, userId);
         if (user == null) {
             logger.warn(String.format("User not found: %s", userId));
             return Response.status(Response.Status.NOT_FOUND).build();
@@ -198,7 +210,8 @@ public class ScimResources {
         }
 
         ScimContext scimContext = getScimContext(session);
-        User result = usersController.updateUser(scimContext, existing, scimUser);
+        UserAttributes userAttributes = metadataController.getUserAttributes(getScimContext(session));
+        User result = usersController.updateUser(scimContext, userAttributes, existing, scimUser);
 
         return Response.ok(result).build();
     }
@@ -240,9 +253,10 @@ public class ScimResources {
         }
 
         ScimContext scimContext = getScimContext(session);
+        UserAttributes userAttributes = metadataController.getUserAttributes(getScimContext(session));
 
         try {
-            User result = usersController.patchUser(scimContext, existing, patchRequest);
+            User result = usersController.patchUser(scimContext, userAttributes, existing, patchRequest);
             return Response.ok(result).build();
         } catch (UnsupportedPatchOperation e) {
             return Response.status(Response.Status.BAD_REQUEST).entity("Unsupported patch operation").build();
@@ -594,8 +608,6 @@ public class ScimResources {
     private void verifyPermissions(KeycloakSession session) throws URISyntaxException, IOException, InterruptedException, JWSInputException {
         SCIMConfig scimConfig = new SCIMConfig();
         KeycloakContext context = session.getContext();
-
-        System.out.println("##### scimConfig.getAuthenticationMode() = " + scimConfig.getAuthenticationMode());
 
         if (context == null) {
             logger.warn("Keycloak context not found");

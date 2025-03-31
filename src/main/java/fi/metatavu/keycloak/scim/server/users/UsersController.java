@@ -8,6 +8,7 @@ import fi.metatavu.keycloak.scim.server.filter.ComparisonFilter;
 import fi.metatavu.keycloak.scim.server.filter.LogicalFilter;
 import fi.metatavu.keycloak.scim.server.filter.PresenceFilter;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
+import fi.metatavu.keycloak.scim.server.model.SchemaAttribute;
 import fi.metatavu.keycloak.scim.server.model.User;
 import fi.metatavu.keycloak.scim.server.model.UsersList;
 import fi.metatavu.keycloak.scim.server.patch.PatchOperation;
@@ -19,10 +20,7 @@ import org.keycloak.models.RealmModel;
 import org.keycloak.models.RoleModel;
 import org.keycloak.models.UserModel;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Users controller

@@ -2,6 +2,7 @@ package fi.metatavu.keycloak.scim.server.groups;
 
 import fi.metatavu.keycloak.scim.server.AbstractController;
 import fi.metatavu.keycloak.scim.server.ScimContext;
+import fi.metatavu.keycloak.scim.server.metadata.GroupAttribute;
 import fi.metatavu.keycloak.scim.server.patch.PatchOperation;
 import fi.metatavu.keycloak.scim.server.consts.Schemas;
 import fi.metatavu.keycloak.scim.server.model.Group;
@@ -155,14 +156,14 @@ public class GroupsController extends AbstractController {
                 break;
             }
 
-            GroupPath groupPath = GroupPath.findByPath(operation.getPath());
-            if (groupPath == null) {
+            GroupAttribute groupAttribute = GroupAttribute.findByScimPath(operation.getPath());
+            if (groupAttribute == null) {
                 throw new UnsupportedGroupPath("Unsupported patch path: " + path);
             }
 
             switch (op) {
                 case REPLACE, ADD -> {
-                    switch (groupPath) {
+                    switch (groupAttribute) {
                         case DISPLAY_NAME -> existing.setName((String) value);
                         case MEMBERS -> {
                             // Clear current members if REPLACE, just add if ADD
@@ -193,7 +194,7 @@ public class GroupsController extends AbstractController {
                 }
 
                 case REMOVE -> {
-                    switch (groupPath) {
+                    switch (groupAttribute) {
                         case DISPLAY_NAME -> existing.setName(null);
                         case MEMBERS -> {
                             for (Object obj : (List<?>) value) {

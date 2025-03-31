@@ -5,7 +5,6 @@ import java.util.*;
 
 import fi.metatavu.keycloak.scim.server.AbstractController;
 import fi.metatavu.keycloak.scim.server.ScimContext;
-import fi.metatavu.keycloak.scim.server.users.UserPath;
 import fi.metatavu.keycloak.scim.server.model.ResourceType;
 import fi.metatavu.keycloak.scim.server.model.SchemaListResponse;
 import fi.metatavu.keycloak.scim.server.model.SchemaListItem;
@@ -16,6 +15,11 @@ import fi.metatavu.keycloak.scim.server.model.ServiceProviderConfigFilter;
 import fi.metatavu.keycloak.scim.server.model.AuthenticationScheme;
 import fi.metatavu.keycloak.scim.server.model.ResourceTypeListResponse;
 import fi.metatavu.keycloak.scim.server.model.SchemaAttribute;
+import org.keycloak.models.KeycloakSession;
+import org.keycloak.models.UserModel;
+import org.keycloak.representations.userprofile.config.UPAttribute;
+import org.keycloak.representations.userprofile.config.UPConfig;
+import org.keycloak.userprofile.UserProfileProvider;
 
 /**
  * Controller for metadata
@@ -124,20 +128,22 @@ public class MetadataController extends AbstractController {
         ScimContext scimContext
     ) {
         SchemaListResponse result = new SchemaListResponse();
+        List<UserAttributeMapping> userAttributeMappings = getUserAttributeMappings(scimContext);
+
         List<SchemaListItem> schemas = Arrays.asList(
             new SchemaListItem()
                 .id("urn:ietf:params:scim:schemas:core:2.0:User")
                 .name("User")
                 .description("SCIM core resource for representing users")
                 .meta(getMeta(scimContext, "User", "Schemas/urn:ietf:params:scim:schemas:core:2.0:User"))
-                .attributes(Arrays.stream(UserPath.values()).map(this::getSchemaAttribute).toList())
+                .attributes(userAttributeMappings.stream().map(this::getUserSchemaAttribute).toList())
                 .schemas(Collections.singletonList("urn:ietf:params:scim:schemas:core:2.0:Schema")),
             new SchemaListItem()
                 .id("urn:ietf:params:scim:schemas:core:2.0:Group")
                 .name("Group")
                 .description("SCIM core resource for representing groups")
                 .meta(getMeta(scimContext, "Group", "Schemas/urn:ietf:params:scim:schemas:core:2.0:Group"))
-                .attributes(Collections.emptyList())
+                .attributes(getGroupSchemaAttributes())
                 .schemas(Collections.singletonList("urn:ietf:params:scim:schemas:core:2.0:Schema"))
         );
 
@@ -194,26 +200,108 @@ public class MetadataController extends AbstractController {
     }
 
     /**
-     * Returns schema attribute
+     * Returns user attribute mappings
      *
-     * @param userPath user attribute
+     * @param scimContext SCIM context
+     * @return user attribute mappings
+     */
+    public List<UserAttributeMapping> getUserAttributeMappings(ScimContext scimContext) {
+        KeycloakSession session = scimContext.getSession();
+        UserProfileProvider userProfileProvider = session.getProvider(UserProfileProvider.class);
+
+        List<UserAttributeMapping> builtIn = List.of(
+            new UserAttributeMapping(UserAttributeMapping.Source.USER_MODEL, UserModel.USERNAME,"userName", "User name", SchemaAttribute.TypeEnum.STRING, SchemaAttribute.MutabilityEnum.READWRITE, SchemaAttribute.UniquenessEnum.SERVER),
+            new UserAttributeMapping(UserAttributeMapping.Source.USER_MODEL, UserModel.EMAIL, "email", "Email", SchemaAttribute.TypeEnum.STRING, SchemaAttribute.MutabilityEnum.READWRITE, SchemaAttribute.UniquenessEnum.SERVER),
+            new UserAttributeMapping(UserAttributeMapping.Source.USER_MODEL, UserModel.FIRST_NAME, "name.givenName", "First name", SchemaAttribute.TypeEnum.STRING, SchemaAttribute.MutabilityEnum.READWRITE, SchemaAttribute.UniquenessEnum.NONE),
+            new UserAttributeMapping(UserAttributeMapping.Source.USER_MODEL, UserModel.LAST_NAME, "name.familyName", "Family name", SchemaAttribute.TypeEnum.STRING, SchemaAttribute.MutabilityEnum.READWRITE, SchemaAttribute.UniquenessEnum.NONE),
+            new UserAttributeMapping(UserAttributeMapping.Source.USER_MODEL, UserModel.ENABLED, "active", "Whether user is active", SchemaAttribute.TypeEnum.BOOLEAN, SchemaAttribute.MutabilityEnum.READWRITE, SchemaAttribute.UniquenessEnum.NONE),
+            new UserAttributeMapping(UserAttributeMapping.Source.USER_PROFILE, "locale", "preferredLanguage", "Preferred language", SchemaAttribute.TypeEnum.STRING, SchemaAttribute.MutabilityEnum.READWRITE, SchemaAttribute.UniquenessEnum.NONE)
+        );
+
+        List<String> builtInAttributeNames = builtIn.stream()
+                .map(UserAttributeMapping::getSourceId)
+                .toList();
+
+        List<UserAttributeMapping> customAttributes = new ArrayList<>();
+
+        if (userProfileProvider != null) {
+            UPConfig userProfileConfiguration = userProfileProvider.getConfiguration();
+            for (UPAttribute userProfileAttribute : userProfileConfiguration.getAttributes()) {
+                if (!builtInAttributeNames.contains(userProfileAttribute.getName())) {
+                    customAttributes.add(new UserAttributeMapping(
+                        UserAttributeMapping.Source.USER_PROFILE,
+                        userProfileAttribute.getName(),
+                        userProfileAttribute.getName(),
+                        userProfileAttribute.getName(),
+                        SchemaAttribute.TypeEnum.STRING,
+                        SchemaAttribute.MutabilityEnum.READWRITE,
+                        SchemaAttribute.UniquenessEnum.NONE
+                    ));
+                }
+            }
+        }
+
+        List<UserAttributeMapping> result = new ArrayList<>(builtIn);
+        result.addAll(customAttributes);
+        return result;
+    }
+
+    /**
+     * Returns group schema attributes
+     *
+     * @return group schema attributes
+     */
+    private List<fi.metatavu.keycloak.scim.server.model.SchemaAttribute> getGroupSchemaAttributes() {
+        return List.of(
+            new SchemaAttribute()
+                .name(GroupAttribute.DISPLAY_NAME.getScimPath())
+                .description(GroupAttribute.DISPLAY_NAME.getScimPath())
+                .type(SchemaAttribute.TypeEnum.STRING)
+                .multiValued(false)
+                .required(false)
+                .caseExact(false)
+                .mutability(SchemaAttribute.MutabilityEnum.READWRITE)
+                .returned(SchemaAttribute.ReturnedEnum.DEFAULT)
+                .referenceTypes(null)
+                .subAttributes(Collections.emptyList())
+                .uniqueness(SchemaAttribute.UniquenessEnum.NONE
+            ),
+            new SchemaAttribute()
+                .name(GroupAttribute.MEMBERS.getScimPath())
+                .description(GroupAttribute.MEMBERS.getScimPath())
+                .type(SchemaAttribute.TypeEnum.COMPLEX)
+                .multiValued(true)
+                .required(false)
+                .caseExact(false)
+                .mutability(SchemaAttribute.MutabilityEnum.READWRITE)
+                .returned(SchemaAttribute.ReturnedEnum.DEFAULT)
+                .referenceTypes(null)
+                .subAttributes(Collections.emptyList())
+                .uniqueness(SchemaAttribute.UniquenessEnum.NONE)
+        );
+    }
+
+    /**
+     * Returns user schema attribute
+     *
+     * @param userAttributeMapping user attribute mapping
      * @return schema attribute
      */
-    private SchemaAttribute getSchemaAttribute(
-            UserPath userPath
+    private SchemaAttribute getUserSchemaAttribute(
+        UserAttributeMapping userAttributeMapping
     ) {
         SchemaAttribute result = new SchemaAttribute();
-        result.setName(userPath.getName());
-        result.setDescription(userPath.getDescription());
-        result.setType(userPath.getType());
+        result.setName(userAttributeMapping.getScimPath());
+        result.setDescription(userAttributeMapping.getDescription());
+        result.setType(userAttributeMapping.getType());
         result.setMultiValued(false);
         result.setRequired(false);
         result.setCaseExact(false);
-        result.setMutability(userPath.getMutability());
+        result.setMutability(userAttributeMapping.getMutability());
         result.setReturned(SchemaAttribute.ReturnedEnum.DEFAULT);
         result.setReferenceTypes(null);
         result.setSubAttributes(Collections.emptyList());
-        result.setUniqueness(userPath.getUniqueness());
+        result.setUniqueness(userAttributeMapping.getUniqueness());
 
         return result;
     }

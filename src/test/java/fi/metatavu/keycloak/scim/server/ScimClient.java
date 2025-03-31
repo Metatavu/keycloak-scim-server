@@ -4,10 +4,7 @@ import fi.metatavu.keycloak.scim.server.test.client.ApiClient;
 import fi.metatavu.keycloak.scim.server.test.client.ApiException;
 import fi.metatavu.keycloak.scim.server.test.client.api.MetadataApi;
 import fi.metatavu.keycloak.scim.server.test.client.api.UsersApi;
-import fi.metatavu.keycloak.scim.server.test.client.model.PatchRequest;
-import fi.metatavu.keycloak.scim.server.test.client.model.ResourceTypeListResponse;
-import fi.metatavu.keycloak.scim.server.test.client.model.User;
-import fi.metatavu.keycloak.scim.server.test.client.model.UsersList;
+import fi.metatavu.keycloak.scim.server.test.client.model.*;
 
 import java.net.URI;
 
@@ -106,6 +103,15 @@ public class ScimClient {
      */
     public ResourceTypeListResponse getResourceTypes() throws ApiException {
         return getMetadataApi().listResourceTypes();
+    }
+
+    /**
+     * Lists schemas
+     *
+     * @return schemas
+     */
+    public SchemaListResponse getSchemas() throws ApiException {
+        return getMetadataApi().listSchemas();
     }
 
     /**

@@ -278,31 +278,13 @@ public class UsersController extends AbstractController {
             return null;
         }
 
-        String externalId = null;
-        Object externalIdValue = userAttributes.findByScimPath("externalId").read(user);
-        if (externalIdValue instanceof String) {
-            externalId = (String) externalIdValue;
-        }
-
-        String preferredLanguage = null;
-        Object preferredLanguageValue = userAttributes.findByScimPath("preferredLanguage").read(user);
-        if (preferredLanguageValue instanceof String) {
-            preferredLanguage = (String) preferredLanguageValue;
-        }
-
-        String displayName = null;
-        Object displayNameValue = userAttributes.findByScimPath("displayName").read(user);
-        if (displayNameValue instanceof String) {
-            displayName = (String) displayNameValue;
-        }
-
         return new fi.metatavu.keycloak.scim.server.model.User()
             .id(user.getId())
             .userName(user.getUsername())
             .active(user.isEnabled())
-            .externalId(externalId)
-            .preferredLanguage(preferredLanguage)
-            .displayName(displayName)
+            .externalId(readStringUserAttribute(userAttributes, "externalId", user))
+            .preferredLanguage(readStringUserAttribute(userAttributes, "preferredLanguage", user))
+            .displayName(readStringUserAttribute(userAttributes, "displayName", user))
             .emails(Collections.singletonList(new fi.metatavu.keycloak.scim.server.model.UserEmailsInner()
                     .value(user.getEmail())
                     .primary(true)
@@ -424,6 +406,28 @@ public class UsersController extends AbstractController {
         }
 
         return translateUser(scimContext, userAttributes, existing);
+    }
+
+    /**
+     * Reads a user attribute
+     *
+     * @param userAttributes user attributes
+     * @param attributeName attribute name
+     * @param user user
+     * @return attribute value
+     */
+    private String readStringUserAttribute(UserAttributes userAttributes, String attributeName, UserModel user) {
+        UserAttribute<?> userAttribute = userAttributes.findByScimPath(attributeName);
+        if (userAttribute == null) {
+            return null;
+        }
+
+        Object value = userAttribute.read(user);
+        if (value instanceof String) {
+            return (String) value;
+        }
+
+        return null;
     }
 
 }

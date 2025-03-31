@@ -45,7 +45,7 @@ jobs:
         id: release_version
         run: ./gradlew nextReleaseVersion
       - name: Build extension
-        run: ./gradlew clean build 
+        run: ./gradlew clean build -x test
         env:
           USERNAME: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

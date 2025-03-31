@@ -342,6 +342,33 @@ public class UsersController extends AbstractController {
             existing.setEmail(scimUser.getEmails().getFirst().getValue());
         }
 
+        if (scimUser.getDisplayName() != null) {
+            UserAttribute<?> userAttribute = userAttributes.findByScimPath("displayName");
+            if (userAttribute instanceof StringUserAttribute) {
+                ((StringUserAttribute) userAttribute).write(existing, scimUser.getDisplayName());
+            } else {
+                logger.warn("Unsupported attribute displayName");
+            }
+        }
+
+        if (scimUser.getExternalId() != null) {
+            UserAttribute<?> userAttribute = userAttributes.findByScimPath("externalId");
+            if (userAttribute instanceof StringUserAttribute) {
+                ((StringUserAttribute) userAttribute).write(existing, scimUser.getExternalId());
+            } else {
+                logger.warn("Unsupported attribute externalId");
+            }
+        }
+
+        if (scimUser.getPreferredLanguage() != null) {
+            UserAttribute<?> userAttribute = userAttributes.findByScimPath("preferredLanguage");
+            if (userAttribute instanceof StringUserAttribute) {
+                ((StringUserAttribute) userAttribute).write(existing, scimUser.getPreferredLanguage());
+            } else {
+                logger.warn("Unsupported attribute preferredLanguage");
+            }
+        }
+
         return translateUser(scimContext, userAttributes, existing);
     }
 

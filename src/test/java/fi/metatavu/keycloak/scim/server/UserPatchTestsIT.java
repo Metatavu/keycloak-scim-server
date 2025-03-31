@@ -55,7 +55,8 @@ public class UserPatchTestsIT extends AbstractScimTest {
         // Deactivate user
         User deactivated = scimClient.patchUser(created.getId(), new PatchRequest()
             .schemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"))
-            .operations(List.of(new PatchRequestOperationsInner()
+            .operations(List.of(
+                new PatchRequestOperationsInner()
                     .op("Replace")
                     .path("active")
                     .value(Boolean.FALSE)
@@ -85,6 +86,73 @@ public class UserPatchTestsIT extends AbstractScimTest {
         UserRepresentation activatedRealmUser = findRealmUser(created.getId());
         assertNotNull(activatedRealmUser);
         assertTrue(activatedRealmUser.isEnabled());
+
+        // Cleanup
+        deleteRealmUser(created.getId());
+    }
+
+    @Test
+    void testPatchAttributes() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+
+        // Create user
+        User user = new User();
+        user.setUserName("patch-attributes-user");
+        user.setActive(true);
+        user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
+
+        User created = scimClient.createUser(user);
+        assertNotNull(created);
+        assertNull(created.getExternalId());
+        assertNull(created.getDisplayName());
+        assertNull(created.getPreferredLanguage());
+
+        // Patch externalId, displayName, preferredLanguage
+        User patched = scimClient.patchUser(created.getId(), new PatchRequest()
+            .schemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"))
+            .operations(List.of(
+                new PatchRequestOperationsInner()
+                    .op("add")
+                    .path("externalId")
+                    .value("external-1234"),
+                new PatchRequestOperationsInner()
+                    .op("add")
+                    .path("displayName")
+                    .value("Display Name"),
+                new PatchRequestOperationsInner()
+                    .op("add")
+                    .path("preferredLanguage")
+                    .value("fi_FI")
+            ))
+        );
+
+        assertNotNull(patched);
+        assertEquals("external-1234", patched.getExternalId());
+        assertEquals("Display Name", patched.getDisplayName());
+        assertEquals("fi_FI", patched.getPreferredLanguage());
+
+        // Re-Patch (replace)
+        User patchedAgain = scimClient.patchUser(created.getId(), new PatchRequest()
+            .schemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"))
+            .operations(List.of(
+                new PatchRequestOperationsInner()
+                    .op("replace")
+                    .path("externalId")
+                    .value("external-5678"),
+                new PatchRequestOperationsInner()
+                    .op("replace")
+                    .path("displayName")
+                    .value("Updated Display"),
+                new PatchRequestOperationsInner()
+                    .op("replace")
+                    .path("preferredLanguage")
+                    .value("en_US")
+            ))
+        );
+
+        assertEquals("external-5678", patchedAgain.getExternalId());
+        assertEquals("Updated Display", patchedAgain.getDisplayName());
+        assertEquals("en_US", patchedAgain.getPreferredLanguage());
 
         // Cleanup
         deleteRealmUser(created.getId());

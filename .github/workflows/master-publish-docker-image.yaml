@@ -41,8 +41,16 @@ jobs:
           distribution: 'temurin'
           server-id: github
           settings-path: ${{ github.workspace }}
+      - name: Release version
+        id: release_version
+        run: ./gradlew nextReleaseVersion
       - name: Build extension
         run: ./gradlew clean build 
+        env:
+          USERNAME: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish jar to GitHub Packages
+        run: ./gradlew publish -x test
         env:
           USERNAME: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -59,12 +59,6 @@ public class ScimResources {
         fi.metatavu.keycloak.scim.server.model.User scimUser
     ) {
         try {
-            System.out.println("### GOT PAYLOAD:" + new ObjectMapper().writeValueAsString(scimUser));
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
-        }
-
-        try {
             verifyPermissions(session);
         } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
             logger.warn("Failed to verify permissions", e);

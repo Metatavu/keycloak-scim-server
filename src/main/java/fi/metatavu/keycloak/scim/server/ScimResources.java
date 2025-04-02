@@ -1,5 +1,7 @@
 package fi.metatavu.keycloak.scim.server;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import fi.metatavu.keycloak.scim.server.authentication.ExternalTokenVerifier;
 import fi.metatavu.keycloak.scim.server.config.SCIMConfig;
 import fi.metatavu.keycloak.scim.server.consts.ContentTypes;
@@ -56,6 +58,12 @@ public class ScimResources {
         @Context KeycloakSession session,
         fi.metatavu.keycloak.scim.server.model.User scimUser
     ) {
+        try {
+            System.out.println("### GOT PAYLOAD:" + new ObjectMapper().writeValueAsString(scimUser));
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+
         try {
             verifyPermissions(session);
         } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {

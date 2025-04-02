@@ -32,4 +32,16 @@ public class UserAttributes {
         return attributeMap.get(scimPath);
     }
 
+    /**
+     * Lists user attributes by source
+     *
+     * @param source source
+     * @return user attributes
+     */
+    public List<UserAttribute<?>> listBySource(UserAttribute.Source source) {
+        return attributeMap.values().stream()
+            .filter(attribute -> attribute.getSource() == source)
+            .collect(Collectors.toList());
+    }
+
 }

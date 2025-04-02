@@ -1,6 +1,27 @@
 import java.util.*
 import org.openapitools.generator.gradle.plugin.tasks.GenerateTask
 
+abstract class FixAdditionalPropertyModels : DefaultTask() {
+
+    @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val inputDir: DirectoryProperty
+
+    @TaskAction
+    fun fix() {
+        inputDir.get().asFileTree.matching {
+            include("**/*.java")
+        }.forEach { file ->
+            val content = file.readText()
+            val fixed = content.replace("public class User extends HashMap<String, Object>", "public class User")
+            if (content != fixed) {
+                logger.lifecycle("Fixing ${file.relativeTo(project.projectDir)}")
+                file.writeText(fixed)
+            }
+        }
+    }
+}
+
 plugins {
     `java-library`
     `maven-publish`
@@ -50,7 +71,7 @@ sourceSets["test"].java {
     srcDir("build/generated/scim-client/src/main/java")
 }
 
-val generateModels = tasks.register("generateModels", GenerateTask::class) {
+val generateModelsCode = tasks.register("generateModelsCode", GenerateTask::class) {
     setProperty("generatorName", "java")
     setProperty("library", "native")
     setProperty("inputSpec", "$rootDir/scim-openapi.yaml")
@@ -66,7 +87,16 @@ val generateModels = tasks.register("generateModels", GenerateTask::class) {
     this.configOptions.put("additionalModelTypeAnnotations", "@com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)")
 }
 
-val generateScimClient = tasks.register("generateScimClient",GenerateTask::class){
+val scimModelsOutputDir = layout.projectDirectory.dir("build/generated/scim-models/src/main/java")
+val generateModels = tasks.register<FixAdditionalPropertyModels>("generateModels") {
+    dependsOn(generateModelsCode)
+    group = "build"
+    description = "Fixes SCIM model classes after OpenAPI generation"
+    inputDir.set(scimModelsOutputDir)
+}
+
+val scimClientOutputDir = layout.projectDirectory.dir("build/generated/scim-client/src/main/java")
+val generateScimClientCode = tasks.register("generateScimClientCode",GenerateTask::class){
     setProperty("generatorName", "java")
     setProperty("library", "native")
     setProperty("inputSpec",  "$rootDir/scim-openapi.yaml")
@@ -80,6 +110,13 @@ val generateScimClient = tasks.register("generateScimClient",GenerateTask::class
     this.configOptions.put("enumPropertyNaming", "UPPERCASE")
     this.configOptions.put("openApiNullable", "false")
     this.configOptions.put("useJakartaEe", "true")
+}
+
+val generateScimClient = tasks.register<FixAdditionalPropertyModels>("generateScimClient") {
+    dependsOn(generateScimClientCode)
+    group = "build"
+    description = "Fixes SCIM client classes after OpenAPI generation"
+    inputDir.set(scimClientOutputDir)
 }
 
 tasks.named("compileJava") {

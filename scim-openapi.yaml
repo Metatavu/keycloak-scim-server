@@ -504,13 +504,7 @@ components:
       properties:
         id:
           type: string
-        externalId:
-          type: string
         userName:
-          type: string
-        displayName:
-          type: string
-        preferredLanguage:
           type: string
         name:
           type: object
@@ -538,6 +532,7 @@ components:
             type: string
         meta:
           $ref: '#/components/schemas/Meta'
+      additionalProperties: true
 
     Group:
       type: object

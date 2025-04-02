@@ -42,9 +42,10 @@ public class UserCreateTestsIT extends AbstractScimTest {
         user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
         user.setName(getName("New", "User"));
         user.setEmails(getEmails("new.user@example.com"));
-        user.setExternalId("my-external-id");
-        user.setPreferredLanguage("fi-FI");
-        user.setDisplayName("The New User");
+        user.putAdditionalProperty("externalId", "my-external-id");
+        user.putAdditionalProperty("preferredLanguage", "fi-FI");
+        user.putAdditionalProperty("displayName", "The New User");
+
         User created = scimClient.createUser(user);
 
         assertUser(created,

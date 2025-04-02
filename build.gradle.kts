@@ -15,7 +15,6 @@ abstract class FixAdditionalPropertyModels : DefaultTask() {
             val content = file.readText()
             val fixed = content.replace("public class User extends HashMap<String, Object>", "public class User")
             if (content != fixed) {
-                logger.lifecycle("Fixing ${file.relativeTo(project.projectDir)}")
                 file.writeText(fixed)
             }
         }

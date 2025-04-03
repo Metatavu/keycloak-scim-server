@@ -14,12 +14,13 @@ public class RealmScimContext extends ScimContext {
     /**
      * Constructor
      *
-     * @param baseUri base URI
+     * @param serverBaseUri base URI of the SCIM server
      * @param session keycloak session
      * @param realm   realm
+     * @param config  SCIM configuration
      */
-    RealmScimContext(URI baseUri, KeycloakSession session, RealmModel realm) {
-        super(baseUri, session, realm);
+    RealmScimContext(URI serverBaseUri, KeycloakSession session, RealmModel realm, RealmScimConfig config) {
+        super(serverBaseUri, session, realm, config);
     }
 
 }

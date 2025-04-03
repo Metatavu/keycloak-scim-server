@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Tests for realm server SCIM 2.0 ServiceProviderConfig endpoint
  */
 @Testcontainers
-public class RealmServiceProviderConfigTestsIT extends AbstractScimTest {
+public class RealmServiceProviderConfigTestsIT extends AbstractRealmScimTest {
 
     @Container
     protected static final KeycloakContainer keycloakContainer = new KeycloakContainer("quay.io/keycloak/keycloak:26.1.2")
@@ -77,7 +77,7 @@ public class RealmServiceProviderConfigTestsIT extends AbstractScimTest {
         assertNotNull(config.getMeta());
         assertEquals("ServiceProviderConfig", config.getMeta().getResourceType());
 
-        URI expectedLocation = getScimUri().resolve("/realms/test/scim/v2/ServiceProviderConfig");
+        URI expectedLocation = getScimUri().resolve("ServiceProviderConfig");
         assertEquals(expectedLocation, config.getMeta().getLocation());
     }
 

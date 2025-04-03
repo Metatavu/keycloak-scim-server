@@ -1,7 +1,7 @@
 package fi.metatavu.keycloak.scim.server;
 
 import fi.metatavu.keycloak.scim.server.authentication.ExternalTokenVerifier;
-import fi.metatavu.keycloak.scim.server.config.SCIMConfig;
+import fi.metatavu.keycloak.scim.server.config.ScimConfig;
 import fi.metatavu.keycloak.scim.server.consts.ScimRoles;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.InternalServerErrorException;
@@ -34,9 +34,9 @@ public abstract class AbstractScimServer <T extends ScimContext> implements Scim
      */
     @Override
     public void verifyPermissions(T scimContext) {
-        SCIMConfig scimConfig = new SCIMConfig();
         KeycloakSession session = scimContext.getSession();
         KeycloakContext context = session.getContext();
+        ScimConfig config = scimContext.getConfig();
 
         if (context == null) {
             logger.warn("Keycloak context not found");
@@ -59,7 +59,7 @@ public abstract class AbstractScimServer <T extends ScimContext> implements Scim
 
         String tokenString = authorization.substring("Bearer ".length()).trim();
 
-        if (scimConfig.getAuthenticationMode() == SCIMConfig.AuthenticationMode.KEYCLOAK) {
+        if (config.getAuthenticationMode() == ScimConfig.AuthenticationMode.KEYCLOAK) {
             ClientConnection clientConnection = context.getConnection();
 
             AuthenticationManager.AuthResult auth = new AppAuthManager.BearerTokenAuthenticator(session)
@@ -93,9 +93,9 @@ public abstract class AbstractScimServer <T extends ScimContext> implements Scim
             }
         } else {
             ExternalTokenVerifier verifier = new ExternalTokenVerifier(
-                    scimConfig.getExternalIssuer(),
-                    scimConfig.getExternalJwksUri(),
-                    scimConfig.getExternalAudience()
+                    config.getExternalIssuer(),
+                    config.getExternalJwksUri(),
+                    config.getExternalAudience()
             );
 
             try {

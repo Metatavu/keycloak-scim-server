@@ -1,6 +1,7 @@
 package fi.metatavu.keycloak.scim.server.realm;
 
 import fi.metatavu.keycloak.scim.server.AbstractScimServer;
+import fi.metatavu.keycloak.scim.server.config.ConfigurationError;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
 import fi.metatavu.keycloak.scim.server.groups.GroupsController;
 import fi.metatavu.keycloak.scim.server.groups.UnsupportedGroupPath;
@@ -9,6 +10,7 @@ import fi.metatavu.keycloak.scim.server.metadata.UserAttributes;
 import fi.metatavu.keycloak.scim.server.model.User;
 import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
 import fi.metatavu.keycloak.scim.server.users.UsersController;
+import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriBuilder;
@@ -304,10 +306,20 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
             throw new NotFoundException("Realm not found");
         }
 
+        URI serverBaseUri = session.getContext().getUri().getBaseUri().resolve(String.format("realms/%s/scim/v2/", realm.getName()));
+        RealmScimConfig config = new RealmScimConfig();
+
+        try {
+            config.validateConfig();
+        } catch (ConfigurationError e) {
+            throw new InternalServerErrorException("Invalid SCIM configuration", e);
+        }
+
         return new RealmScimContext(
-            session.getContext().getUri().getBaseUri(),
+            serverBaseUri,
             session,
-            realm
+            realm,
+            config
         );
     }
 

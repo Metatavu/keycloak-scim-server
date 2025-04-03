@@ -4,6 +4,7 @@ import fi.metatavu.keycloak.scim.server.consts.ContentTypes;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilterParser;
 import fi.metatavu.keycloak.scim.server.model.Group;
+import fi.metatavu.keycloak.scim.server.organization.OrganizationScimContext;
 import fi.metatavu.keycloak.scim.server.organization.OrganizationScimServer;
 import fi.metatavu.keycloak.scim.server.realm.RealmScimContext;
 import fi.metatavu.keycloak.scim.server.realm.RealmScimServer;
@@ -318,11 +319,13 @@ public class ScimResources {
         );
     }
 
+    // Realm Server endpoints
+
     @GET
     @Path("v2/ServiceProviderConfig")
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
-    public Response getServiceProviderConfig(
+    public Response getRealmServiceProviderConfig(
             @Context KeycloakSession session,
             @Context UriInfo uriInfo
     ) {
@@ -330,6 +333,29 @@ public class ScimResources {
         realmScimServer.verifyPermissions(scimContext);
 
         return realmScimServer.getServiceProviderConfig(scimContext);
+    }
+
+    // Organization Server endpoints
+
+    @GET
+    @Path("v2/organizations/{organizationId}/ServiceProviderConfig")
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response getOrganizationServiceProviderConfig(
+            @Context KeycloakSession session,
+            @PathParam("organizationId") String organizationId,
+            @Context UriInfo uriInfo
+    ) {
+        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
+
+        if (!organizationId.equals(scimContext.getOrganization().getId())) {
+            return Response.status(Response.Status.FORBIDDEN)
+                .entity("Organization ID does not match the current organization")
+                .build();
+        }
+
+        organizationScimServer.verifyPermissions(scimContext);
+        return organizationScimServer.getServiceProviderConfig(scimContext);
     }
 
     /**

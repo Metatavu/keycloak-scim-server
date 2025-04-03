@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Tests for realm server SCIM 2.0 user find (GET /Users/{id}) endpoint
  */
 @Testcontainers
-public class RealmResourceTypesTestsIT extends AbstractScimTest {
+public class RealmResourceTypesTestsIT extends AbstractRealmScimTest {
 
     @Container
     protected static final KeycloakContainer keycloakContainer = new KeycloakContainer("quay.io/keycloak/keycloak:26.1.2")
@@ -67,7 +67,7 @@ public class RealmResourceTypesTestsIT extends AbstractScimTest {
         assertEquals(0, resourceType.getSchemaExtensions().size());
         assertNotNull(resourceType.getMeta());
         assertEquals(id, resourceType.getMeta().getResourceType());
-        assertEquals(getScimUri().resolve("/realms/test/scim/v2/ResourceTypes/" + id), resourceType.getMeta().getLocation());
+        assertEquals(getScimUri().resolve(String.format("ResourceTypes/%s", id)), resourceType.getMeta().getLocation());
     }
 
 }

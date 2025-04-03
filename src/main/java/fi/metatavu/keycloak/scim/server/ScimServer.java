@@ -182,13 +182,4 @@ public interface ScimServer <T extends ScimContext> {
      * @param scimContext SCIM context
      */
     void verifyPermissions(T scimContext);
-
-    /**
-     * Returns SCIM context
-     *
-     * @param session Keycloak session
-     * @return SCIM context
-     */
-    T getScimContext(KeycloakSession session);
-
 }

@@ -106,6 +106,16 @@ public class ScimClient {
     }
 
     /**
+     * Finds a resource type
+     *
+     * @param id resource type ID
+     * @return found resource type
+     */
+    public ResourceType findResourceType(String id) throws ApiException {
+        return getMetadataApi().getResourceType(id);
+    }
+
+    /**
      * Lists schemas
      *
      * @return schemas

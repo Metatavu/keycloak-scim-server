@@ -14,7 +14,7 @@ public abstract class AbstractOrganizationScimTest extends AbstractScimTest {
      * @return SCIM URI
      */
     protected URI getScimUri(String organizationId) {
-        return URI.create(getKeycloakContainer().getAuthServerUrl()).resolve(String.format("/realms/%s/scim/v2/organizations/%s", TestConsts.ORGANIZATIONS_REALM, organizationId));
+        return URI.create(getKeycloakContainer().getAuthServerUrl()).resolve(String.format("/realms/%s/scim/v2/organizations/%s/", TestConsts.ORGANIZATIONS_REALM, organizationId));
     }
 
     /**

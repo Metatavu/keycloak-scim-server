@@ -68,7 +68,7 @@ public class RealmUserCreateTestsIT extends AbstractRealmScimTest {
         assertEquals("new.user@example.com", realmUser.getEmail());
         assertEquals(true, realmUser.isEnabled());
         assertEquals("my-external-id", realmUser.getAttributes().get("externalId").getFirst());
-        assertEquals("fi-FI", realmUser.getAttributes().get("locale").getFirst());
+        assertEquals("fi-FI", realmUser.getAttributes().get("preferredLanguage").getFirst());
         assertEquals("The New User", realmUser.getAttributes().get("displayName").getFirst());
 
         // Assert that user has correct roles

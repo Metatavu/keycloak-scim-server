@@ -153,8 +153,8 @@ public class ScimResources {
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
     public Response createGroup(
-            @Context KeycloakSession session,
-            fi.metatavu.keycloak.scim.server.model.Group createRequest
+        @Context KeycloakSession session,
+        fi.metatavu.keycloak.scim.server.model.Group createRequest
     ) {
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
         realmScimServer.verifyPermissions(scimContext);
@@ -170,9 +170,9 @@ public class ScimResources {
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
     public Response listGroups(
-            @Context KeycloakSession session,
-            @QueryParam("startIndex") @DefaultValue("0") int startIndex,
-            @QueryParam("count") @DefaultValue("100") int count
+        @Context KeycloakSession session,
+        @QueryParam("startIndex") @DefaultValue("0") int startIndex,
+        @QueryParam("count") @DefaultValue("100") int count
     ) {
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
         realmScimServer.verifyPermissions(scimContext);
@@ -189,8 +189,8 @@ public class ScimResources {
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
     public Response findGroup(
-            @Context KeycloakSession session,
-            @PathParam("id") String id
+        @Context KeycloakSession session,
+        @PathParam("id") String id
     ) {
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
         realmScimServer.verifyPermissions(scimContext);
@@ -227,9 +227,9 @@ public class ScimResources {
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
     public Response patchGroup(
-            @Context KeycloakSession session,
-            @PathParam("id") String groupId,
-            fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
+        @Context KeycloakSession session,
+        @PathParam("id") String groupId,
+        fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
     ) {
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
         realmScimServer.verifyPermissions(scimContext);
@@ -245,8 +245,8 @@ public class ScimResources {
     @Path("v2/Groups/{id}")
     @SuppressWarnings("unused")
     public Response deleteGroup(
-            @Context KeycloakSession session,
-            @PathParam("id") String id
+        @Context KeycloakSession session,
+        @PathParam("id") String id
     ) {
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
         realmScimServer.verifyPermissions(scimContext);
@@ -257,13 +257,15 @@ public class ScimResources {
         );
     }
 
+    // Realm Server endpoints
+
     @GET
     @Path("v2/ResourceTypes")
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
-    public Response listResourceTypes(
-            @Context KeycloakSession session,
-            @Context UriInfo uriInfo
+    public Response listRealmResourceTypes(
+        @Context KeycloakSession session,
+        @Context UriInfo uriInfo
     ) {
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
         realmScimServer.verifyPermissions(scimContext);
@@ -275,28 +277,26 @@ public class ScimResources {
     @Path("v2/ResourceTypes/{id}")
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
-    public Response findResourceType(
-            @Context KeycloakSession session,
-            @PathParam("id") String id
+    public Response findRealmResourceType(
+        @Context KeycloakSession session,
+        @PathParam("id") String id
     ) {
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
         realmScimServer.verifyPermissions(scimContext);
 
         return realmScimServer.findResourceType(
-            scimContext,
-            id
+                scimContext,
+                id
         );
     }
-
-    // Realm Server endpoints
 
     @GET
     @Path("v2/Schemas")
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
     public Response listRealmSchemas(
-            @Context KeycloakSession session,
-            @Context UriInfo uriInfo
+        @Context KeycloakSession session,
+        @Context UriInfo uriInfo
     ) {
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
         realmScimServer.verifyPermissions(scimContext);
@@ -309,8 +309,8 @@ public class ScimResources {
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
     public Response findRealmSchema(
-            @Context KeycloakSession session,
-            @PathParam("id") String id
+        @Context KeycloakSession session,
+        @PathParam("id") String id
     ) {
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
         realmScimServer.verifyPermissions(scimContext);
@@ -326,8 +326,8 @@ public class ScimResources {
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
     public Response getRealmServiceProviderConfig(
-            @Context KeycloakSession session,
-            @Context UriInfo uriInfo
+        @Context KeycloakSession session,
+        @Context UriInfo uriInfo
     ) {
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
         realmScimServer.verifyPermissions(scimContext);
@@ -338,13 +338,53 @@ public class ScimResources {
     // Organization Server endpoints
 
     @GET
+    @Path("v2/organizations/{organizationId}/ResourceTypes")
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response listOrganizationResourceTypes(
+        @Context KeycloakSession session,
+        @Context UriInfo uriInfo,
+        @PathParam("organizationId") String organizationId
+    ) {
+        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
+        organizationScimServer.verifyPermissions(scimContext);
+
+        return organizationScimServer.listResourceTypes(
+            scimContext
+        );
+    }
+
+    @GET
+    @Path("v2/organizations/{organizationId}/ResourceTypes/{id}")
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response findOrganizationResourceType(
+        @Context KeycloakSession session,
+        @PathParam("organizationId") String organizationId,
+        @PathParam("id") String id
+    ) {
+        try {
+            OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
+            organizationScimServer.verifyPermissions(scimContext);
+
+            return organizationScimServer.findResourceType(
+                scimContext,
+                id
+            );
+        } catch (Exception e) {
+            logger.error("Failed to list organization resource types", e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to list organization resource types").build();
+        }
+    }
+
+    @GET
     @Path("v2/organizations/{organizationId}/Schemas")
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
     public Response listOrganizationSchemas(
-            @Context KeycloakSession session,
-            @PathParam("organizationId") String organizationId,
-            @Context UriInfo uriInfo
+        @Context KeycloakSession session,
+        @PathParam("organizationId") String organizationId,
+        @Context UriInfo uriInfo
     ) {
         OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
         organizationScimServer.verifyPermissions(scimContext);
@@ -359,9 +399,9 @@ public class ScimResources {
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
     public Response findOrganizationSchema(
-            @Context KeycloakSession session,
-            @PathParam("organizationId") String organizationId,
-            @PathParam("id") String id
+        @Context KeycloakSession session,
+        @PathParam("organizationId") String organizationId,
+        @PathParam("id") String id
     ) {
         OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
         organizationScimServer.verifyPermissions(scimContext);
@@ -377,9 +417,9 @@ public class ScimResources {
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
     public Response getOrganizationServiceProviderConfig(
-            @Context KeycloakSession session,
-            @PathParam("organizationId") String organizationId,
-            @Context UriInfo uriInfo
+        @Context KeycloakSession session,
+        @PathParam("organizationId") String organizationId,
+        @Context UriInfo uriInfo
     ) {
         OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
         organizationScimServer.verifyPermissions(scimContext);

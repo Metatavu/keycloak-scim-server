@@ -82,16 +82,6 @@ public class OrganizationScimServer extends AbstractScimServer<OrganizationScimC
         return null;
     }
 
-    @Override
-    public Response listResourceTypes(OrganizationScimContext scimContext) {
-        return null;
-    }
-
-    @Override
-    public Response findResourceType(OrganizationScimContext scimContext, String id) {
-        return null;
-    }
-
 
     /**
      * Returns SCIM context

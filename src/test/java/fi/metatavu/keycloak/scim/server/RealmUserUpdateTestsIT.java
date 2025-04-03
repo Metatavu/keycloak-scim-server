@@ -86,7 +86,7 @@ public class RealmUserUpdateTestsIT extends AbstractRealmScimTest {
         assertEquals("replaced.user@example.com", realmUser.getEmail());
         assertEquals("Replaced User", realmUser.getAttributes().get("displayName").getFirst());
         assertEquals("replaced-external-id", realmUser.getAttributes().get("externalId").getFirst());
-        assertEquals("fi_FI", realmUser.getAttributes().get("locale").getFirst());
+        assertEquals("fi_FI", realmUser.getAttributes().get("preferredLanguage").getFirst());
         assertFalse(realmUser.isEnabled());
 
         // Clean up
@@ -130,7 +130,7 @@ public class RealmUserUpdateTestsIT extends AbstractRealmScimTest {
         replacement.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
 
         ApiException exception = assertThrows(ApiException.class, () ->
-                scimClient.updateUser(createdB.getId(), replacement)
+            scimClient.updateUser(createdB.getId(), replacement)
         );
 
         assertEquals(409, exception.getCode());

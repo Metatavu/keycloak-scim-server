@@ -39,6 +39,16 @@ public abstract class AbstractScimServer <T extends ScimContext> implements Scim
     }
 
     @Override
+    public Response listResourceTypes(T scimContext) {
+        return Response.ok(metadataController.getResourceTypeList(scimContext)).build();
+    }
+
+    @Override
+    public Response findResourceType(T scimContext, String id) {
+        return Response.ok(metadataController.getResourceType(scimContext, id)).build();
+    }
+
+    @Override
     public Response listSchemas(T scimContext) {
         return Response.ok(metadataController.listSchemas(scimContext)).build();
     }

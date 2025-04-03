@@ -267,16 +267,6 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
         return Response.noContent().build();
     }
 
-    @Override
-    public Response listResourceTypes(RealmScimContext scimContext) {
-        return Response.ok(metadataController.getResourceTypeList(scimContext)).build();
-    }
-
-    @Override
-    public Response findResourceType(RealmScimContext scimContext, String id) {
-        return Response.ok(metadataController.getResourceType(scimContext, id)).build();
-    }
-
     /**
      * Returns SCIM context
      *

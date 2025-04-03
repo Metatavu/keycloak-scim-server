@@ -54,34 +54,39 @@ public class OrganizationScimServer extends AbstractScimServer<OrganizationScimC
 
     @Override
     public Response createGroup(OrganizationScimContext scimContext, Group createRequest) {
-        return null;
+        // TODO: Organization Groups are not supported yet by the Keycloak
+        return Response.status(Response.Status.NOT_IMPLEMENTED).build();
     }
 
     @Override
     public Response listGroups(OrganizationScimContext scimContext, int startIndex, int count) {
-        return null;
+        // TODO: Organization Groups are not supported yet by the Keycloak
+        return Response.status(Response.Status.NOT_IMPLEMENTED).build();
     }
 
     @Override
     public Response findGroup(OrganizationScimContext scimContext, String id) {
-        return null;
+        // TODO: Organization Groups are not supported yet by the Keycloak
+        return Response.status(Response.Status.NOT_IMPLEMENTED).build();
     }
 
     @Override
     public Response updateGroup(OrganizationScimContext scimContext, String id, Group updateRequest) {
-        return null;
+        // TODO: Organization Groups are not supported yet by the Keycloak
+        return Response.status(Response.Status.NOT_IMPLEMENTED).build();
     }
 
     @Override
     public Response patchGroup(OrganizationScimContext scimContext, String groupId, PatchRequest patchRequest) {
-        return null;
+        // TODO: Organization Groups are not supported yet by the Keycloak
+        return Response.status(Response.Status.NOT_IMPLEMENTED).build();
     }
 
     @Override
     public Response deleteGroup(OrganizationScimContext scimContext, String id) {
-        return null;
+        // TODO: Organization Groups are not supported yet by the Keycloak
+        return Response.status(Response.Status.NOT_IMPLEMENTED).build();
     }
-
 
     /**
      * Returns SCIM context

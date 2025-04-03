@@ -103,9 +103,9 @@ public class UserPatchTestsIT extends AbstractScimTest {
 
         User created = scimClient.createUser(user);
         assertNotNull(created);
-        assertNull(created.getExternalId());
-        assertNull(created.getDisplayName());
-        assertNull(created.getPreferredLanguage());
+        assertNull(created.getAdditionalProperty("externalId"));
+        assertNull(created.getAdditionalProperty("displayName"));
+        assertNull(created.getAdditionalProperty("preferredLanguage"));
 
         // Patch externalId, displayName, preferredLanguage
         User patched = scimClient.patchUser(created.getId(), new PatchRequest()
@@ -127,9 +127,9 @@ public class UserPatchTestsIT extends AbstractScimTest {
         );
 
         assertNotNull(patched);
-        assertEquals("external-1234", patched.getExternalId());
-        assertEquals("Display Name", patched.getDisplayName());
-        assertEquals("fi_FI", patched.getPreferredLanguage());
+        assertEquals("external-1234", patched.getAdditionalProperty("externalId"));
+        assertEquals("Display Name", patched.getAdditionalProperty("displayName"));
+        assertEquals("fi_FI", patched.getAdditionalProperty("preferredLanguage"));
 
         // Re-Patch (replace)
         User patchedAgain = scimClient.patchUser(created.getId(), new PatchRequest()
@@ -150,9 +150,9 @@ public class UserPatchTestsIT extends AbstractScimTest {
             ))
         );
 
-        assertEquals("external-5678", patchedAgain.getExternalId());
-        assertEquals("Updated Display", patchedAgain.getDisplayName());
-        assertEquals("en_US", patchedAgain.getPreferredLanguage());
+        assertEquals("external-5678", patchedAgain.getAdditionalProperty("externalId"));
+        assertEquals("Updated Display", patchedAgain.getAdditionalProperty("displayName"));
+        assertEquals("en_US", patchedAgain.getAdditionalProperty("preferredLanguage"));
 
         // Cleanup
         deleteRealmUser(created.getId());

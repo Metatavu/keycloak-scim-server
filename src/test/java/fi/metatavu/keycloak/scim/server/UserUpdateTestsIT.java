@@ -42,10 +42,10 @@ public class UserUpdateTestsIT extends AbstractScimTest {
         user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
         user.setName(getName("Replace", "User"));
         user.setEmails(getEmails("replace.user@example.com"));
-        user.setDisplayName("Replace User");
-        user.setExternalId("replace-external-id");
-        user.setPreferredLanguage("en_US");
-
+        user.putAdditionalProperty("externalId", "replace-external-id");
+        user.putAdditionalProperty("preferredLanguage", "en_US");
+        user.putAdditionalProperty("displayName", "Replace User");
+        
         User created = scimClient.createUser(user);
         assertNotNull(created);
         String userId = created.getId();
@@ -57,9 +57,9 @@ public class UserUpdateTestsIT extends AbstractScimTest {
         replacement.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
         replacement.setName(getName("Replaced", "User"));
         replacement.setEmails(getEmails("replaced.user@example.com"));
-        replacement.setDisplayName("Replaced User");
-        replacement.setExternalId("replaced-external-id");
-        replacement.setPreferredLanguage("fi_FI");
+        replacement.putAdditionalProperty("displayName", "Replaced User");
+        replacement.putAdditionalProperty("externalId", "replaced-external-id");
+        replacement.putAdditionalProperty("preferredLanguage", "fi_FI");
 
         User updated = scimClient.updateUser(userId, replacement);
 
@@ -72,9 +72,9 @@ public class UserUpdateTestsIT extends AbstractScimTest {
         assertEquals("Replaced", updated.getName().getGivenName());
         assertEquals("User", updated.getName().getFamilyName());
         assertEquals("replaced.user@example.com", updated.getEmails().getFirst().getValue());
-        assertEquals("Replaced User", updated.getDisplayName());
-        assertEquals("replaced-external-id", updated.getExternalId());
-        assertEquals("fi_FI", updated.getPreferredLanguage());
+        assertEquals("Replaced User", updated.getAdditionalProperty("displayName"));
+        assertEquals("replaced-external-id", updated.getAdditionalProperty("externalId"));
+        assertEquals("fi_FI", updated.getAdditionalProperty("preferredLanguage"));
         assertFalse(updated.getActive());
 
         // Also verify state in Keycloak

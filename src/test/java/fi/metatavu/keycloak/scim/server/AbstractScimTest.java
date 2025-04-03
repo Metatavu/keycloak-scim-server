@@ -149,9 +149,9 @@ public abstract class AbstractScimTest {
         assertEquals(1, user.getEmails().size());
         assertEquals(expectedEmail, user.getEmails().getFirst().getValue());
 
-        assertEquals(expectedExternalId, user.getExternalId());
-        assertEquals(expectedPreferredLanguage, user.getPreferredLanguage());
-        assertEquals(expectedDisplayName, user.getDisplayName());
+        assertEquals(expectedExternalId, user.getAdditionalProperty("externalId"));
+        assertEquals(expectedPreferredLanguage, user.getAdditionalProperty("preferredLanguage"));
+        assertEquals(expectedDisplayName, user.getAdditionalProperty("displayName"));
     }
 
     /**

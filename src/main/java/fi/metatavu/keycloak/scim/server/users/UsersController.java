@@ -65,31 +65,28 @@ public class UsersController extends AbstractController {
             user.grantRole(scimRole);
         }
 
-        if (scimUser.getDisplayName() != null) {
-            UserAttribute<?> userAttribute = userAttributes.findByScimPath("displayName");
-            if (userAttribute instanceof StringUserAttribute) {
-                ((StringUserAttribute) userAttribute).write(user, scimUser.getDisplayName());
-            } else {
-                logger.warn("Unsupported attribute displayName");
-            }
-        }
-
-        if (scimUser.getExternalId() != null) {
-            UserAttribute<?> userAttribute = userAttributes.findByScimPath("externalId");
-            if (userAttribute instanceof StringUserAttribute) {
-                ((StringUserAttribute) userAttribute).write(user, scimUser.getExternalId());
-            } else {
-                logger.warn("Unsupported attribute externalId");
-            }
-        }
-
-        if (scimUser.getPreferredLanguage() != null) {
-            UserAttribute<?> userAttribute = userAttributes.findByScimPath("preferredLanguage");
-            if (userAttribute instanceof StringUserAttribute) {
-                ((StringUserAttribute) userAttribute).write(user, scimUser.getPreferredLanguage());
-            } else {
-                logger.warn("Unsupported attribute preferredLanguage");
-            }
+        Map<String, Object> additionalProperties = scimUser.getAdditionalProperties();
+        if (additionalProperties != null) {
+            additionalProperties.forEach((key, value) -> {
+                UserAttribute<?> userAttribute = userAttributes.findByScimPath(key);
+                if (userAttribute != null) {
+                    if (userAttribute instanceof StringUserAttribute) {
+                        if (value instanceof String) {
+                            ((StringUserAttribute) userAttribute).write(user, (String) value);
+                        } else {
+                            logger.warn("Unsupported value type: " + value.getClass());
+                        }
+                    } else if (userAttribute instanceof BooleanUserAttribute) {
+                        if (value instanceof Boolean) {
+                            ((BooleanUserAttribute) userAttribute).write(user, (Boolean) value);
+                        } else {
+                            logger.warn("Unsupported value type: " + value.getClass());
+                        }
+                    } else {
+                        logger.warn("Unsupported attribute: " + key);
+                    }
+                }
+            });
         }
 
         return translateUser(
@@ -278,13 +275,10 @@ public class UsersController extends AbstractController {
             return null;
         }
 
-        return new fi.metatavu.keycloak.scim.server.model.User()
+        fi.metatavu.keycloak.scim.server.model.User result = new fi.metatavu.keycloak.scim.server.model.User()
             .id(user.getId())
             .userName(user.getUsername())
             .active(user.isEnabled())
-            .externalId(readStringUserAttribute(userAttributes, "externalId", user))
-            .preferredLanguage(readStringUserAttribute(userAttributes, "preferredLanguage", user))
-            .displayName(readStringUserAttribute(userAttributes, "displayName", user))
             .emails(Collections.singletonList(new fi.metatavu.keycloak.scim.server.model.UserEmailsInner()
                     .value(user.getEmail())
                     .primary(true)
@@ -295,6 +289,16 @@ public class UsersController extends AbstractController {
                     .familyName(user.getLastName())
                     .givenName(user.getFirstName())
             );
+
+        List<UserAttribute<?>> customAttributes = userAttributes.listBySource(UserAttribute.Source.USER_PROFILE);
+        for (UserAttribute<?> userAttribute : customAttributes) {
+            Object value = userAttribute.read(user);
+            if (value != null) {
+                result.putAdditionalProperty(userAttribute.getScimPath(), value);
+            }
+        }
+
+        return result;
     }
 
     /**
@@ -324,31 +328,28 @@ public class UsersController extends AbstractController {
             existing.setEmail(scimUser.getEmails().getFirst().getValue());
         }
 
-        if (scimUser.getDisplayName() != null) {
-            UserAttribute<?> userAttribute = userAttributes.findByScimPath("displayName");
-            if (userAttribute instanceof StringUserAttribute) {
-                ((StringUserAttribute) userAttribute).write(existing, scimUser.getDisplayName());
-            } else {
-                logger.warn("Unsupported attribute displayName");
-            }
-        }
-
-        if (scimUser.getExternalId() != null) {
-            UserAttribute<?> userAttribute = userAttributes.findByScimPath("externalId");
-            if (userAttribute instanceof StringUserAttribute) {
-                ((StringUserAttribute) userAttribute).write(existing, scimUser.getExternalId());
-            } else {
-                logger.warn("Unsupported attribute externalId");
-            }
-        }
-
-        if (scimUser.getPreferredLanguage() != null) {
-            UserAttribute<?> userAttribute = userAttributes.findByScimPath("preferredLanguage");
-            if (userAttribute instanceof StringUserAttribute) {
-                ((StringUserAttribute) userAttribute).write(existing, scimUser.getPreferredLanguage());
-            } else {
-                logger.warn("Unsupported attribute preferredLanguage");
-            }
+        Map<String, Object> additionalProperties = scimUser.getAdditionalProperties();
+        if (additionalProperties != null) {
+            additionalProperties.forEach((key, value) -> {
+                UserAttribute<?> userAttribute = userAttributes.findByScimPath(key);
+                if (userAttribute != null) {
+                    if (userAttribute instanceof StringUserAttribute) {
+                        if (value instanceof String) {
+                            ((StringUserAttribute) userAttribute).write(existing, (String) value);
+                        } else {
+                            logger.warn("Unsupported value type: " + value.getClass());
+                        }
+                    } else if (userAttribute instanceof BooleanUserAttribute) {
+                        if (value instanceof Boolean) {
+                            ((BooleanUserAttribute) userAttribute).write(existing, (Boolean) value);
+                        } else {
+                            logger.warn("Unsupported value type: " + value.getClass());
+                        }
+                    } else {
+                        logger.warn("Unsupported attribute: " + key);
+                    }
+                }
+            });
         }
 
         return translateUser(scimContext, userAttributes, existing);
@@ -406,28 +407,6 @@ public class UsersController extends AbstractController {
         }
 
         return translateUser(scimContext, userAttributes, existing);
-    }
-
-    /**
-     * Reads a user attribute
-     *
-     * @param userAttributes user attributes
-     * @param attributeName attribute name
-     * @param user user
-     * @return attribute value
-     */
-    private String readStringUserAttribute(UserAttributes userAttributes, String attributeName, UserModel user) {
-        UserAttribute<?> userAttribute = userAttributes.findByScimPath(attributeName);
-        if (userAttribute == null) {
-            return null;
-        }
-
-        Object value = userAttribute.read(user);
-        if (value instanceof String) {
-            return (String) value;
-        }
-
-        return null;
     }
 
 }

@@ -1,5 +1,7 @@
 package fi.metatavu.keycloak.scim.server;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import fi.metatavu.keycloak.scim.server.authentication.ExternalTokenVerifier;
 import fi.metatavu.keycloak.scim.server.config.SCIMConfig;
 import fi.metatavu.keycloak.scim.server.consts.ContentTypes;

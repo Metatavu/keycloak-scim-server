@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Tests for SCIM 2.0 User create endpoint
  */
 @Testcontainers
-public class UserCreateTestsIT extends AbstractScimTest {
+public class RealmUserCreateTestsIT extends AbstractRealmScimTest {
 
     @Container
     protected static final KeycloakContainer keycloakContainer = new KeycloakContainer("quay.io/keycloak/keycloak:26.1.2")

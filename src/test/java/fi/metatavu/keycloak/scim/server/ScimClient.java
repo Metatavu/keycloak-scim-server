@@ -115,6 +115,15 @@ public class ScimClient {
     }
 
     /**
+     * Returns service provider config
+     *
+     * @return service provider config
+     */
+    public ServiceProviderConfig getServiceProviderConfig() throws ApiException {
+        return getMetadataApi().getServiceProviderConfig();
+    }
+
+    /**
      * Returns initialized users API
      *
      * @return initialized users API
@@ -141,5 +150,4 @@ public class ScimClient {
         result.setRequestInterceptor(builder -> builder.header("Authorization", "Bearer " + accessToken));
         return result;
     }
-
 }

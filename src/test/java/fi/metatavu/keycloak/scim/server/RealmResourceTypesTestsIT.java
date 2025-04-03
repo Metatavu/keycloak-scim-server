@@ -13,10 +13,10 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tests for SCIM 2.0 user find (GET /Users/{id}) endpoint
+ * Tests for realm server SCIM 2.0 user find (GET /Users/{id}) endpoint
  */
 @Testcontainers
-public class ResourceTypesTestsIT extends AbstractScimTest {
+public class RealmResourceTypesTestsIT extends AbstractScimTest {
 
     @Container
     protected static final KeycloakContainer keycloakContainer = new KeycloakContainer("quay.io/keycloak/keycloak:26.1.2")

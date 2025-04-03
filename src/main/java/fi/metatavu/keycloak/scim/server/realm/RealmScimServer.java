@@ -277,16 +277,6 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
         return Response.ok(metadataController.getResourceType(scimContext, id)).build();
     }
 
-    @Override
-    public Response listSchemas(RealmScimContext scimContext) {
-        return Response.ok(metadataController.listSchemas(scimContext)).build();
-    }
-
-    @Override
-    public Response findSchema(RealmScimContext scimContext, String id) {
-        return Response.ok(metadataController.getSchema(scimContext, id)).build();
-    }
-
     /**
      * Returns SCIM context
      *

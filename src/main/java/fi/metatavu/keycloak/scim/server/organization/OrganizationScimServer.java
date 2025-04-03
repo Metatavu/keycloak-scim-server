@@ -92,16 +92,6 @@ public class OrganizationScimServer extends AbstractScimServer<OrganizationScimC
         return null;
     }
 
-    @Override
-    public Response listSchemas(OrganizationScimContext scimContext) {
-        return null;
-    }
-
-    @Override
-    public Response findSchema(OrganizationScimContext scimContext, String id) {
-        return null;
-    }
-
 
     /**
      * Returns SCIM context

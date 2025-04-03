@@ -39,6 +39,16 @@ public abstract class AbstractScimServer <T extends ScimContext> implements Scim
     }
 
     @Override
+    public Response listSchemas(T scimContext) {
+        return Response.ok(metadataController.listSchemas(scimContext)).build();
+    }
+
+    @Override
+    public Response findSchema(T scimContext, String id) {
+        return Response.ok(metadataController.getSchema(scimContext, id)).build();
+    }
+
+    @Override
     public Response getServiceProviderConfig(T scimContext) {
         return Response.ok(metadataController.getServiceProviderConfig(scimContext)).build();
     }

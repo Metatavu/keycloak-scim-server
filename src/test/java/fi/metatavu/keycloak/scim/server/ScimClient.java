@@ -115,6 +115,16 @@ public class ScimClient {
     }
 
     /**
+     * Finds a schema
+     *
+     * @param id schema ID
+     * @return found schema
+     */
+    public SchemaListItem findSchema(String id) throws ApiException {
+        return getMetadataApi().getSchema(id);
+    }
+
+    /**
      * Returns service provider config
      *
      * @return service provider config

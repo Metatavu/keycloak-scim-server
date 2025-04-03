@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Tests for organization-scoped ServiceProviderConfig endpoint
  */
 @Testcontainers
-public class OrganizationsServiceProviderConfigTestsIT extends AbstractOrganizationScimTest {
+public class OrganizationServiceProviderConfigTestsIT extends AbstractOrganizationScimTest {
 
     @Container
     protected static final KeycloakContainer keycloakContainer = new KeycloakContainer("quay.io/keycloak/keycloak:26.1.2")

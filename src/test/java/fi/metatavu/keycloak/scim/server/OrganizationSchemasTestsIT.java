@@ -18,14 +18,14 @@ import static org.junit.jupiter.api.Assertions.*;
  * Tests for SCIM 2.0 Schemas endpoint
  */
 @Testcontainers
-public class RealmSchemasTestsIT extends AbstractRealmScimTest {
+public class OrganizationSchemasTestsIT extends AbstractOrganizationScimTest {
 
     @Container
     protected static final KeycloakContainer keycloakContainer = new KeycloakContainer("quay.io/keycloak/keycloak:26.1.2")
             .withNetwork(network)
             .withNetworkAliases("scim-keycloak")
             .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
-            .withRealmImportFile("kc-test.json")
+            .withRealmImportFiles("kc-organizations.json", "kc-external.json")
             .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
 
     @Override
@@ -34,8 +34,8 @@ public class RealmSchemasTestsIT extends AbstractRealmScimTest {
     }
 
     @Test
-    void testSchemas() throws ApiException {
-        ScimClient scimClient = getAuthenticatedScimClient();
+    void testSchemasOrg1() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
 
         SchemaListResponse listResponse = scimClient.getSchemas();
         assertNotNull(listResponse);
@@ -52,16 +52,16 @@ public class RealmSchemasTestsIT extends AbstractRealmScimTest {
     }
 
     @Test
-    void testUserSchema() throws ApiException {
-        ScimClient scimClient = getAuthenticatedScimClient();
+    void testUserSchemaOrg1() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
         SchemaListItem schema = scimClient.findSchema("urn:ietf:params:scim:schemas:core:2.0:User");
         assertNotNull(schema);
         assertUserSchema(schema);
     }
 
     @Test
-    void testGroupSchema() throws ApiException {
-        ScimClient scimClient = getAuthenticatedScimClient();
+    void testGroupSchemaOrg1() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
         SchemaListItem schema = scimClient.findSchema("urn:ietf:params:scim:schemas:core:2.0:Group");
         assertNotNull(schema);
         assertGroupSchema(schema);
@@ -77,15 +77,13 @@ public class RealmSchemasTestsIT extends AbstractRealmScimTest {
         assertEquals("User", schema.getName());
         assertNotNull(schema.getDescription());
         assertNotNull(schema.getAttributes());
-        assertEquals(7, schema.getAttributes().size());
+        assertEquals(5, schema.getAttributes().size());
 
         assertUserAttribute(schema.getAttributes(), "userName", SchemaAttribute.TypeEnum.STRING);
         assertUserAttribute(schema.getAttributes(), "email", SchemaAttribute.TypeEnum.STRING);
         assertUserAttribute(schema.getAttributes(), "name.givenName", SchemaAttribute.TypeEnum.STRING);
         assertUserAttribute(schema.getAttributes(), "name.familyName", SchemaAttribute.TypeEnum.STRING);
         assertUserAttribute(schema.getAttributes(), "active", SchemaAttribute.TypeEnum.BOOLEAN);
-        assertUserAttribute(schema.getAttributes(), "displayName", SchemaAttribute.TypeEnum.STRING);
-        assertUserAttribute(schema.getAttributes(), "externalId", SchemaAttribute.TypeEnum.STRING);
     }
 
     /**

@@ -288,11 +288,13 @@ public class ScimResources {
         );
     }
 
+    // Realm Server endpoints
+
     @GET
     @Path("v2/Schemas")
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
-    public Response listSchemas(
+    public Response listRealmSchemas(
             @Context KeycloakSession session,
             @Context UriInfo uriInfo
     ) {
@@ -306,7 +308,7 @@ public class ScimResources {
     @Path("v2/Schemas/{id}")
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
-    public Response findSchema(
+    public Response findRealmSchema(
             @Context KeycloakSession session,
             @PathParam("id") String id
     ) {
@@ -314,12 +316,10 @@ public class ScimResources {
         realmScimServer.verifyPermissions(scimContext);
 
         return realmScimServer.findSchema(
-            scimContext,
-            id
+                scimContext,
+                id
         );
     }
-
-    // Realm Server endpoints
 
     @GET
     @Path("v2/ServiceProviderConfig")
@@ -338,6 +338,41 @@ public class ScimResources {
     // Organization Server endpoints
 
     @GET
+    @Path("v2/organizations/{organizationId}/Schemas")
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response listOrganizationSchemas(
+            @Context KeycloakSession session,
+            @PathParam("organizationId") String organizationId,
+            @Context UriInfo uriInfo
+    ) {
+        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
+        organizationScimServer.verifyPermissions(scimContext);
+
+        return organizationScimServer.listSchemas(
+            scimContext
+        );
+    }
+
+    @GET
+    @Path("v2/organizations/{organizationId}/Schemas/{id}")
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response findOrganizationSchema(
+            @Context KeycloakSession session,
+            @PathParam("organizationId") String organizationId,
+            @PathParam("id") String id
+    ) {
+        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
+        organizationScimServer.verifyPermissions(scimContext);
+
+        return organizationScimServer.findSchema(
+            scimContext,
+            id
+        );
+    }
+
+    @GET
     @Path("v2/organizations/{organizationId}/ServiceProviderConfig")
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
@@ -347,13 +382,6 @@ public class ScimResources {
             @Context UriInfo uriInfo
     ) {
         OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
-
-        if (!organizationId.equals(scimContext.getOrganization().getId())) {
-            return Response.status(Response.Status.FORBIDDEN)
-                .entity("Organization ID does not match the current organization")
-                .build();
-        }
-
         organizationScimServer.verifyPermissions(scimContext);
         return organizationScimServer.getServiceProviderConfig(scimContext);
     }

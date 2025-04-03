@@ -3,7 +3,6 @@ package fi.metatavu.keycloak.scim.server.organization;
 import fi.metatavu.keycloak.scim.server.AbstractScimServer;
 import fi.metatavu.keycloak.scim.server.config.ConfigurationError;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
-import fi.metatavu.keycloak.scim.server.metadata.MetadataController;
 import fi.metatavu.keycloak.scim.server.model.Group;
 import fi.metatavu.keycloak.scim.server.model.PatchRequest;
 import fi.metatavu.keycloak.scim.server.model.User;
@@ -22,15 +21,6 @@ import java.net.URI;
  * SCIM server implementation for organizations
  */
 public class OrganizationScimServer extends AbstractScimServer<OrganizationScimContext> {
-
-    private final MetadataController metadataController;
-
-    /**
-     * Constructor
-     */
-    public OrganizationScimServer() {
-        metadataController = new MetadataController();
-    }
 
     @Override
     public Response createUser(OrganizationScimContext scimContext, User user) {
@@ -112,10 +102,6 @@ public class OrganizationScimServer extends AbstractScimServer<OrganizationScimC
         return null;
     }
 
-    @Override
-    public Response getServiceProviderConfig(OrganizationScimContext scimContext) {
-        return Response.ok(metadataController.getServiceProviderConfig(scimContext)).build();
-    }
 
     /**
      * Returns SCIM context

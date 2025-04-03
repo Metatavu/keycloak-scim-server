@@ -3,11 +3,13 @@ package fi.metatavu.keycloak.scim.server;
 import fi.metatavu.keycloak.scim.server.authentication.ExternalTokenVerifier;
 import fi.metatavu.keycloak.scim.server.config.ScimConfig;
 import fi.metatavu.keycloak.scim.server.consts.ScimRoles;
+import fi.metatavu.keycloak.scim.server.metadata.MetadataController;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.NotAuthorizedException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.Response;
 import org.jboss.logging.Logger;
 import org.keycloak.common.ClientConnection;
 import org.keycloak.jose.jws.JWSInputException;
@@ -26,6 +28,20 @@ import java.net.URISyntaxException;
 public abstract class AbstractScimServer <T extends ScimContext> implements ScimServer <T> {
 
     private static final Logger logger = Logger.getLogger(AbstractScimServer.class.getName());
+
+    protected final MetadataController metadataController;
+
+    /**
+     * Constructor
+     */
+    public AbstractScimServer() {
+        metadataController = new MetadataController();
+    }
+
+    @Override
+    public Response getServiceProviderConfig(T scimContext) {
+        return Response.ok(metadataController.getServiceProviderConfig(scimContext)).build();
+    }
 
     /**
      * Verifies that the request has the required permission to access the resource

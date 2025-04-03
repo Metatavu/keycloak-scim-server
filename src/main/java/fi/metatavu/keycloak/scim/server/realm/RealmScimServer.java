@@ -5,7 +5,6 @@ import fi.metatavu.keycloak.scim.server.config.ConfigurationError;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
 import fi.metatavu.keycloak.scim.server.groups.GroupsController;
 import fi.metatavu.keycloak.scim.server.groups.UnsupportedGroupPath;
-import fi.metatavu.keycloak.scim.server.metadata.MetadataController;
 import fi.metatavu.keycloak.scim.server.metadata.UserAttributes;
 import fi.metatavu.keycloak.scim.server.model.User;
 import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
@@ -26,7 +25,6 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
 
     private static final Logger logger = Logger.getLogger(RealmScimServer.class.getName());
     private final UsersController usersController;
-    private final MetadataController metadataController;
     private final GroupsController groupsController;
 
     /**
@@ -34,7 +32,6 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
      */
     public RealmScimServer() {
         usersController = new UsersController();
-        metadataController = new MetadataController();
         groupsController = new GroupsController();
     }
 
@@ -290,10 +287,6 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
         return Response.ok(metadataController.getSchema(scimContext, id)).build();
     }
 
-    @Override
-    public Response getServiceProviderConfig(RealmScimContext scimContext) {
-        return Response.ok(metadataController.getServiceProviderConfig(scimContext)).build();
-    }
     /**
      * Returns SCIM context
      *

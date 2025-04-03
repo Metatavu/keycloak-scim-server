@@ -58,7 +58,7 @@ public class RealmUserFindTestsIT extends AbstractRealmScimTest {
         assertEquals("find.me@example.com", found.getEmails().getFirst().getValue());
 
         // Clean up
-        deleteRealmUser(userId);
+        deleteRealmUser(TestConsts.TEST_REALM, userId);
     }
 
     @Test

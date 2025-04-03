@@ -303,7 +303,7 @@ class RealmUserListTestsIT extends AbstractRealmScimTest {
 
     // Cleanup
     for (User user : createdUsers) {
-      deleteRealmUser(user.getId());
+      deleteRealmUser(TestConsts.TEST_REALM, user.getId());
     }
   }
 

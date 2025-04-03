@@ -48,7 +48,7 @@ public class RealmUserPatchTestsIT extends AbstractRealmScimTest {
         assertNotNull(created.getActive());
         assertTrue(created.getActive());
 
-        UserRepresentation createdRealmUser = findRealmUser(created.getId());
+        UserRepresentation createdRealmUser = findRealmUser(TestConsts.TEST_REALM, created.getId());
         assertNotNull(createdRealmUser);
         assertTrue(createdRealmUser.isEnabled());
 
@@ -66,7 +66,7 @@ public class RealmUserPatchTestsIT extends AbstractRealmScimTest {
         assertNotNull(deactivated.getActive());
         assertFalse(deactivated.getActive());
 
-        UserRepresentation deactivatedRealmUser = findRealmUser(created.getId());
+        UserRepresentation deactivatedRealmUser = findRealmUser(TestConsts.TEST_REALM, created.getId());
         assertNotNull(deactivatedRealmUser);
         assertFalse(deactivatedRealmUser.isEnabled());
 
@@ -83,12 +83,12 @@ public class RealmUserPatchTestsIT extends AbstractRealmScimTest {
         assertNotNull(activated.getActive());
         assertTrue(activated.getActive());
 
-        UserRepresentation activatedRealmUser = findRealmUser(created.getId());
+        UserRepresentation activatedRealmUser = findRealmUser(TestConsts.TEST_REALM, created.getId());
         assertNotNull(activatedRealmUser);
         assertTrue(activatedRealmUser.isEnabled());
 
         // Cleanup
-        deleteRealmUser(created.getId());
+        deleteRealmUser(TestConsts.TEST_REALM, created.getId());
     }
 
     @Test
@@ -155,7 +155,7 @@ public class RealmUserPatchTestsIT extends AbstractRealmScimTest {
         assertEquals("en_US", patchedAgain.getAdditionalProperty("preferredLanguage"));
 
         // Cleanup
-        deleteRealmUser(created.getId());
+        deleteRealmUser(TestConsts.TEST_REALM, created.getId());
     }
 
 }

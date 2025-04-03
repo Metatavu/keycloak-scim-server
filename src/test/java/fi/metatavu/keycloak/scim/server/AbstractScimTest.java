@@ -4,14 +4,11 @@ import dasniko.testcontainers.keycloak.KeycloakContainer;
 import fi.metatavu.keycloak.scim.server.test.client.model.User;
 import fi.metatavu.keycloak.scim.server.test.client.model.UserEmailsInner;
 import fi.metatavu.keycloak.scim.server.test.client.model.UserName;
-import org.keycloak.OAuth2Constants;
-import org.keycloak.admin.client.Keycloak;
-import org.keycloak.admin.client.KeycloakBuilder;
+import org.keycloak.representations.idm.MemberRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.testcontainers.containers.Network;
 
-import java.net.URI;
 import java.util.Collections;
 import java.util.List;
 
@@ -38,12 +35,32 @@ public abstract class AbstractScimTest {
      * @param userId user ID
      * @return user representation
      */
-    protected UserRepresentation findRealmUser(String userId) {
+    protected UserRepresentation findRealmUser(String realm, String userId) {
         return getKeycloakContainer().getKeycloakAdminClient()
             .realms()
-            .realm(TestConsts.TEST_REALM)
+            .realm(realm)
             .users()
             .get(userId)
+            .toRepresentation();
+    }
+
+    /**
+     * Finds organization member
+     *
+     * @param realm realm name
+     * @param organizationId organization ID
+     * @param userId user ID
+     * @return user representation
+     */
+    @SuppressWarnings("SameParameterValue")
+    protected MemberRepresentation findOrganizationMember(String realm, String organizationId, String userId) {
+        return getKeycloakContainer().getKeycloakAdminClient()
+            .realms()
+            .realm(realm)
+            .organizations()
+            .get(organizationId)
+            .members()
+            .member(userId)
             .toRepresentation();
     }
 
@@ -53,10 +70,10 @@ public abstract class AbstractScimTest {
      * @param userId user ID
      * @return user realm role mappings
      */
-    protected List<RoleRepresentation> getUserRealmRoleMappings(String userId) {
+    protected List<RoleRepresentation> getUserRealmRoleMappings(String realm, String userId) {
         return getKeycloakContainer().getKeycloakAdminClient()
             .realms()
-            .realm(TestConsts.TEST_REALM)
+            .realm(realm)
             .users()
             .get(userId)
             .roles()
@@ -69,10 +86,10 @@ public abstract class AbstractScimTest {
      *
      * @param userId user ID
      */
-    protected void deleteRealmUser(String userId) {
+    protected void deleteRealmUser(String realm, String userId) {
         getKeycloakContainer().getKeycloakAdminClient()
             .realms()
-            .realm(TestConsts.TEST_REALM)
+            .realm(realm)
             .users()
             .get(userId)
             .remove();

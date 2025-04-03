@@ -29,12 +29,14 @@ public class ScimResources {
         organizationScimServer = new OrganizationScimServer();
     }
 
+    // Realm Server endpoints
+
     @POST
     @Path("v2/Users")
     @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
-    public Response createUser(
+    public Response createRealmUser(
         @Context KeycloakSession session,
         fi.metatavu.keycloak.scim.server.model.User createRequest
     ) {
@@ -51,7 +53,7 @@ public class ScimResources {
     @Path("v2/Users")
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
-    public Response listUsers(
+    public Response listRealmUsers(
         @Context KeycloakSession session,
         @QueryParam("filter") String filter,
         @QueryParam("startIndex") @DefaultValue("0") Integer startIndex,
@@ -80,7 +82,7 @@ public class ScimResources {
     @Path("v2/Users/{id}")
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
-    public Response findUser(
+    public Response findRealmUser(
             @Context KeycloakSession session,
             @PathParam("id") String userId
     ) {
@@ -98,7 +100,7 @@ public class ScimResources {
     @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
-    public Response updateUser(
+    public Response updateRealmUser(
         @Context KeycloakSession session,
         @PathParam("id") String userId,
         fi.metatavu.keycloak.scim.server.model.User updateRequest
@@ -118,7 +120,7 @@ public class ScimResources {
     @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
-    public Response patchUser(
+    public Response patchRealmUser(
         @Context KeycloakSession session,
         @PathParam("id") String userId,
         fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
@@ -137,7 +139,7 @@ public class ScimResources {
     @Path("v2/Users/{id}")
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
-    public Response deleteUser(
+    public Response deleteRealmUser(
         @Context KeycloakSession session,
         @PathParam("id") String userId
     ) {
@@ -152,7 +154,7 @@ public class ScimResources {
     @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
-    public Response createGroup(
+    public Response createRealmGroup(
         @Context KeycloakSession session,
         fi.metatavu.keycloak.scim.server.model.Group createRequest
     ) {
@@ -164,8 +166,6 @@ public class ScimResources {
             createRequest
         );
     }
-
-    // Realm Server endpoints
 
     @GET
     @Path("v2/Groups")
@@ -337,8 +337,151 @@ public class ScimResources {
 
     // Organization Server endpoints
 
+    @POST
+    @Path("v2/organizations/{organizationId}/Users")
+    @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response createOrganizationUser(
+            @Context KeycloakSession session,
+            @PathParam("organizationId") String organizationId,
+            fi.metatavu.keycloak.scim.server.model.User createRequest
+    ) {
+        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
+        organizationScimServer.verifyPermissions(scimContext);
+
+        return organizationScimServer.createUser(
+            scimContext,
+            createRequest
+        );
+    }
+
     @GET
-    @Path("v2/Groups")
+    @Path("v2/organizations/{organizationId}/Users")
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response listOrganizationUsers(
+            @Context KeycloakSession session,
+            @PathParam("organizationId") String organizationId,
+            @QueryParam("filter") String filter,
+            @QueryParam("startIndex") @DefaultValue("0") Integer startIndex,
+            @QueryParam("count") @DefaultValue("100") Integer count
+    ) {
+        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
+        organizationScimServer.verifyPermissions(scimContext);
+
+        ScimFilter scimFilter;
+        try {
+            scimFilter = parseFilter(filter);
+        } catch (Exception e) {
+            logger.warn(String.format("Failed to parse filter: '%s'", filter), e);
+            return Response.status(Response.Status.BAD_REQUEST).entity("Invalid filter").build();
+        }
+
+        return organizationScimServer.listUsers(
+            scimContext,
+            scimFilter,
+            startIndex,
+            count
+        );
+    }
+
+    @GET
+    @Path("v2/organizations/{organizationId}/Users/{id}")
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response findOrganizationUser(
+            @Context KeycloakSession session,
+            @PathParam("id") String userId,
+            @PathParam("organizationId") String organizationId
+    ) {
+        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
+        organizationScimServer.verifyPermissions(scimContext);
+
+        return organizationScimServer.findUser(
+            scimContext,
+            userId
+        );
+    }
+
+    @PUT
+    @Path("v2/organizations/{organizationId}/Users/{id}")
+    @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response updateOrganizationUser(
+            @Context KeycloakSession session,
+            @PathParam("id") String userId,
+            @PathParam("organizationId") String organizationId,
+            fi.metatavu.keycloak.scim.server.model.User updateRequest
+    ) {
+        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
+        organizationScimServer.verifyPermissions(scimContext);
+
+        return organizationScimServer.updateUser(
+            scimContext,
+            userId,
+            updateRequest
+        );
+    }
+
+    @PATCH
+    @Path("v2/organizations/{organizationId}/Users/{id}")
+    @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response patchOrganizationUser(
+            @Context KeycloakSession session,
+            @PathParam("id") String userId,
+            @PathParam("organizationId") String organizationId,
+            fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
+    ) {
+        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
+        organizationScimServer.verifyPermissions(scimContext);
+
+        return organizationScimServer.patchUser(
+                scimContext,
+                userId,
+                patchRequest
+        );
+    }
+
+    @DELETE
+    @Path("v2/organizations/{organizationId}/Users/{id}")
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response deleteOrganizationUser(
+        @Context KeycloakSession session,
+        @PathParam("organizationId") String organizationId,
+        @PathParam("id") String userId
+    ) {
+        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
+        organizationScimServer.verifyPermissions(scimContext);
+
+        return organizationScimServer.deleteUser(scimContext, userId);
+    }
+
+    @POST
+    @Path("v2/organizations/{organizationId}/Groups")
+    @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response createOrganizationGroup(
+        @Context KeycloakSession session,
+        @PathParam("organizationId") String organizationId,
+        fi.metatavu.keycloak.scim.server.model.Group createRequest
+    ) {
+        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
+        organizationScimServer.verifyPermissions(scimContext);
+
+        return organizationScimServer.createGroup(
+            scimContext,
+            createRequest
+        );
+    }
+
+    @GET
+    @Path("v2/organizations/{organizationId}/Groups")
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
     public Response listOrganizationGroups(
@@ -358,7 +501,7 @@ public class ScimResources {
     }
 
     @GET
-    @Path("v2/Groups/{id}")
+    @Path("v2/organizations/{organizationId}/Groups/{id}")
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
     public Response findOrganizationGroup(
@@ -376,7 +519,7 @@ public class ScimResources {
     }
 
     @PUT
-    @Path("v2/Groups/{id}")
+    @Path("v2/organizations/{organizationId}/Groups/{id}")
     @Consumes("application/scim+json")
     @Produces("application/scim+json")
     @SuppressWarnings("unused")
@@ -397,7 +540,7 @@ public class ScimResources {
     }
 
     @PATCH
-    @Path("v2/Groups/{id}")
+    @Path("v2/organizations/{organizationId}/Groups/{id}")
     @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
@@ -418,7 +561,7 @@ public class ScimResources {
     }
 
     @DELETE
-    @Path("v2/Groups/{id}")
+    @Path("v2/organizations/{organizationId}/Groups/{id}")
     @SuppressWarnings("unused")
     public Response deleteOrganizationGroup(
             @Context KeycloakSession session,

@@ -78,7 +78,7 @@ public class RealmUserUpdateTestsIT extends AbstractRealmScimTest {
         assertFalse(updated.getActive());
 
         // Also verify state in Keycloak
-        UserRepresentation realmUser = findRealmUser(userId);
+        UserRepresentation realmUser = findRealmUser(TestConsts.TEST_REALM, userId);
         assertNotNull(realmUser);
         assertEquals("replace-user", realmUser.getUsername());
         assertEquals("Replaced", realmUser.getFirstName());
@@ -90,7 +90,7 @@ public class RealmUserUpdateTestsIT extends AbstractRealmScimTest {
         assertFalse(realmUser.isEnabled());
 
         // Clean up
-        deleteRealmUser(userId);
+        deleteRealmUser(TestConsts.TEST_REALM, userId);
     }
 
     @Test
@@ -136,8 +136,8 @@ public class RealmUserUpdateTestsIT extends AbstractRealmScimTest {
         assertEquals(409, exception.getCode());
 
         // Clean up
-        deleteRealmUser(createdA.getId());
-        deleteRealmUser(createdB.getId());
+        deleteRealmUser(TestConsts.TEST_REALM, createdA.getId());
+        deleteRealmUser(TestConsts.TEST_REALM, createdB.getId());
     }
 
 }

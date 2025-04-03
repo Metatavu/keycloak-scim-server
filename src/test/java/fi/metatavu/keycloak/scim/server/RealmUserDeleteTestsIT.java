@@ -57,7 +57,7 @@ public class RealmUserDeleteTestsIT extends AbstractRealmScimTest {
         assertEquals(404, exception.getCode());
 
         NotFoundException notFoundException = assertThrows(NotFoundException.class, () ->
-            findRealmUser(created.getId())
+            findRealmUser(TestConsts.TEST_REALM, created.getId())
         );
     }
 

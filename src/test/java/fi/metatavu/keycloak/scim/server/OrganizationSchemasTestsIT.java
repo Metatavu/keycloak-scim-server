@@ -77,13 +77,16 @@ public class OrganizationSchemasTestsIT extends AbstractOrganizationScimTest {
         assertEquals("User", schema.getName());
         assertNotNull(schema.getDescription());
         assertNotNull(schema.getAttributes());
-        assertEquals(5, schema.getAttributes().size());
+        assertEquals(8, schema.getAttributes().size());
 
         assertUserAttribute(schema.getAttributes(), "userName", SchemaAttribute.TypeEnum.STRING);
         assertUserAttribute(schema.getAttributes(), "email", SchemaAttribute.TypeEnum.STRING);
         assertUserAttribute(schema.getAttributes(), "name.givenName", SchemaAttribute.TypeEnum.STRING);
         assertUserAttribute(schema.getAttributes(), "name.familyName", SchemaAttribute.TypeEnum.STRING);
         assertUserAttribute(schema.getAttributes(), "active", SchemaAttribute.TypeEnum.BOOLEAN);
+        assertUserAttribute(schema.getAttributes(), "externalId", SchemaAttribute.TypeEnum.STRING);
+        assertUserAttribute(schema.getAttributes(), "preferredLanguage", SchemaAttribute.TypeEnum.STRING);
+        assertUserAttribute(schema.getAttributes(), "displayName", SchemaAttribute.TypeEnum.STRING);
     }
 
     /**

@@ -3,12 +3,10 @@ package fi.metatavu.keycloak.scim.server.realm;
 import fi.metatavu.keycloak.scim.server.AbstractScimServer;
 import fi.metatavu.keycloak.scim.server.config.ConfigurationError;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
-import fi.metatavu.keycloak.scim.server.groups.GroupsController;
 import fi.metatavu.keycloak.scim.server.groups.UnsupportedGroupPath;
 import fi.metatavu.keycloak.scim.server.metadata.UserAttributes;
 import fi.metatavu.keycloak.scim.server.model.User;
 import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
-import fi.metatavu.keycloak.scim.server.users.UsersController;
 import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
@@ -24,16 +22,6 @@ import java.net.URI;
 public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
 
     private static final Logger logger = Logger.getLogger(RealmScimServer.class.getName());
-    private final UsersController usersController;
-    private final GroupsController groupsController;
-
-    /**
-     * Constructor
-     */
-    public RealmScimServer() {
-        usersController = new UsersController();
-        groupsController = new GroupsController();
-    }
 
     @Override
     public Response createUser(
@@ -97,68 +85,6 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
     }
 
     @Override
-    public Response updateUser(RealmScimContext scimContext, String userId, User updateRequest) {
-        KeycloakSession session = scimContext.getSession();
-
-        if (updateRequest.getUserName().isBlank()) {
-            logger.warn("Missing userName");
-            return Response.status(Response.Status.BAD_REQUEST).entity("Missing userName").build();
-        }
-
-        RealmModel realm = scimContext.getRealm();
-        UserModel user = session.users().getUserById(realm, userId);
-        if (user == null) {
-            logger.warn(String.format("User not found: %s", userId));
-            return Response.status(Response.Status.NOT_FOUND).entity("User not found").build();
-        }
-
-        // Check if username is being changed to an already existing one
-        UserModel existing = session.users().getUserByUsername(realm, updateRequest.getUserName());
-        if (existing == null) {
-            logger.warn(String.format("User not found: %s", updateRequest.getUserName()));
-            return Response.status(Response.Status.NOT_FOUND).entity("User not found").build();
-        }
-
-        if (!existing.getId().equals(userId)) {
-            logger.warn(String.format("User name already taken: %s", updateRequest.getUserName()));
-            return Response.status(Response.Status.CONFLICT).entity("User name already taken").build();
-        }
-
-        UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
-        User result = usersController.updateUser(scimContext, userAttributes, existing, updateRequest);
-
-        return Response.ok(result).build();
-    }
-
-    @Override
-    public Response patchUser(RealmScimContext scimContext, String userId, fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest) {
-        KeycloakSession session = scimContext.getSession();
-
-        RealmModel realm = scimContext.getRealm();
-        UserModel user = session.users().getUserById(realm, userId);
-        if (user == null) {
-            logger.warn(String.format("User not found: %s", userId));
-            return Response.status(Response.Status.NOT_FOUND).entity("User not found").build();
-        }
-
-        // Check if username is being changed to an already existing one
-        UserModel existing = session.users().getUserById(realm, userId);
-        if (existing == null) {
-            logger.warn(String.format("User not found: %s", userId));
-            return Response.status(Response.Status.NOT_FOUND).entity("User not found").build();
-        }
-
-        UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
-
-        try {
-            User result = usersController.patchUser(scimContext, userAttributes, existing, patchRequest);
-            return Response.ok(result).build();
-        } catch (UnsupportedPatchOperation e) {
-            return Response.status(Response.Status.BAD_REQUEST).entity("Unsupported patch operation").build();
-        }
-    }
-
-    @Override
     public Response deleteUser(RealmScimContext scimContext, String userId) {
         RealmModel realm = scimContext.getRealm();
         KeycloakSession session = scimContext.getSession();
@@ -175,7 +101,7 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
             return Response.status(Response.Status.FORBIDDEN).entity("User is not managed by SCIM").build();
         }
 
-        session.users().removeUser(realm, user);
+        usersController.deleteUser(scimContext, user);
 
         return Response.noContent().build();
     }

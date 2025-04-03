@@ -3,17 +3,15 @@ package fi.metatavu.keycloak.scim.server.organization;
 import fi.metatavu.keycloak.scim.server.AbstractScimServer;
 import fi.metatavu.keycloak.scim.server.config.ConfigurationError;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
+import fi.metatavu.keycloak.scim.server.metadata.UserAttributes;
 import fi.metatavu.keycloak.scim.server.model.Group;
 import fi.metatavu.keycloak.scim.server.model.PatchRequest;
 import fi.metatavu.keycloak.scim.server.model.User;
 import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
-import org.keycloak.models.KeycloakContext;
-import org.keycloak.models.KeycloakSession;
-import org.keycloak.models.OrganizationModel;
-import org.keycloak.models.RealmModel;
-import org.keycloak.organization.OrganizationProvider;
+import org.jboss.logging.Logger;
+import org.keycloak.models.*;
 
 import java.net.URI;
 
@@ -22,34 +20,93 @@ import java.net.URI;
  */
 public class OrganizationScimServer extends AbstractScimServer<OrganizationScimContext> {
 
+    private static final Logger logger = Logger.getLogger(OrganizationScimServer.class);
+    private final OrganizationController organizationController;
+    private final OrganizationUserController organizationUserController;
+
+    public OrganizationScimServer() {
+        this.organizationController = new OrganizationController();
+        this.organizationUserController = new OrganizationUserController();
+    }
+
     @Override
-    public Response createUser(OrganizationScimContext scimContext, User user) {
-        return null;
+    public Response createUser(OrganizationScimContext scimContext, User createRequest) {
+        RealmModel realm = scimContext.getRealm();
+        KeycloakSession session = scimContext.getSession();
+
+        if (createRequest.getUserName().isBlank()) {
+            logger.warn("Cannot create user: Missing userName");
+            return Response.status(Response.Status.BAD_REQUEST).entity("Missing userName").build();
+        }
+
+        UserModel existing = session.users().getUserByUsername(realm, createRequest.getUserName());
+        if (existing != null) {
+            return Response.status(Response.Status.CONFLICT).entity("User already exists").build();
+        }
+
+        UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
+
+        User user = organizationUserController.createOrganizationUser(
+            scimContext,
+            userAttributes,
+            createRequest
+        );
+
+        URI location = scimContext.getServerBaseUri().resolve(String.format("v2/Users/%s", user.getId()));
+
+        return Response
+            .created(location)
+            .entity(user)
+            .build();
     }
 
     @Override
     public Response listUsers(OrganizationScimContext scimContext, ScimFilter scimFilter, Integer startIndex, Integer count) {
-        return null;
+        UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
+
+        fi.metatavu.keycloak.scim.server.model.UsersList usersList = organizationUserController.listOrganizationUsers(
+            scimContext,
+            scimFilter,
+            userAttributes,
+            startIndex,
+            count
+        );
+
+        return Response.ok(usersList).build();
     }
 
     @Override
     public Response findUser(OrganizationScimContext scimContext, String userId) {
-        return null;
-    }
+        UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
+        User user = organizationUserController.findOrganizationUser(scimContext, userAttributes, userId);
+        if (user == null) {
+            logger.warn(String.format("User not found: %s", userId));
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
 
-    @Override
-    public Response updateUser(OrganizationScimContext scimContext, String userId, User body) {
-        return null;
-    }
-
-    @Override
-    public Response patchUser(OrganizationScimContext scimContext, String userId, PatchRequest patchRequest) {
-        return null;
+        return Response.ok(user).build();
     }
 
     @Override
     public Response deleteUser(OrganizationScimContext scimContext, String userId) {
-        return null;
+        RealmModel realm = scimContext.getRealm();
+        KeycloakSession session = scimContext.getSession();
+
+        UserModel user = session.users().getUserById(realm, userId);
+        if (user == null) {
+            logger.warn(String.format("User not found: %s", userId));
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        RoleModel scimManagedRole = realm.getRole("scim-managed");
+        if (scimManagedRole != null && !user.hasRole(scimManagedRole)) {
+            logger.warn(String.format("User is not SCIM-managed: %s", userId));
+            return Response.status(Response.Status.FORBIDDEN).entity("User is not managed by SCIM").build();
+        }
+
+        organizationUserController.deleteOrganizationUser(scimContext, user);
+
+        return Response.noContent().build();
     }
 
     @Override
@@ -100,8 +157,11 @@ public class OrganizationScimServer extends AbstractScimServer<OrganizationScimC
             throw new NotFoundException("Realm not found");
         }
 
-        OrganizationProvider provider = session.getProvider(OrganizationProvider.class);
-        OrganizationModel organization = provider.getById(organizationId);
+        OrganizationModel organization = organizationController.findOrganizationById(
+            session,
+            organizationId
+        );
+
         if (organization == null) {
             throw new NotFoundException("Organization not found");
         }
@@ -126,4 +186,5 @@ public class OrganizationScimServer extends AbstractScimServer<OrganizationScimC
             config
         );
     }
+
 }

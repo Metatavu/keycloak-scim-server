@@ -8,7 +8,7 @@ import java.net.URI;
 /**
  * SCIM context
  */
-public class ScimContext {
+public abstract class ScimContext {
 
     private final URI baseUri;
     private final KeycloakSession session;
@@ -21,7 +21,7 @@ public class ScimContext {
      * @param session keycloak session
      * @param realm realm
      */
-    ScimContext(URI baseUri, KeycloakSession session, RealmModel realm) {
+    public ScimContext(URI baseUri, KeycloakSession session, RealmModel realm) {
         this.baseUri = baseUri;
         this.session = session;
         this.realm = realm;

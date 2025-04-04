@@ -1,20 +1,18 @@
 package fi.metatavu.keycloak.scim.server.organization;
 
 import fi.metatavu.keycloak.scim.server.consts.ScimRoles;
-import fi.metatavu.keycloak.scim.server.filter.ComparisonFilter;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
 import fi.metatavu.keycloak.scim.server.metadata.BooleanUserAttribute;
 import fi.metatavu.keycloak.scim.server.metadata.StringUserAttribute;
 import fi.metatavu.keycloak.scim.server.metadata.UserAttribute;
 import fi.metatavu.keycloak.scim.server.metadata.UserAttributes;
-import fi.metatavu.keycloak.scim.server.users.UnsupportedUserPath;
 import fi.metatavu.keycloak.scim.server.users.UsersController;
 import jakarta.ws.rs.NotFoundException;
 import org.jboss.logging.Logger;
 import org.keycloak.models.*;
 import org.keycloak.organization.OrganizationProvider;
 
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -138,31 +136,13 @@ public class OrganizationUserController extends UsersController  {
         RealmModel realm = scimContext.getRealm();
         KeycloakSession session = scimContext.getSession();
 
-        Map<String, String> searchParams = new HashMap<>();
-
-        if (scimFilter instanceof ComparisonFilter cmp) {
-            if (cmp.operator() == ScimFilter.Operator.EQ) {
-                UserAttribute<?> userAttribute = userAttributes.findByScimPath(cmp.attribute());
-                if (userAttribute == null) {
-                    throw new UnsupportedUserPath("Unsupported attribute: " + cmp.attribute());
-                }
-
-                String value = cmp.value();
-
-                if (userAttribute.getSource() == UserAttribute.Source.USER_MODEL || userAttribute.getSource() == UserAttribute.Source.USER_PROFILE) {
-                    searchParams.put(userAttribute.getSourceId(), value);
-                }
-            }
-        }
-
         RoleModel scimManagedRole = realm.getRole(ScimRoles.SCIM_MANAGED_ROLE);
         if (scimManagedRole == null) {
             throw new IllegalStateException("SCIM managed role not found");
         }
 
-        List<UserModel> filteredUsers = getOrganizationProvider(session).getMembersStream(scimContext.getOrganization(), searchParams, true, null, null)
-            .filter(user -> user.hasRole(scimManagedRole))
-            .filter(user -> !searchParams.isEmpty() || matchScimFilter(user, userAttributes, scimFilter))
+        List<UserModel> filteredUsers = getOrganizationProvider(session).getMembersStream(scimContext.getOrganization(), Collections.emptyMap(), true, null, null)
+            .filter(user -> matchScimFilter(user, userAttributes, scimFilter))
             .filter(user -> user.hasRole(scimManagedRole))
             .toList();
 

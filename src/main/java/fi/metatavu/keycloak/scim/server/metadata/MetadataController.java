@@ -274,17 +274,6 @@ public class MetadataController extends AbstractController {
                 SchemaAttribute.UniquenessEnum.NONE,
                 UserModel::isEnabled,
                 UserModel::setEnabled
-            ),
-            new StringUserAttribute(
-                UserAttribute.Source.USER_PROFILE,
-                "locale",
-                "preferredLanguage",
-                "Preferred language",
-                SchemaAttribute.TypeEnum.STRING,
-                SchemaAttribute.MutabilityEnum.READWRITE,
-                SchemaAttribute.UniquenessEnum.NONE,
-                user ->  user.getFirstAttribute("locale"),
-                (user, value) -> user.setAttribute("locale", List.of(value))
             )
         );
 

@@ -12,6 +12,8 @@ services:
       - --import-realm
     volumes:
       - ./src/test/resources/kc-test.json:/opt/keycloak/data/import/kc-test.json
+      - ./src/test/resources/kc-external.json:/opt/keycloak/data/import/kc-external.json
+      - ./src/test/resources/kc-organizations.json:/opt/keycloak/data/import/kc-organizations.json
       - ./build/libs/:/opt/keycloak/providers/
   scim2-compliance-test:
     image: suvera/scim2-compliance-test-utility:1.0.2

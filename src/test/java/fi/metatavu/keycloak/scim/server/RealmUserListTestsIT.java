@@ -17,12 +17,13 @@ import static org.junit.jupiter.api.Assertions.*;
  * Tests for SCIM 2.0 User list endpoint
  */
 @Testcontainers
-class UserListTestsIT extends AbstractScimTest {
+class RealmUserListTestsIT extends AbstractRealmScimTest {
 
   @Container
   protected static final KeycloakContainer keycloakContainer = new KeycloakContainer("quay.io/keycloak/keycloak:26.1.2")
         .withNetwork(network)
         .withNetworkAliases("scim-keycloak")
+        .withEnv("SCIM_AUTHENTICATION_MODE", "KEYCLOAK")
         .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
         .withRealmImportFile("kc-test.json")
         .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
@@ -303,7 +304,7 @@ class UserListTestsIT extends AbstractScimTest {
 
     // Cleanup
     for (User user : createdUsers) {
-      deleteRealmUser(user.getId());
+      deleteRealmUser(TestConsts.TEST_REALM, user.getId());
     }
   }
 

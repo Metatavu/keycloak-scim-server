@@ -1,19 +1,28 @@
 package fi.metatavu.keycloak.scim.server;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dasniko.testcontainers.keycloak.KeycloakContainer;
+import fi.metatavu.keycloak.scim.server.test.client.ApiException;
 import fi.metatavu.keycloak.scim.server.test.client.model.User;
 import fi.metatavu.keycloak.scim.server.test.client.model.UserEmailsInner;
 import fi.metatavu.keycloak.scim.server.test.client.model.UserName;
-import org.keycloak.OAuth2Constants;
-import org.keycloak.admin.client.Keycloak;
-import org.keycloak.admin.client.KeycloakBuilder;
+import jakarta.ws.rs.core.UriBuilder;
+import org.keycloak.representations.idm.MemberRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.testcontainers.containers.Network;
 
+import java.io.IOException;
 import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -38,12 +47,86 @@ public abstract class AbstractScimTest {
      * @param userId user ID
      * @return user representation
      */
-    protected UserRepresentation findRealmUser(String userId) {
+    protected UserRepresentation findRealmUser(String realm, String userId) {
         return getKeycloakContainer().getKeycloakAdminClient()
             .realms()
-            .realm(TestConsts.TEST_REALM)
+            .realm(realm)
             .users()
             .get(userId)
+            .toRepresentation();
+    }
+
+    /**
+     * Creates a user with the given parameters
+     *
+     * @param scimClient SCIM client
+     * @param userName username
+     * @param firstName first name
+     * @param lastName last name
+     * @return created user
+     * @throws ApiException if an error occurs during user creation
+     */
+    protected User createUser(
+        ScimClient scimClient,
+        String userName,
+        String firstName,
+        String lastName
+    ) throws ApiException {
+        User user = new User();
+        user.setUserName(userName);
+        user.setActive(true);
+        user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
+        user.setName(getName(firstName, lastName));
+        user.setEmails(getEmails(String.format("%s@example.com", userName)));
+        User created = scimClient.createUser(user);
+        assertNotNull(created);
+        return created;
+    }
+
+    /**
+     * Creates multiple users with the given parameters
+     *
+     * @param scimClient SCIM client
+     * @param userName username
+     * @param firstName first name
+     * @param lastName last name
+     * @param count number of users to create
+     * @return list of created users
+     * @throws ApiException if an error occurs during user creation
+     */
+    @SuppressWarnings("SameParameterValue")
+    protected List<User> createUsers(
+        ScimClient scimClient,
+        String userName,
+        String firstName,
+        String lastName,
+        int count
+    ) throws ApiException {
+        List<User> users = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            users.add(createUser(scimClient, String.format("%s-%d", userName, i), String.format("%s-%d", firstName, i), String.format("%s-%d", lastName, i)));
+        }
+
+        return users;
+    }
+
+    /**
+     * Finds organization member
+     *
+     * @param realm realm name
+     * @param organizationId organization ID
+     * @param userId user ID
+     * @return user representation
+     */
+    @SuppressWarnings("SameParameterValue")
+    protected MemberRepresentation findOrganizationMember(String realm, String organizationId, String userId) {
+        return getKeycloakContainer().getKeycloakAdminClient()
+            .realms()
+            .realm(realm)
+            .organizations()
+            .get(organizationId)
+            .members()
+            .member(userId)
             .toRepresentation();
     }
 
@@ -53,10 +136,10 @@ public abstract class AbstractScimTest {
      * @param userId user ID
      * @return user realm role mappings
      */
-    protected List<RoleRepresentation> getUserRealmRoleMappings(String userId) {
+    protected List<RoleRepresentation> getUserRealmRoleMappings(String realm, String userId) {
         return getKeycloakContainer().getKeycloakAdminClient()
             .realms()
-            .realm(TestConsts.TEST_REALM)
+            .realm(realm)
             .users()
             .get(userId)
             .roles()
@@ -65,55 +148,47 @@ public abstract class AbstractScimTest {
     }
 
     /**
-     * Deletes user from the test realm
+     * Deletes user from Keycloak
      *
      * @param userId user ID
      */
-    protected void deleteRealmUser(String userId) {
+    protected void deleteRealmUser(String realm, String userId) {
         getKeycloakContainer().getKeycloakAdminClient()
             .realms()
-            .realm(TestConsts.TEST_REALM)
+            .realm(realm)
             .users()
             .get(userId)
             .remove();
     }
 
     /**
-     * Returns SCIM URI for the test realm
+     * Deletes users from Keycloak
      *
-     * @return SCIM URI
+     * @param users users to delete
      */
-    protected URI getScimUri() {
-        return URI.create(getKeycloakContainer().getAuthServerUrl()).resolve(String.format("/realms/%s/scim/v2/", TestConsts.TEST_REALM));
+    @SuppressWarnings("SameParameterValue")
+    protected void deleteRealmUsers(String realm, List<User> users) {
+        for (User user : users) {
+            deleteRealmUser(realm, user.getId());
+        }
     }
 
     /**
-     * Returns authenticated SCIM client
+     * Asserts that two users are equal
      *
-     * @return authenticated SCIM client
+     * @param expected expected user
+     * @param actual actual user
      */
-    protected ScimClient getAuthenticatedScimClient() {
-        return new ScimClient(getScimUri(), getServiceAccountToken());
-    }
+    protected void assertUserEquals(User expected, User actual) {
+        assertEquals(expected.getId(), actual.getId());
+        assertEquals(expected.getUserName(), actual.getUserName());
+        assertEquals(expected.getName() != null ? expected.getName().getGivenName() : null, actual.getName() != null ? actual.getName().getGivenName() : null);
+        assertEquals(expected.getName() != null ? expected.getName().getFamilyName() : null, actual.getName() != null ? actual.getName().getFamilyName() : null);
+        assertEquals(expected.getEmails() != null && !expected.getEmails().isEmpty() ? expected.getEmails().getFirst().getValue() : null, actual.getEmails() != null && !actual.getEmails().isEmpty() ? actual.getEmails().getFirst().getValue() : null);
+        assertEquals(expected.getAdditionalProperties(), actual.getAdditionalProperties());
 
-    /**
-     * Returns service account token
-     *
-     * @return service account token
-     */
-    protected String getServiceAccountToken() {
-        try (Keycloak keycloakAdmin = KeycloakBuilder.builder()
-            .serverUrl(getKeycloakContainer().getAuthServerUrl())
-            .realm(TestConsts.TEST_REALM)
-            .grantType(OAuth2Constants.CLIENT_CREDENTIALS)
-            .clientId(TestConsts.TEST_SCIM_CLIENT_ID)
-            .clientSecret(TestConsts.TEST_SCIM_CLIENT_SECRET)
-            .build()) {
-
-            return keycloakAdmin
-                .tokenManager()
-                .getAccessToken()
-                .getToken();
+        if (expected.getAdditionalProperties() != null) {
+            expected.getAdditionalProperties().forEach((key, value) -> assertEquals(value, actual.getAdditionalProperty(key)));
         }
     }
 
@@ -127,16 +202,16 @@ public abstract class AbstractScimTest {
      * @param expectedFamilyName expected family name
      * @param expectedEmail expected email
      */
-    protected static void assertUser(
-            User user,
-            String expectedId,
-            String expectedUserName,
-            String expectedGivenName,
-            String expectedFamilyName,
-            String expectedEmail,
-            String expectedExternalId,
-            String expectedPreferredLanguage,
-            String expectedDisplayName
+    protected void assertUser(
+        User user,
+        String expectedId,
+        String expectedUserName,
+        String expectedGivenName,
+        String expectedFamilyName,
+        String expectedEmail,
+        String expectedExternalId,
+        String expectedPreferredLanguage,
+        String expectedDisplayName
     ) {
         assertNotNull(user.getId());
         assertNotNull(user.getName());
@@ -185,4 +260,100 @@ public abstract class AbstractScimTest {
         return Collections.singletonList(result);
     }
 
+
+
+    /**
+     * Starts compliance tests in the compliance tester container
+     *
+     * @param complianceServerUrl compliance tester URL
+     * @param accessToken access token
+     * @return run ID
+     * @throws IOException when the response body can't be read
+     * @throws InterruptedException when the HTTP request is interrupted
+     */
+    @SuppressWarnings("SameParameterValue")
+    protected String startComplianceTests(
+        URI complianceServerUrl,
+        URI endPointUrl,
+        String accessToken,
+        boolean usersCheck,
+        boolean groupsCheck
+    ) throws IOException, InterruptedException {
+        URI runUri = UriBuilder.fromUri(complianceServerUrl)
+            .path("/test/run")
+            .queryParam("endPoint", endPointUrl)
+            .queryParam("jwtToken", accessToken)
+            .queryParam("usersCheck", usersCheck ? 1 : 0)
+            .queryParam("groupsCheck", groupsCheck ? 1 : 0)
+            .queryParam("checkIndResLocation", 1)
+            .build();
+
+        ObjectMapper objectMapper = new ObjectMapper();
+
+        HttpRequest request = HttpRequest.newBuilder()
+            .uri(runUri)
+            .POST(HttpRequest.BodyPublishers.noBody())
+            .header("Accept", "application/json")
+            .build();
+
+        try (HttpClient client = HttpClient.newHttpClient()) {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            JsonNode responseJson = objectMapper.readTree(response.body());
+            return responseJson.get("id").asText();
+        }
+    }
+
+    /**
+     * Fetches compliance test status from the compliance tester container
+     *
+     * @param complianceServerUrl compliance tester URL
+     * @param runId run ID
+     * @return compliance test status
+     * @throws IOException when the response body can't be read
+     * @throws InterruptedException when the HTTP request is interrupted
+     */
+    protected ComplianceStatus getComplianceStatus(URI complianceServerUrl, String runId) throws IOException, InterruptedException {
+        URI statusUri = UriBuilder.fromUri(complianceServerUrl)
+                .path("/test/status")
+                .queryParam("runId", runId)
+                .build();
+
+        ObjectMapper objectMapper = new ObjectMapper();
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(statusUri)
+                .GET()
+                .header("Accept", "application/json")
+                .build();
+
+        try (HttpClient client = HttpClient.newHttpClient()) {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            String responseBody = response.body();
+            try {
+                return objectMapper.readValue(responseBody, ComplianceStatus.class);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to parse compliance status response: " + responseBody, e);
+            }
+        }
+    }
+
+    @SuppressWarnings("unused")
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class ComplianceStatus {
+        public List<ComplianceTestStatus> data;
+        public int nextIndex;
+    }
+
+    @SuppressWarnings("unused")
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class ComplianceTestStatus {
+        public boolean success;
+        public boolean notSupported;
+        public String title;
+        public String requestBody;
+        public String requestMethod;
+        public String responseBody;
+        public int responseCode;
+        public Map<String, String[]> responseHeaders;
+    }
 }

@@ -18,12 +18,13 @@ import static org.junit.jupiter.api.Assertions.*;
  * Tests for SCIM 2.0 User create endpoint
  */
 @Testcontainers
-public class UserPatchTestsIT extends AbstractScimTest {
+public class RealmUserPatchTestsIT extends AbstractRealmScimTest {
 
     @Container
     protected static final KeycloakContainer keycloakContainer = new KeycloakContainer("quay.io/keycloak/keycloak:26.1.2")
         .withNetwork(network)
         .withNetworkAliases("scim-keycloak")
+        .withEnv("SCIM_AUTHENTICATION_MODE", "KEYCLOAK")
         .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
         .withRealmImportFile("kc-test.json")
         .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
@@ -48,7 +49,7 @@ public class UserPatchTestsIT extends AbstractScimTest {
         assertNotNull(created.getActive());
         assertTrue(created.getActive());
 
-        UserRepresentation createdRealmUser = findRealmUser(created.getId());
+        UserRepresentation createdRealmUser = findRealmUser(TestConsts.TEST_REALM, created.getId());
         assertNotNull(createdRealmUser);
         assertTrue(createdRealmUser.isEnabled());
 
@@ -66,7 +67,7 @@ public class UserPatchTestsIT extends AbstractScimTest {
         assertNotNull(deactivated.getActive());
         assertFalse(deactivated.getActive());
 
-        UserRepresentation deactivatedRealmUser = findRealmUser(created.getId());
+        UserRepresentation deactivatedRealmUser = findRealmUser(TestConsts.TEST_REALM, created.getId());
         assertNotNull(deactivatedRealmUser);
         assertFalse(deactivatedRealmUser.isEnabled());
 
@@ -83,12 +84,12 @@ public class UserPatchTestsIT extends AbstractScimTest {
         assertNotNull(activated.getActive());
         assertTrue(activated.getActive());
 
-        UserRepresentation activatedRealmUser = findRealmUser(created.getId());
+        UserRepresentation activatedRealmUser = findRealmUser(TestConsts.TEST_REALM, created.getId());
         assertNotNull(activatedRealmUser);
         assertTrue(activatedRealmUser.isEnabled());
 
         // Cleanup
-        deleteRealmUser(created.getId());
+        deleteRealmUser(TestConsts.TEST_REALM, created.getId());
     }
 
     @Test
@@ -155,7 +156,7 @@ public class UserPatchTestsIT extends AbstractScimTest {
         assertEquals("en_US", patchedAgain.getAdditionalProperty("preferredLanguage"));
 
         // Cleanup
-        deleteRealmUser(created.getId());
+        deleteRealmUser(TestConsts.TEST_REALM, created.getId());
     }
 
 }

@@ -16,12 +16,10 @@ import fi.metatavu.keycloak.scim.server.model.User;
 import fi.metatavu.keycloak.scim.server.model.UsersList;
 import fi.metatavu.keycloak.scim.server.patch.PatchOperation;
 import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
+import fi.metatavu.keycloak.scim.server.realm.RealmScimContext;
 import jakarta.ws.rs.NotFoundException;
 import org.jboss.logging.Logger;
-import org.keycloak.models.KeycloakSession;
-import org.keycloak.models.RealmModel;
-import org.keycloak.models.RoleModel;
-import org.keycloak.models.UserModel;
+import org.keycloak.models.*;
 
 import java.util.*;
 
@@ -187,121 +185,6 @@ public class UsersController extends AbstractController {
     }
 
     /**
-     * Tests if user matches SCIM filter
-     *
-     * @param user user
-     * @param userAttributes user attributes
-     * @param filter SCIM filter
-     * @return true if user matches filter
-     */
-    private boolean matchScimFilter(
-        UserModel user,
-        UserAttributes userAttributes,
-        ScimFilter filter
-    ) {
-        switch (filter) {
-            case null -> {
-                return true;
-            }
-            case ComparisonFilter cmp -> {
-                UserAttribute<?> userAttribute = userAttributes.findByScimPath(cmp.attribute());
-                if (userAttribute == null) {
-                    throw new UnsupportedUserPath("Unsupported attribute: " + cmp.attribute());
-                }
-
-                String value = cmp.value();
-                Object actual = userAttribute.read(user);
-                if (actual == null) return false;
-
-                String actualString;
-                if (actual instanceof String) {
-                    actualString = (String) actual;
-                } else if (actual instanceof Boolean) {
-                    actualString = Boolean.toString((Boolean) actual);
-                } else {
-                    throw new UnsupportedUserPath("Unsupported attribute type: " + actual.getClass());
-                }
-
-                return switch (cmp.operator()) {
-                    case EQ -> actualString.equalsIgnoreCase(value);
-                    case CO -> actualString.toLowerCase().contains(value.toLowerCase());
-                    case SW -> actualString.toLowerCase().startsWith(value.toLowerCase());
-                    case EW -> actualString.toLowerCase().endsWith(value.toLowerCase());
-                    default -> false;
-                };
-            }
-            case LogicalFilter logical -> {
-                boolean left = matchScimFilter(user, userAttributes, logical.left());
-                boolean right = matchScimFilter(user, userAttributes, logical.right());
-
-                return switch (logical.operator()) {
-                    case AND -> left && right;
-                    case OR -> left || right;
-                    default -> false;
-                };
-            }
-            case PresenceFilter presence -> {
-                UserAttribute<?> presenceAttribute = userAttributes.findByScimPath(presence.attribute());
-                if (presenceAttribute == null) {
-                    throw new UnsupportedUserPath("Unsupported attribute: " + presence.attribute());
-                }
-
-                Object value = presenceAttribute.read(user);
-                if (value instanceof Boolean) {
-                    return (Boolean) value;
-                }
-
-                return value != null;
-            }
-            default -> {
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Translates Keycloak user to SCIM user
-     *
-     * @param user Keycloak user
-     * @return SCIM user
-     */
-    private fi.metatavu.keycloak.scim.server.model.User translateUser(
-        ScimContext scimContext,
-        UserAttributes userAttributes,
-        UserModel user
-    ) {
-        if (user == null) {
-            return null;
-        }
-
-        fi.metatavu.keycloak.scim.server.model.User result = new fi.metatavu.keycloak.scim.server.model.User()
-            .id(user.getId())
-            .userName(user.getUsername())
-            .active(user.isEnabled())
-            .emails(Collections.singletonList(new fi.metatavu.keycloak.scim.server.model.UserEmailsInner()
-                    .value(user.getEmail())
-                    .primary(true)
-            ))
-            .meta(getMeta(scimContext, "User", String.format("Users/%s", user.getId())))
-            .schemas(Collections.singletonList(Schemas.USER_SCHEMA))
-            .name(new fi.metatavu.keycloak.scim.server.model.UserName()
-                    .familyName(user.getLastName())
-                    .givenName(user.getFirstName())
-            );
-
-        List<UserAttribute<?>> customAttributes = userAttributes.listBySource(UserAttribute.Source.USER_PROFILE);
-        for (UserAttribute<?> userAttribute : customAttributes) {
-            Object value = userAttribute.read(user);
-            if (value != null) {
-                result.putAdditionalProperty(userAttribute.getScimPath(), value);
-            }
-        }
-
-        return result;
-    }
-
-    /**
      * Updates a user with SCIM user data
      *
      * @param scimContext SCIM context
@@ -408,5 +291,133 @@ public class UsersController extends AbstractController {
 
         return translateUser(scimContext, userAttributes, existing);
     }
+    /**
+     * Tests if user matches SCIM filter
+     *
+     * @param user user
+     * @param userAttributes user attributes
+     * @param filter SCIM filter
+     * @return true if user matches filter
+     */
+    protected boolean matchScimFilter(
+            UserModel user,
+            UserAttributes userAttributes,
+            ScimFilter filter
+    ) {
+        switch (filter) {
+            case null -> {
+                return true;
+            }
+            case ComparisonFilter cmp -> {
+                UserAttribute<?> userAttribute = userAttributes.findByScimPath(cmp.attribute());
+                if (userAttribute == null) {
+                    throw new UnsupportedUserPath("Unsupported attribute: " + cmp.attribute());
+                }
 
+                String value = cmp.value();
+                Object actual = userAttribute.read(user);
+                if (actual == null) return false;
+
+                String actualString;
+                if (actual instanceof String) {
+                    actualString = (String) actual;
+                } else if (actual instanceof Boolean) {
+                    actualString = Boolean.toString((Boolean) actual);
+                } else {
+                    throw new UnsupportedUserPath("Unsupported attribute type: " + actual.getClass());
+                }
+
+                return switch (cmp.operator()) {
+                    case EQ -> actualString.equalsIgnoreCase(value);
+                    case CO -> actualString.toLowerCase().contains(value.toLowerCase());
+                    case SW -> actualString.toLowerCase().startsWith(value.toLowerCase());
+                    case EW -> actualString.toLowerCase().endsWith(value.toLowerCase());
+                    default -> false;
+                };
+            }
+            case LogicalFilter logical -> {
+                boolean left = matchScimFilter(user, userAttributes, logical.left());
+                boolean right = matchScimFilter(user, userAttributes, logical.right());
+
+                return switch (logical.operator()) {
+                    case AND -> left && right;
+                    case OR -> left || right;
+                    default -> false;
+                };
+            }
+            case PresenceFilter presence -> {
+                UserAttribute<?> presenceAttribute = userAttributes.findByScimPath(presence.attribute());
+                if (presenceAttribute == null) {
+                    throw new UnsupportedUserPath("Unsupported attribute: " + presence.attribute());
+                }
+
+                Object value = presenceAttribute.read(user);
+                if (value instanceof Boolean) {
+                    return (Boolean) value;
+                }
+
+                return value != null;
+            }
+            default -> {
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Translates Keycloak user to SCIM user
+     *
+     * @param user Keycloak user
+     * @return SCIM user
+     */
+    protected fi.metatavu.keycloak.scim.server.model.User translateUser(
+            ScimContext scimContext,
+            UserAttributes userAttributes,
+            UserModel user
+    ) {
+        if (user == null) {
+            return null;
+        }
+
+        fi.metatavu.keycloak.scim.server.model.User result = new fi.metatavu.keycloak.scim.server.model.User()
+                .id(user.getId())
+                .userName(user.getUsername())
+                .active(user.isEnabled())
+                .emails(Collections.singletonList(new fi.metatavu.keycloak.scim.server.model.UserEmailsInner()
+                        .value(user.getEmail())
+                        .primary(true)
+                ))
+                .meta(getMeta(scimContext, "User", String.format("Users/%s", user.getId())))
+                .schemas(Collections.singletonList(Schemas.USER_SCHEMA))
+                .name(new fi.metatavu.keycloak.scim.server.model.UserName()
+                        .familyName(user.getLastName())
+                        .givenName(user.getFirstName())
+                );
+
+        List<UserAttribute<?>> customAttributes = userAttributes.listBySource(UserAttribute.Source.USER_PROFILE);
+        for (UserAttribute<?> userAttribute : customAttributes) {
+            Object value = userAttribute.read(user);
+            if (value != null) {
+                result.putAdditionalProperty(userAttribute.getScimPath(), value);
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Deletes a user
+     *
+     * @param scimContext SCIM context
+     * @param user user
+     */
+    public void deleteUser(
+        RealmScimContext scimContext,
+        UserModel user
+    ) {
+        KeycloakSession session = scimContext.getSession();
+        RealmModel realm = scimContext.getRealm();
+        session.users().removeUser(realm, user);
+    }
 }

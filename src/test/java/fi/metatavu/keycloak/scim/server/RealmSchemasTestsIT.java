@@ -18,15 +18,16 @@ import static org.junit.jupiter.api.Assertions.*;
  * Tests for SCIM 2.0 Schemas endpoint
  */
 @Testcontainers
-public class TestSchemasIT extends AbstractScimTest {
+public class RealmSchemasTestsIT extends AbstractRealmScimTest {
 
     @Container
     protected static final KeycloakContainer keycloakContainer = new KeycloakContainer("quay.io/keycloak/keycloak:26.1.2")
-            .withNetwork(network)
-            .withNetworkAliases("scim-keycloak")
-            .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
-            .withRealmImportFile("kc-test.json")
-            .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
+        .withNetwork(network)
+        .withEnv("SCIM_AUTHENTICATION_MODE", "KEYCLOAK")
+        .withNetworkAliases("scim-keycloak")
+        .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
+        .withRealmImportFile("kc-test.json")
+        .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
 
     @Override
     protected KeycloakContainer getKeycloakContainer() {
@@ -51,6 +52,22 @@ public class TestSchemasIT extends AbstractScimTest {
         assertGroupSchema(schemas.stream().filter(s -> s.getId().equals("urn:ietf:params:scim:schemas:core:2.0:Group")).findFirst().orElseThrow());
     }
 
+    @Test
+    void testUserSchema() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+        SchemaListItem schema = scimClient.findSchema("urn:ietf:params:scim:schemas:core:2.0:User");
+        assertNotNull(schema);
+        assertUserSchema(schema);
+    }
+
+    @Test
+    void testGroupSchema() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+        SchemaListItem schema = scimClient.findSchema("urn:ietf:params:scim:schemas:core:2.0:Group");
+        assertNotNull(schema);
+        assertGroupSchema(schema);
+    }
+
     /**
      * Asserts that the user schema is correct
      *
@@ -68,9 +85,9 @@ public class TestSchemasIT extends AbstractScimTest {
         assertUserAttribute(schema.getAttributes(), "name.givenName", SchemaAttribute.TypeEnum.STRING);
         assertUserAttribute(schema.getAttributes(), "name.familyName", SchemaAttribute.TypeEnum.STRING);
         assertUserAttribute(schema.getAttributes(), "active", SchemaAttribute.TypeEnum.BOOLEAN);
-        assertUserAttribute(schema.getAttributes(), "preferredLanguage", SchemaAttribute.TypeEnum.STRING);
         assertUserAttribute(schema.getAttributes(), "displayName", SchemaAttribute.TypeEnum.STRING);
         assertUserAttribute(schema.getAttributes(), "externalId", SchemaAttribute.TypeEnum.STRING);
+        assertUserAttribute(schema.getAttributes(), "preferredLanguage", SchemaAttribute.TypeEnum.STRING);
     }
 
     /**

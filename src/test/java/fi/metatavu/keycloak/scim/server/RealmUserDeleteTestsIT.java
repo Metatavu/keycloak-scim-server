@@ -3,6 +3,7 @@ package fi.metatavu.keycloak.scim.server;
 import dasniko.testcontainers.keycloak.KeycloakContainer;
 import fi.metatavu.keycloak.scim.server.test.client.ApiException;
 import fi.metatavu.keycloak.scim.server.test.client.model.User;
+import jakarta.ws.rs.NotFoundException;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -12,15 +13,16 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tests for SCIM 2.0 user find (GET /Users/{id}) endpoint
+ * Tests for SCIM 2.0 User delete endpoint
  */
 @Testcontainers
-public class UserFindTestsIT extends AbstractScimTest {
+public class RealmUserDeleteTestsIT extends AbstractRealmScimTest {
 
     @Container
     protected static final KeycloakContainer keycloakContainer = new KeycloakContainer("quay.io/keycloak/keycloak:26.1.2")
         .withNetwork(network)
         .withNetworkAliases("scim-keycloak")
+        .withEnv("SCIM_AUTHENTICATION_MODE", "KEYCLOAK")
         .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
         .withRealmImportFile("kc-test.json")
         .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
@@ -31,44 +33,43 @@ public class UserFindTestsIT extends AbstractScimTest {
     }
 
     @Test
-    void testFindUserById() throws ApiException {
+    void testDeleteUser() throws ApiException {
         ScimClient scimClient = getAuthenticatedScimClient();
 
         // Create user
         User user = new User();
-        user.setUserName("find-me");
+        user.setUserName("delete-me");
         user.setActive(true);
         user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
-        user.setName(getName("Find", "Me"));
-        user.setEmails(getEmails("find.me@example.com"));
+        user.setName(getName("Delete", "Me"));
+        user.setEmails(getEmails("delete.me@example.com"));
 
         User created = scimClient.createUser(user);
         assertNotNull(created);
-        String userId = created.getId();
 
-        // Find the user
-        User found = scimClient.findUser(userId);
-        assertNotNull(found);
-        assertEquals(userId, found.getId());
-        assertEquals("find-me", found.getUserName());
-        assertNotNull(found.getName());
-        assertEquals("Find", found.getName().getGivenName());
-        assertEquals("Me", found.getName().getFamilyName());
-        assertNotNull(found.getEmails());
-        assertEquals("find.me@example.com", found.getEmails().getFirst().getValue());
+        // Delete user
+        scimClient.deleteUser(created.getId());
 
-        // Clean up
-        deleteRealmUser(userId);
+        // Try to fetch the user to confirm deletion
+        ApiException exception = assertThrows(ApiException.class, () ->
+            scimClient.findUser(created.getId())
+        );
+
+        assertEquals(404, exception.getCode());
+
+        NotFoundException notFoundException = assertThrows(NotFoundException.class, () ->
+            findRealmUser(TestConsts.TEST_REALM, created.getId())
+        );
     }
 
     @Test
-    void testFindUserNotFound() {
+    void testDeleteNonexistentUserReturns404() {
         ScimClient scimClient = getAuthenticatedScimClient();
 
-        String fakeId = "non-existent-id";
+        String nonexistentId = "nonexistent-user-id";
 
         ApiException exception = assertThrows(ApiException.class, () ->
-                scimClient.findUser(fakeId)
+                scimClient.deleteUser(nonexistentId)
         );
 
         assertEquals(404, exception.getCode());

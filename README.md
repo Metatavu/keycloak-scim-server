@@ -5,7 +5,7 @@ This project provides a **SCIM 2.0-compliant extension** for [Keycloak](https://
 - **Realm-level SCIM APIs**:  
   `/realms/{realm}/scim/v2`
 - **Organization-level SCIM APIs** (Keycloak 26+ with Organizations):  
-  `/realms/organizations/scim/v2/organizations/{organizationId}`
+  `/realms/{realm}/scim/v2/organizations/{organizationId}`
 
 ## Prerequisites
 

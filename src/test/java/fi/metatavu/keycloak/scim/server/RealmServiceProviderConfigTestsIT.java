@@ -21,11 +21,12 @@ public class RealmServiceProviderConfigTestsIT extends AbstractRealmScimTest {
 
     @Container
     protected static final KeycloakContainer keycloakContainer = new KeycloakContainer("quay.io/keycloak/keycloak:26.1.2")
-            .withNetwork(network)
-            .withNetworkAliases("scim-keycloak")
-            .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
-            .withRealmImportFile("kc-test.json")
-            .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
+        .withNetwork(network)
+        .withNetworkAliases("scim-keycloak")
+        .withEnv("SCIM_AUTHENTICATION_MODE", "KEYCLOAK")
+        .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
+        .withRealmImportFile("kc-test.json")
+        .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
 
     @Override
     protected KeycloakContainer getKeycloakContainer() {

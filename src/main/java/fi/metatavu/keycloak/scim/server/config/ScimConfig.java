@@ -13,7 +13,6 @@ public interface ScimConfig {
         EXTERNAL
     }
 
-
     /**
      * Validates the configuration
      *

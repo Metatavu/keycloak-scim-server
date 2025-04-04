@@ -31,13 +31,6 @@ public abstract class AbstractRealmScimTest extends AbstractScimTest {
      *
      * @return service account token
      */
-
-
-    /**
-     * Returns service account token
-     *
-     * @return service account token
-     */
     protected String getServiceAccountToken() {
         try (Keycloak keycloakAdmin = KeycloakBuilder.builder()
                 .serverUrl(getKeycloakContainer().getAuthServerUrl())

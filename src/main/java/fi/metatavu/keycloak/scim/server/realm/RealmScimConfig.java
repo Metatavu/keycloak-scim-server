@@ -48,7 +48,7 @@ public class RealmScimConfig implements ScimConfig {
         return config.getOptionalValue("scim.authentication.mode", String.class)
                 .map(String::toUpperCase)
                 .map(AuthenticationMode::valueOf)
-                .orElse(AuthenticationMode.KEYCLOAK);
+                .orElse(null);
     }
 
     /**

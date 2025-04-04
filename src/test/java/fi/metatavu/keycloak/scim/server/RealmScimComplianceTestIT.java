@@ -3,7 +3,7 @@ package fi.metatavu.keycloak.scim.server;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dasniko.testcontainers.keycloak.KeycloakContainer;
-import jakarta.ws.rs.core.UriBuilder;
+
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -16,19 +16,15 @@ import org.testcontainers.containers.Container.ExecResult;
 
 import java.io.IOException;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 /**
  * SCIM compliance tests
  */
 @Testcontainers
-public class ScimComplianceTestIT extends AbstractScimTest {
+public class RealmScimComplianceTestIT extends AbstractRealmScimTest {
 
     @Container
     protected static final KeycloakContainer keycloakContainer = new KeycloakContainer("quay.io/keycloak/keycloak:26.1.2")
@@ -55,10 +51,9 @@ public class ScimComplianceTestIT extends AbstractScimTest {
     @Test
     void scimComplianceShouldPass() throws IOException, InterruptedException {
         URI complianceServerUrl = URI.create(String.format("http://%s:%d", scimCompliance.getHost(), scimCompliance.getMappedPort(8081)));
-
+        URI endPointUrl = URI.create("http://scim-keycloak:8080/realms/test/scim/v2");
         String accessToken = getAccessToken();
-
-        String runId = startComplianceTests(complianceServerUrl, accessToken);
+        String runId = startComplianceTests(complianceServerUrl, endPointUrl, accessToken, true, true);
 
         await()
             .atMost(Duration.ofMinutes(1))
@@ -73,69 +68,6 @@ public class ScimComplianceTestIT extends AbstractScimTest {
 
         for (ComplianceTestStatus testStatus : testStatuses) {
             assertTrue(testStatus.success, "Compliance test failed: " + testStatus.title + "\n" + new ObjectMapper().writeValueAsString(testStatus));
-        }
-    }
-
-    /**
-     * Starts compliance tests in the compliance tester container
-     *
-     * @param complianceServerUrl compliance tester URL
-     * @param accessToken access token
-     * @return run ID
-     * @throws IOException when the response body can't be read
-     * @throws InterruptedException when the HTTP request is interrupted
-     */
-    private String startComplianceTests(URI complianceServerUrl, String accessToken) throws IOException, InterruptedException {
-        URI runUri = UriBuilder.fromUri(complianceServerUrl)
-          .path("/test/run")
-          .queryParam("endPoint", "http://scim-keycloak:8080/realms/test/scim/v2")
-          .queryParam("jwtToken", accessToken)
-          .queryParam("usersCheck", 1)
-          .queryParam("groupsCheck", 1)
-          .queryParam("checkIndResLocation", 1)
-          .build();
-
-        ObjectMapper objectMapper = new ObjectMapper();
-
-        HttpRequest request = HttpRequest.newBuilder()
-            .uri(runUri)
-            .POST(HttpRequest.BodyPublishers.noBody())
-            .header("Accept", "application/json")
-            .build();
-
-        try (HttpClient client = HttpClient.newHttpClient()) {
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            JsonNode responseJson = objectMapper.readTree(response.body());
-            return responseJson.get("id").asText();
-        }
-    }
-
-    /**
-     * Fetches compliance test status from the compliance tester container
-     *
-     * @param complianceServerUrl compliance tester URL
-     * @param runId run ID
-     * @return compliance test status
-     * @throws IOException when the response body can't be read
-     * @throws InterruptedException when the HTTP request is interrupted
-     */
-    private ComplianceStatus getComplianceStatus(URI complianceServerUrl, String runId) throws IOException, InterruptedException {
-        URI statusUri = UriBuilder.fromUri(complianceServerUrl)
-          .path("/test/status")
-          .queryParam("runId", runId)
-          .build();
-
-        ObjectMapper objectMapper = new ObjectMapper();
-
-        HttpRequest request = HttpRequest.newBuilder()
-            .uri(statusUri)
-            .GET()
-            .header("Accept", "application/json")
-            .build();
-
-        try (HttpClient client = HttpClient.newHttpClient()) {
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            return objectMapper.readValue(response.body(), ComplianceStatus.class);
         }
     }
 
@@ -167,24 +99,6 @@ public class ScimComplianceTestIT extends AbstractScimTest {
         }
 
         return node.get("access_token").asText();
-    }
-
-    @SuppressWarnings("unused")
-    public static class ComplianceStatus {
-        public List<ComplianceTestStatus> data;
-        public int nextIndex;
-    }
-
-    @SuppressWarnings("unused")
-    public static class ComplianceTestStatus {
-        public boolean success;
-        public boolean notSupported;
-        public String title;
-        public String requestBody;
-        public String requestMethod;
-        public String responseBody;
-        public int responseCode;
-        public Map<String, String[]> responseHeaders;
     }
 
 }

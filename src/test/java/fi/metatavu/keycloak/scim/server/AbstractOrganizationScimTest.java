@@ -31,7 +31,7 @@ public abstract class AbstractOrganizationScimTest extends AbstractScimTest {
      *
      * @return access token
      */
-    private String getExternalServiceAccountToken() {
+    protected String getExternalServiceAccountToken() {
         try (Keycloak keycloakAdmin = KeycloakBuilder.builder()
                 .serverUrl(getKeycloakContainer().getAuthServerUrl())
                 .realm(TestConsts.EXTERNAL_REALM)

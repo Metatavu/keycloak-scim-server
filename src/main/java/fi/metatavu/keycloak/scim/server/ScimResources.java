@@ -603,18 +603,13 @@ public class ScimResources {
         @PathParam("organizationId") String organizationId,
         @PathParam("id") String id
     ) {
-        try {
-            OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
-            organizationScimServer.verifyPermissions(scimContext);
+        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
+        organizationScimServer.verifyPermissions(scimContext);
 
-            return organizationScimServer.findResourceType(
-                scimContext,
-                id
-            );
-        } catch (Exception e) {
-            logger.error("Failed to list organization resource types", e);
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to list organization resource types").build();
-        }
+        return organizationScimServer.findResourceType(
+            scimContext,
+            id
+        );
     }
 
     @GET

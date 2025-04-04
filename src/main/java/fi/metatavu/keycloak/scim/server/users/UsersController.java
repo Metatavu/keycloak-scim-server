@@ -16,12 +16,10 @@ import fi.metatavu.keycloak.scim.server.model.User;
 import fi.metatavu.keycloak.scim.server.model.UsersList;
 import fi.metatavu.keycloak.scim.server.patch.PatchOperation;
 import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
+import fi.metatavu.keycloak.scim.server.realm.RealmScimContext;
 import jakarta.ws.rs.NotFoundException;
 import org.jboss.logging.Logger;
-import org.keycloak.models.KeycloakSession;
-import org.keycloak.models.RealmModel;
-import org.keycloak.models.RoleModel;
-import org.keycloak.models.UserModel;
+import org.keycloak.models.*;
 
 import java.util.*;
 
@@ -65,31 +63,28 @@ public class UsersController extends AbstractController {
             user.grantRole(scimRole);
         }
 
-        if (scimUser.getDisplayName() != null) {
-            UserAttribute<?> userAttribute = userAttributes.findByScimPath("displayName");
-            if (userAttribute instanceof StringUserAttribute) {
-                ((StringUserAttribute) userAttribute).write(user, scimUser.getDisplayName());
-            } else {
-                logger.warn("Unsupported attribute displayName");
-            }
-        }
-
-        if (scimUser.getExternalId() != null) {
-            UserAttribute<?> userAttribute = userAttributes.findByScimPath("externalId");
-            if (userAttribute instanceof StringUserAttribute) {
-                ((StringUserAttribute) userAttribute).write(user, scimUser.getExternalId());
-            } else {
-                logger.warn("Unsupported attribute externalId");
-            }
-        }
-
-        if (scimUser.getPreferredLanguage() != null) {
-            UserAttribute<?> userAttribute = userAttributes.findByScimPath("preferredLanguage");
-            if (userAttribute instanceof StringUserAttribute) {
-                ((StringUserAttribute) userAttribute).write(user, scimUser.getPreferredLanguage());
-            } else {
-                logger.warn("Unsupported attribute preferredLanguage");
-            }
+        Map<String, Object> additionalProperties = scimUser.getAdditionalProperties();
+        if (additionalProperties != null) {
+            additionalProperties.forEach((key, value) -> {
+                UserAttribute<?> userAttribute = userAttributes.findByScimPath(key);
+                if (userAttribute != null) {
+                    if (userAttribute instanceof StringUserAttribute) {
+                        if (value instanceof String) {
+                            ((StringUserAttribute) userAttribute).write(user, (String) value);
+                        } else {
+                            logger.warn("Unsupported value type: " + value.getClass());
+                        }
+                    } else if (userAttribute instanceof BooleanUserAttribute) {
+                        if (value instanceof Boolean) {
+                            ((BooleanUserAttribute) userAttribute).write(user, (Boolean) value);
+                        } else {
+                            logger.warn("Unsupported value type: " + value.getClass());
+                        }
+                    } else {
+                        logger.warn("Unsupported attribute: " + key);
+                    }
+                }
+            });
         }
 
         return translateUser(
@@ -190,6 +185,113 @@ public class UsersController extends AbstractController {
     }
 
     /**
+     * Updates a user with SCIM user data
+     *
+     * @param scimContext SCIM context
+     * @param userAttributes user attributes
+     * @param existing existing user
+     * @param scimUser SCIM user
+     * @return updated user
+     */
+    public fi.metatavu.keycloak.scim.server.model.User updateUser(
+        ScimContext scimContext,
+        UserAttributes userAttributes,
+        UserModel existing,
+        User scimUser
+    ) {
+        existing.setUsername(scimUser.getUserName());
+        existing.setEnabled(scimUser.getActive() == null || Boolean.TRUE.equals(scimUser.getActive()));
+
+        if (scimUser.getName() != null) {
+            existing.setFirstName(scimUser.getName().getGivenName());
+            existing.setLastName(scimUser.getName().getFamilyName());
+        }
+
+        if (scimUser.getEmails() != null && !scimUser.getEmails().isEmpty()) {
+            existing.setEmail(scimUser.getEmails().getFirst().getValue());
+        }
+
+        Map<String, Object> additionalProperties = scimUser.getAdditionalProperties();
+        if (additionalProperties != null) {
+            additionalProperties.forEach((key, value) -> {
+                UserAttribute<?> userAttribute = userAttributes.findByScimPath(key);
+                if (userAttribute != null) {
+                    if (userAttribute instanceof StringUserAttribute) {
+                        if (value instanceof String) {
+                            ((StringUserAttribute) userAttribute).write(existing, (String) value);
+                        } else {
+                            logger.warn("Unsupported value type: " + value.getClass());
+                        }
+                    } else if (userAttribute instanceof BooleanUserAttribute) {
+                        if (value instanceof Boolean) {
+                            ((BooleanUserAttribute) userAttribute).write(existing, (Boolean) value);
+                        } else {
+                            logger.warn("Unsupported value type: " + value.getClass());
+                        }
+                    } else {
+                        logger.warn("Unsupported attribute: " + key);
+                    }
+                }
+            });
+        }
+
+        return translateUser(scimContext, userAttributes, existing);
+    }
+
+    /**
+     * Patch user with SCIM user data
+     *
+     * @param scimContext SCIM context
+     * @param userAttributes user attributes
+     * @param existing existing user
+     * @param patchRequest patch request
+     * @return patched user
+     */
+    public fi.metatavu.keycloak.scim.server.model.User patchUser(
+        ScimContext scimContext,
+        UserAttributes userAttributes,
+        UserModel existing,
+        fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
+    ) throws UnsupportedPatchOperation {
+        for (var operation : patchRequest.getOperations()) {
+            PatchOperation op = PatchOperation.fromString(operation.getOp());
+            if (op == null) {
+                logger.warn("Invalid patch operation: " + operation.getOp());
+                throw new UnsupportedPatchOperation("Unsupported patch operation: " + operation.getOp());
+            }
+
+            UserAttribute<?> userAttribute = userAttributes.findByScimPath(operation.getPath());
+            Object value = operation.getValue();
+
+            if (userAttribute == null) {
+                throw new UnsupportedUserPath("Unsupported attribute: " + operation.getPath());
+            }
+
+            switch (op) {
+                case REPLACE, ADD -> {
+                    switch (value) {
+                        case null:
+                            logger.warn("Value is null for patch operation: " + op);
+                        break;
+                        case String s when userAttribute instanceof StringUserAttribute:
+                            ((StringUserAttribute) userAttribute).write(existing, s);
+                        break;
+                        case Boolean b when userAttribute instanceof BooleanUserAttribute:
+                            ((BooleanUserAttribute) userAttribute).write(existing, b);
+                        break;
+                        default:
+                            logger.warn("Unsupported value type for patch operation: " + value.getClass());
+                        break;
+                    }
+
+                }
+                case REMOVE -> userAttribute.write(existing, null);
+            }
+        }
+
+        return translateUser(scimContext, userAttributes, existing);
+    }
+    /**
      * Tests if user matches SCIM filter
      *
      * @param user user
@@ -197,10 +299,10 @@ public class UsersController extends AbstractController {
      * @param filter SCIM filter
      * @return true if user matches filter
      */
-    private boolean matchScimFilter(
-        UserModel user,
-        UserAttributes userAttributes,
-        ScimFilter filter
+    protected boolean matchScimFilter(
+            UserModel user,
+            UserAttributes userAttributes,
+            ScimFilter filter
     ) {
         switch (filter) {
             case null -> {
@@ -269,165 +371,53 @@ public class UsersController extends AbstractController {
      * @param user Keycloak user
      * @return SCIM user
      */
-    private fi.metatavu.keycloak.scim.server.model.User translateUser(
-        ScimContext scimContext,
-        UserAttributes userAttributes,
-        UserModel user
+    protected fi.metatavu.keycloak.scim.server.model.User translateUser(
+            ScimContext scimContext,
+            UserAttributes userAttributes,
+            UserModel user
     ) {
         if (user == null) {
             return null;
         }
 
-        return new fi.metatavu.keycloak.scim.server.model.User()
-            .id(user.getId())
-            .userName(user.getUsername())
-            .active(user.isEnabled())
-            .externalId(readStringUserAttribute(userAttributes, "externalId", user))
-            .preferredLanguage(readStringUserAttribute(userAttributes, "preferredLanguage", user))
-            .displayName(readStringUserAttribute(userAttributes, "displayName", user))
-            .emails(Collections.singletonList(new fi.metatavu.keycloak.scim.server.model.UserEmailsInner()
-                    .value(user.getEmail())
-                    .primary(true)
-            ))
-            .meta(getMeta(scimContext, "User", String.format("Users/%s", user.getId())))
-            .schemas(Collections.singletonList(Schemas.USER_SCHEMA))
-            .name(new fi.metatavu.keycloak.scim.server.model.UserName()
-                    .familyName(user.getLastName())
-                    .givenName(user.getFirstName())
-            );
+        fi.metatavu.keycloak.scim.server.model.User result = new fi.metatavu.keycloak.scim.server.model.User()
+                .id(user.getId())
+                .userName(user.getUsername())
+                .active(user.isEnabled())
+                .emails(Collections.singletonList(new fi.metatavu.keycloak.scim.server.model.UserEmailsInner()
+                        .value(user.getEmail())
+                        .primary(true)
+                ))
+                .meta(getMeta(scimContext, "User", String.format("Users/%s", user.getId())))
+                .schemas(Collections.singletonList(Schemas.USER_SCHEMA))
+                .name(new fi.metatavu.keycloak.scim.server.model.UserName()
+                        .familyName(user.getLastName())
+                        .givenName(user.getFirstName())
+                );
+
+        List<UserAttribute<?>> customAttributes = userAttributes.listBySource(UserAttribute.Source.USER_PROFILE);
+        for (UserAttribute<?> userAttribute : customAttributes) {
+            Object value = userAttribute.read(user);
+            if (value != null) {
+                result.putAdditionalProperty(userAttribute.getScimPath(), value);
+            }
+        }
+
+        return result;
     }
 
     /**
-     * Updates a user with SCIM user data
+     * Deletes a user
      *
      * @param scimContext SCIM context
-     * @param userAttributes user attributes
-     * @param existing existing user
-     * @param scimUser SCIM user
-     * @return updated user
-     */
-    public fi.metatavu.keycloak.scim.server.model.User updateUser(
-        ScimContext scimContext,
-        UserAttributes userAttributes,
-        UserModel existing,
-        User scimUser
-    ) {
-        existing.setUsername(scimUser.getUserName());
-        existing.setEnabled(scimUser.getActive() == null || Boolean.TRUE.equals(scimUser.getActive()));
-
-        if (scimUser.getName() != null) {
-            existing.setFirstName(scimUser.getName().getGivenName());
-            existing.setLastName(scimUser.getName().getFamilyName());
-        }
-
-        if (scimUser.getEmails() != null && !scimUser.getEmails().isEmpty()) {
-            existing.setEmail(scimUser.getEmails().getFirst().getValue());
-        }
-
-        if (scimUser.getDisplayName() != null) {
-            UserAttribute<?> userAttribute = userAttributes.findByScimPath("displayName");
-            if (userAttribute instanceof StringUserAttribute) {
-                ((StringUserAttribute) userAttribute).write(existing, scimUser.getDisplayName());
-            } else {
-                logger.warn("Unsupported attribute displayName");
-            }
-        }
-
-        if (scimUser.getExternalId() != null) {
-            UserAttribute<?> userAttribute = userAttributes.findByScimPath("externalId");
-            if (userAttribute instanceof StringUserAttribute) {
-                ((StringUserAttribute) userAttribute).write(existing, scimUser.getExternalId());
-            } else {
-                logger.warn("Unsupported attribute externalId");
-            }
-        }
-
-        if (scimUser.getPreferredLanguage() != null) {
-            UserAttribute<?> userAttribute = userAttributes.findByScimPath("preferredLanguage");
-            if (userAttribute instanceof StringUserAttribute) {
-                ((StringUserAttribute) userAttribute).write(existing, scimUser.getPreferredLanguage());
-            } else {
-                logger.warn("Unsupported attribute preferredLanguage");
-            }
-        }
-
-        return translateUser(scimContext, userAttributes, existing);
-    }
-
-    /**
-     * Patch user with SCIM user data
-     *
-     * @param scimContext SCIM context
-     * @param userAttributes user attributes
-     * @param existing existing user
-     * @param patchRequest patch request
-     * @return patched user
-     */
-    public fi.metatavu.keycloak.scim.server.model.User patchUser(
-        ScimContext scimContext,
-        UserAttributes userAttributes,
-        UserModel existing,
-        fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
-    ) throws UnsupportedPatchOperation {
-        for (var operation : patchRequest.getOperations()) {
-            PatchOperation op = PatchOperation.fromString(operation.getOp());
-            if (op == null) {
-                logger.warn("Invalid patch operation: " + operation.getOp());
-                throw new UnsupportedPatchOperation("Unsupported patch operation: " + operation.getOp());
-            }
-
-            UserAttribute<?> userAttribute = userAttributes.findByScimPath(operation.getPath());
-            Object value = operation.getValue();
-
-            if (userAttribute == null) {
-                throw new UnsupportedUserPath("Unsupported attribute: " + operation.getPath());
-            }
-
-            switch (op) {
-                case REPLACE, ADD -> {
-                    switch (value) {
-                        case null:
-                            logger.warn("Value is null for patch operation: " + op);
-                        break;
-                        case String s when userAttribute instanceof StringUserAttribute:
-                            ((StringUserAttribute) userAttribute).write(existing, s);
-                        break;
-                        case Boolean b when userAttribute instanceof BooleanUserAttribute:
-                            ((BooleanUserAttribute) userAttribute).write(existing, b);
-                        break;
-                        default:
-                            logger.warn("Unsupported value type for patch operation: " + value.getClass());
-                        break;
-                    }
-
-                }
-                case REMOVE -> userAttribute.write(existing, null);
-            }
-        }
-
-        return translateUser(scimContext, userAttributes, existing);
-    }
-
-    /**
-     * Reads a user attribute
-     *
-     * @param userAttributes user attributes
-     * @param attributeName attribute name
      * @param user user
-     * @return attribute value
      */
-    private String readStringUserAttribute(UserAttributes userAttributes, String attributeName, UserModel user) {
-        UserAttribute<?> userAttribute = userAttributes.findByScimPath(attributeName);
-        if (userAttribute == null) {
-            return null;
-        }
-
-        Object value = userAttribute.read(user);
-        if (value instanceof String) {
-            return (String) value;
-        }
-
-        return null;
+    public void deleteUser(
+        RealmScimContext scimContext,
+        UserModel user
+    ) {
+        KeycloakSession session = scimContext.getSession();
+        RealmModel realm = scimContext.getRealm();
+        session.users().removeUser(realm, user);
     }
-
 }

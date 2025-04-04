@@ -13,7 +13,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * Tests for SCIM 2.0 user find (GET /Users/{id}) endpoint
  */
 @Testcontainers
-public class ExternalTokenTestsIT extends AbstractScimTest {
+public class RealmExternalTokenTestsIT extends AbstractRealmScimTest {
 
     @Container
     protected static final KeycloakContainer keycloakContainer = new KeycloakContainer("quay.io/keycloak/keycloak:26.1.2")

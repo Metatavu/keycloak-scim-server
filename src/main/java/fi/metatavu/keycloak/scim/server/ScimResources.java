@@ -1,33 +1,17 @@
 package fi.metatavu.keycloak.scim.server;
 
-import fi.metatavu.keycloak.scim.server.authentication.ExternalTokenVerifier;
-import fi.metatavu.keycloak.scim.server.config.SCIMConfig;
 import fi.metatavu.keycloak.scim.server.consts.ContentTypes;
-import fi.metatavu.keycloak.scim.server.consts.ScimRoles;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilterParser;
-import fi.metatavu.keycloak.scim.server.groups.GroupsController;
-import fi.metatavu.keycloak.scim.server.groups.UnsupportedGroupPath;
-import fi.metatavu.keycloak.scim.server.metadata.MetadataController;
-import fi.metatavu.keycloak.scim.server.metadata.UserAttributes;
-import fi.metatavu.keycloak.scim.server.model.User;
-import fi.metatavu.keycloak.scim.server.model.UsersList;
 import fi.metatavu.keycloak.scim.server.model.Group;
-import fi.metatavu.keycloak.scim.server.model.GroupsList;
-import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
-import fi.metatavu.keycloak.scim.server.users.UsersController;
+import fi.metatavu.keycloak.scim.server.organization.OrganizationScimContext;
+import fi.metatavu.keycloak.scim.server.organization.OrganizationScimServer;
+import fi.metatavu.keycloak.scim.server.realm.RealmScimContext;
+import fi.metatavu.keycloak.scim.server.realm.RealmScimServer;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.*;
 import org.jboss.logging.Logger;
-import org.keycloak.common.ClientConnection;
-import org.keycloak.jose.jws.JWSInputException;
 import org.keycloak.models.*;
-import org.keycloak.services.managers.AuthenticationManager;
-import org.keycloak.services.managers.AppAuthManager;
-
-import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
 
 /**
  * SCIM REST resources
@@ -35,82 +19,48 @@ import java.net.URISyntaxException;
 public class ScimResources {
 
     private static final Logger logger = Logger.getLogger(ScimResources.class.getName());
-    private final UsersController usersController;
-    private final MetadataController metadataController;
     private final ScimFilterParser scimFilterParser;
-    private final GroupsController groupsController;
+    private final RealmScimServer realmScimServer;
+    private final OrganizationScimServer organizationScimServer;
 
     ScimResources() {
-        usersController = new UsersController();
-        metadataController = new MetadataController();
         scimFilterParser = new ScimFilterParser();
-        groupsController = new GroupsController();
+        realmScimServer = new RealmScimServer();
+        organizationScimServer = new OrganizationScimServer();
     }
+
+    // Realm Server endpoints
 
     @POST
     @Path("v2/Users")
     @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
-    public Response createUser(
+    public Response createRealmUser(
         @Context KeycloakSession session,
-        fi.metatavu.keycloak.scim.server.model.User scimUser
+        fi.metatavu.keycloak.scim.server.model.User createRequest
     ) {
-        try {
-            verifyPermissions(session);
-        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
-            logger.warn("Failed to verify permissions", e);
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
-        }
+        RealmScimContext scimContext = realmScimServer.getScimContext(session);
+        realmScimServer.verifyPermissions(scimContext);
 
-        RealmModel realm = session.getContext().getRealm();
-        if (realm == null) {
-            throw new NotFoundException("Realm not found");
-        }
-
-        if (scimUser.getUserName().isBlank()) {
-            logger.warn("Cannot create user: Missing userName");
-            return Response.status(Response.Status.BAD_REQUEST).entity("Missing userName").build();
-        }
-
-        UserModel existing = session.users().getUserByUsername(realm, scimUser.getUserName());
-        if (existing != null) {
-            return Response.status(Response.Status.CONFLICT).entity("User already exists").build();
-        }
-
-        ScimContext scimContext = getScimContext(session);
-        UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
-
-        User user = usersController.createUser(
+        return realmScimServer.createUser(
             scimContext,
-            userAttributes,
-            scimUser
+            createRequest
         );
-
-        URI location = UriBuilder.fromPath("v2/Users/{id}").build(user.getId());
-
-        return Response
-            .created(location)
-            .entity(user)
-            .build();
     }
 
     @GET
     @Path("v2/Users")
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
-    public Response listUsers(
+    public Response listRealmUsers(
         @Context KeycloakSession session,
         @QueryParam("filter") String filter,
         @QueryParam("startIndex") @DefaultValue("0") Integer startIndex,
         @QueryParam("count") @DefaultValue("100") Integer count
     ) {
-        try {
-            verifyPermissions(session);
-        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
-            logger.warn("Failed to verify permissions", e);
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
-        }
+        RealmScimContext scimContext = realmScimServer.getScimContext(session);
+        realmScimServer.verifyPermissions(scimContext);
 
         ScimFilter scimFilter;
         try {
@@ -120,47 +70,29 @@ public class ScimResources {
             return Response.status(Response.Status.BAD_REQUEST).entity("Invalid filter").build();
         }
 
-        UserAttributes userAttributes = metadataController.getUserAttributes(getScimContext(session));
-
-        UsersList usersList = usersController.listUsers(
-            getScimContext(session),
+        return realmScimServer.listUsers(
+            scimContext,
             scimFilter,
-            userAttributes,
             startIndex,
             count
         );
-
-        return Response.ok(usersList).build();
     }
 
     @GET
     @Path("v2/Users/{id}")
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
-    public Response findUser(
+    public Response findRealmUser(
             @Context KeycloakSession session,
             @PathParam("id") String userId
     ) {
-        try {
-            verifyPermissions(session);
-        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
-            logger.warn("Failed to verify permissions", e);
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
-        }
+        RealmScimContext scimContext = realmScimServer.getScimContext(session);
+        realmScimServer.verifyPermissions(scimContext);
 
-        RealmModel realm = session.getContext().getRealm();
-        if (realm == null) {
-            throw new NotFoundException("Realm not found");
-        }
-
-        UserAttributes userAttributes = metadataController.getUserAttributes(getScimContext(session));
-        User user = usersController.findUser(getScimContext(session), userAttributes, userId);
-        if (user == null) {
-            logger.warn(String.format("User not found: %s", userId));
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
-
-        return Response.ok(user).build();
+        return realmScimServer.findUser(
+            scimContext,
+            userId
+        );
     }
 
     @PUT
@@ -168,52 +100,19 @@ public class ScimResources {
     @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
-    public Response updateUser(
-            @Context KeycloakSession session,
-            @PathParam("id") String userId,
-            fi.metatavu.keycloak.scim.server.model.User scimUser
+    public Response updateRealmUser(
+        @Context KeycloakSession session,
+        @PathParam("id") String userId,
+        fi.metatavu.keycloak.scim.server.model.User updateRequest
     ) {
-        try {
-            verifyPermissions(session);
-        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
-            logger.warn("Failed to verify permissions", e);
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
-        }
+        RealmScimContext scimContext = realmScimServer.getScimContext(session);
+        realmScimServer.verifyPermissions(scimContext);
 
-        RealmModel realm = session.getContext().getRealm();
-        if (realm == null) {
-            logger.warn("Realm not found");
-            throw new NotFoundException("Realm not found");
-        }
-
-        if (scimUser.getUserName().isBlank()) {
-            logger.warn("Missing userName");
-            return Response.status(Response.Status.BAD_REQUEST).entity("Missing userName").build();
-        }
-
-        UserModel user = session.users().getUserById(realm, userId);
-        if (user == null) {
-            logger.warn(String.format("User not found: %s", userId));
-            return Response.status(Response.Status.NOT_FOUND).entity("User not found").build();
-        }
-
-        // Check if username is being changed to an already existing one
-        UserModel existing = session.users().getUserByUsername(realm, scimUser.getUserName());
-        if (existing == null) {
-            logger.warn(String.format("User not found: %s", scimUser.getUserName()));
-            return Response.status(Response.Status.NOT_FOUND).entity("User not found").build();
-        }
-
-        if (!existing.getId().equals(userId)) {
-            logger.warn(String.format("User name already taken: %s", scimUser.getUserName()));
-            return Response.status(Response.Status.CONFLICT).entity("User name already taken").build();
-        }
-
-        ScimContext scimContext = getScimContext(session);
-        UserAttributes userAttributes = metadataController.getUserAttributes(getScimContext(session));
-        User result = usersController.updateUser(scimContext, userAttributes, existing, scimUser);
-
-        return Response.ok(result).build();
+        return realmScimServer.updateUser(
+            scimContext,
+            userId,
+            updateRequest
+        );
     }
 
     @PATCH
@@ -221,83 +120,33 @@ public class ScimResources {
     @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
-    public Response patchUser(
-            @Context KeycloakSession session,
-            @PathParam("id") String userId,
-            fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
+    public Response patchRealmUser(
+        @Context KeycloakSession session,
+        @PathParam("id") String userId,
+        fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
     ) {
-        try {
-            verifyPermissions(session);
-        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
-            logger.warn("Failed to verify permissions", e);
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
-        }
+        RealmScimContext scimContext = realmScimServer.getScimContext(session);
+        realmScimServer.verifyPermissions(scimContext);
 
-        RealmModel realm = session.getContext().getRealm();
-        if (realm == null) {
-            logger.warn("Realm not found");
-            throw new NotFoundException("Realm not found");
-        }
-
-        UserModel user = session.users().getUserById(realm, userId);
-        if (user == null) {
-            logger.warn(String.format("User not found: %s", userId));
-            return Response.status(Response.Status.NOT_FOUND).entity("User not found").build();
-        }
-
-        // Check if username is being changed to an already existing one
-        UserModel existing = session.users().getUserById(realm, userId);
-        if (existing == null) {
-            logger.warn(String.format("User not found: %s", userId));
-            return Response.status(Response.Status.NOT_FOUND).entity("User not found").build();
-        }
-
-        ScimContext scimContext = getScimContext(session);
-        UserAttributes userAttributes = metadataController.getUserAttributes(getScimContext(session));
-
-        try {
-            User result = usersController.patchUser(scimContext, userAttributes, existing, patchRequest);
-            return Response.ok(result).build();
-        } catch (UnsupportedPatchOperation e) {
-            return Response.status(Response.Status.BAD_REQUEST).entity("Unsupported patch operation").build();
-        }
+        return realmScimServer.patchUser(
+            scimContext,
+            userId,
+            patchRequest
+        );
     }
 
     @DELETE
     @Path("v2/Users/{id}")
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
-    public Response deleteUser(
-            @Context KeycloakSession session,
-            @PathParam("id") String userId
+    public Response deleteRealmUser(
+        @Context KeycloakSession session,
+        @PathParam("id") String userId
     ) {
-        try {
-            verifyPermissions(session);
-        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
-            logger.warn("Failed to verify permissions", e);
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
-        }
+        RealmScimContext scimContext = realmScimServer.getScimContext(session);
+        realmScimServer.verifyPermissions(scimContext);
 
-        RealmModel realm = session.getContext().getRealm();
-        if (realm == null) {
-            throw new NotFoundException("Realm not found");
-        }
-
-        UserModel user = session.users().getUserById(realm, userId);
-        if (user == null) {
-            logger.warn(String.format("User not found: %s", userId));
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
-
-        RoleModel scimManagedRole = realm.getRole("scim-managed");
-        if (scimManagedRole != null && !user.hasRole(scimManagedRole)) {
-            logger.warn(String.format("User is not SCIM-managed: %s", userId));
-            return Response.status(Response.Status.FORBIDDEN).entity("User is not managed by SCIM").build();
-        }
-
-        session.users().removeUser(realm, user);
-
-        return Response.noContent().build();
+        return realmScimServer.deleteUser(scimContext, userId);
     }
 
     @POST
@@ -305,72 +154,53 @@ public class ScimResources {
     @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
-    public Response createGroup(
-            @Context KeycloakSession session,
-            fi.metatavu.keycloak.scim.server.model.Group scimGroup
+    public Response createRealmGroup(
+        @Context KeycloakSession session,
+        fi.metatavu.keycloak.scim.server.model.Group createRequest
     ) {
-        try {
-            verifyPermissions(session);
-        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
-            logger.warn("Failed to verify permissions", e);
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
-        }
+        RealmScimContext scimContext = realmScimServer.getScimContext(session);
+        realmScimServer.verifyPermissions(scimContext);
 
-        // TODO: conflict check
-
-        ScimContext context = getScimContext(session);
-        Group created = groupsController.createGroup(context, scimGroup);
-        URI location = UriBuilder.fromPath("v2/Groups/{id}").build(created.getId());
-
-        return Response
-            .created(location)
-            .entity(created)
-            .build();
+        return realmScimServer.createGroup(
+            scimContext,
+            createRequest
+        );
     }
 
     @GET
     @Path("v2/Groups")
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
-    public Response listGroups(
+    public Response listRealmGroups(
             @Context KeycloakSession session,
             @QueryParam("startIndex") @DefaultValue("0") int startIndex,
             @QueryParam("count") @DefaultValue("100") int count
     ) {
-        try {
-            verifyPermissions(session);
-        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
-            logger.warn("Failed to verify permissions", e);
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
-        }
+        RealmScimContext scimContext = realmScimServer.getScimContext(session);
+        realmScimServer.verifyPermissions(scimContext);
 
-        ScimContext context = getScimContext(session);
-        GroupsList groupList = groupsController.listGroups(context, startIndex, count);
-        return Response.ok(groupList).build();
+        return realmScimServer.listGroups(
+                scimContext,
+                startIndex,
+                count
+        );
     }
 
     @GET
     @Path("v2/Groups/{id}")
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
-    public Response findGroup(
+    public Response findRealmGroup(
             @Context KeycloakSession session,
             @PathParam("id") String id
     ) {
-        try {
-            verifyPermissions(session);
-        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
-            logger.warn("Failed to verify permissions", e);
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
-        }
+        RealmScimContext scimContext = realmScimServer.getScimContext(session);
+        realmScimServer.verifyPermissions(scimContext);
 
-        ScimContext context = getScimContext(session);
-        Group group = groupsController.findGroup(context, id);
-        if (group == null) {
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
-
-        return Response.ok(group).build();
+        return realmScimServer.findGroup(
+                scimContext,
+                id
+        );
     }
 
     @PUT
@@ -378,36 +208,19 @@ public class ScimResources {
     @Consumes("application/scim+json")
     @Produces("application/scim+json")
     @SuppressWarnings("unused")
-    public Response updateGroup(
+    public Response updateRealmGroup(
             @PathParam("id") String id,
             @Context KeycloakSession session,
-            Group group
+            Group updateRequest
     ) {
-        try {
-            verifyPermissions(session);
-        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
-            logger.warn("Failed to verify permissions", e);
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
-        }
+        RealmScimContext scimContext = realmScimServer.getScimContext(session);
+        realmScimServer.verifyPermissions(scimContext);
 
-        ScimContext scimContext = getScimContext(session);
-
-        GroupModel existing = session.groups().getGroupById(scimContext.getRealm(), id);
-        if (existing == null) {
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
-
-        if (!id.equals(existing.getId())) {
-            return Response.status(Response.Status.BAD_REQUEST).entity("Group ID mismatch").build();
-        }
-
-        Group updated = groupsController.updateGroup(
-            scimContext,
-            existing,
-            group
+        return realmScimServer.updateGroup(
+                scimContext,
+                id,
+                updateRequest
         );
-
-        return Response.ok(updated).build();
     }
 
     @PATCH
@@ -415,265 +228,437 @@ public class ScimResources {
     @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
-    public Response patchGroup(
+    public Response patchRealmGroup(
             @Context KeycloakSession session,
             @PathParam("id") String groupId,
             fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
     ) {
-        try {
-            verifyPermissions(session);
-        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
-            logger.warn("Failed to verify permissions", e);
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
-        }
+        RealmScimContext scimContext = realmScimServer.getScimContext(session);
+        realmScimServer.verifyPermissions(scimContext);
 
-        RealmModel realm = session.getContext().getRealm();
-        if (realm == null) {
-            logger.warn("Realm not found");
-            throw new NotFoundException("Realm not found");
-        }
-
-        ScimContext scimContext = getScimContext(session);
-
-        GroupModel existing = session.groups().getGroupById(scimContext.getRealm(), groupId);
-        if (existing == null) {
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
-
-        if (!groupId.equals(existing.getId())) {
-            return Response.status(Response.Status.BAD_REQUEST).entity("Group ID mismatch").build();
-        }
-
-        try {
-            Group updated = groupsController.patchGroup(scimContext, existing, patchRequest);
-            return Response.ok(updated).build();
-        } catch (UnsupportedGroupPath e) {
-            return Response.status(Response.Status.BAD_REQUEST).entity("Unsupported group path").build();
-        } catch (UnsupportedPatchOperation e) {
-            return Response.status(Response.Status.BAD_REQUEST).entity("Unsupported patch operation").build();
-        }
+        return realmScimServer.patchGroup(
+                scimContext,
+                groupId,
+                patchRequest
+        );
     }
 
     @DELETE
     @Path("v2/Groups/{id}")
     @SuppressWarnings("unused")
-    public Response deleteGroup(
+    public Response deleteRealmGroup(
             @Context KeycloakSession session,
             @PathParam("id") String id
     ) {
-        try {
-            verifyPermissions(session);
-        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
-            logger.warn("Failed to verify permissions", e);
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
-        }
+        RealmScimContext scimContext = realmScimServer.getScimContext(session);
+        realmScimServer.verifyPermissions(scimContext);
 
-        ScimContext context = getScimContext(session);
-        GroupModel group = session.groups().getGroupById(context.getRealm(), id);
-        if (group == null) {
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
-
-        groupsController.deleteGroup(context, group);
-
-        return Response.noContent().build();
+        return realmScimServer.deleteGroup(
+                scimContext,
+                id
+        );
     }
 
     @GET
     @Path("v2/ResourceTypes")
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
-    public Response listResourceTypes(
-            @Context KeycloakSession session,
-            @Context UriInfo uriInfo
+    public Response listRealmResourceTypes(
+        @Context KeycloakSession session,
+        @Context UriInfo uriInfo
     ) {
-        try {
-            verifyPermissions(session);
-        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
-            logger.warn("Failed to verify permissions", e);
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
-        }
+        RealmScimContext scimContext = realmScimServer.getScimContext(session);
+        realmScimServer.verifyPermissions(scimContext);
 
-        ScimContext scimContext = getScimContext(session);
-        return Response.ok(metadataController.getResourceTypeList(scimContext)).build();
+        return realmScimServer.listResourceTypes(scimContext);
     }
 
     @GET
     @Path("v2/ResourceTypes/{id}")
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
-    public Response getResourceType(
-            @Context KeycloakSession session,
-            @PathParam("id") String id
+    public Response findRealmResourceType(
+        @Context KeycloakSession session,
+        @PathParam("id") String id
     ) {
-        try {
-            verifyPermissions(session);
-        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
-            logger.warn("Failed to verify permissions", e);
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
-        }
+        RealmScimContext scimContext = realmScimServer.getScimContext(session);
+        realmScimServer.verifyPermissions(scimContext);
 
-        ScimContext scimContext = getScimContext(session);
-        return Response.ok(metadataController.getResourceType(scimContext, id)).build();
+        return realmScimServer.findResourceType(
+                scimContext,
+                id
+        );
     }
 
     @GET
     @Path("v2/Schemas")
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
-    public Response listSchemas(
-            @Context KeycloakSession session,
-            @Context UriInfo uriInfo
+    public Response listRealmSchemas(
+        @Context KeycloakSession session,
+        @Context UriInfo uriInfo
     ) {
-        try {
-            verifyPermissions(session);
-        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
-            logger.warn("Failed to verify permissions", e);
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
-        }
+        RealmScimContext scimContext = realmScimServer.getScimContext(session);
+        realmScimServer.verifyPermissions(scimContext);
 
-        KeycloakContext context = session.getContext();
-        if (context == null) {
-            logger.warn("Keycloak context not found");
-            throw new InternalServerErrorException("Keycloak context not found");
-        }
-
-        RealmModel realm = context.getRealm();
-        if (realm == null) {
-            logger.warn("Realm not found");
-            throw new NotFoundException("Realm not found");
-        }
-
-        ScimContext scimContext = getScimContext(session);
-
-        return Response.ok(metadataController.listSchemas(scimContext)).build();
+        return realmScimServer.listSchemas(scimContext);
     }
 
     @GET
     @Path("v2/Schemas/{id}")
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
-    public Response getSchema(
-            @Context KeycloakSession session,
-            @PathParam("id") String id
+    public Response findRealmSchema(
+        @Context KeycloakSession session,
+        @PathParam("id") String id
     ) {
-        try {
-            verifyPermissions(session);
-        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
-            logger.warn("Failed to verify permissions", e);
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
-        }
+        RealmScimContext scimContext = realmScimServer.getScimContext(session);
+        realmScimServer.verifyPermissions(scimContext);
 
-        ScimContext scimContext = getScimContext(session);
-        return Response.ok(metadataController.getSchema(scimContext, id)).build();
+        return realmScimServer.findSchema(
+                scimContext,
+                id
+        );
     }
 
     @GET
     @Path("v2/ServiceProviderConfig")
     @Produces(ContentTypes.APPLICATION_SCIM_JSON)
     @SuppressWarnings("unused")
-    public Response getServiceProviderConfig(
-            @Context KeycloakSession session,
-            @Context UriInfo uriInfo
+    public Response getRealmServiceProviderConfig(
+        @Context KeycloakSession session,
+        @Context UriInfo uriInfo
     ) {
-        try {
-            verifyPermissions(session);
-        } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
-            logger.warn("Failed to verify permissions", e);
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Failed to verify permissions").build();
-        }
+        RealmScimContext scimContext = realmScimServer.getScimContext(session);
+        realmScimServer.verifyPermissions(scimContext);
 
-        KeycloakContext context = session.getContext();
-        if (context == null) {
-            logger.warn("Keycloak context not found");
-            throw new InternalServerErrorException("Keycloak context not found");
-        }
-
-        RealmModel realm = context.getRealm();
-        if (realm == null) {
-            logger.warn("Realm not found");
-            throw new NotFoundException("Realm not found");
-        }
-
-        ScimContext scimContext = getScimContext(session);
-
-        return Response.ok(metadataController.getServiceProviderConfig(scimContext)).build();
+        return realmScimServer.getServiceProviderConfig(scimContext);
     }
 
-    /**
-     * Verifies that the request has the required permission to access the resource
-     *
-     * @param session Keycloak session
-     */
-    private void verifyPermissions(KeycloakSession session) throws URISyntaxException, IOException, InterruptedException, JWSInputException {
-        SCIMConfig scimConfig = new SCIMConfig();
-        KeycloakContext context = session.getContext();
+    // Organization Server endpoints
 
-        if (context == null) {
-            logger.warn("Keycloak context not found");
-            throw new InternalServerErrorException("Keycloak context not found");
+    @POST
+    @Path("v2/organizations/{organizationId}/Users")
+    @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response createOrganizationUser(
+            @Context KeycloakSession session,
+            @PathParam("organizationId") String organizationId,
+            fi.metatavu.keycloak.scim.server.model.User createRequest
+    ) {
+        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
+        organizationScimServer.verifyPermissions(scimContext);
+
+        return organizationScimServer.createUser(
+            scimContext,
+            createRequest
+        );
+    }
+
+    @GET
+    @Path("v2/organizations/{organizationId}/Users")
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response listOrganizationUsers(
+            @Context KeycloakSession session,
+            @PathParam("organizationId") String organizationId,
+            @QueryParam("filter") String filter,
+            @QueryParam("startIndex") @DefaultValue("0") Integer startIndex,
+            @QueryParam("count") @DefaultValue("100") Integer count
+    ) {
+        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
+        organizationScimServer.verifyPermissions(scimContext);
+
+        ScimFilter scimFilter;
+        try {
+            scimFilter = parseFilter(filter);
+        } catch (Exception e) {
+            logger.warn(String.format("Failed to parse filter: '%s'", filter), e);
+            return Response.status(Response.Status.BAD_REQUEST).entity("Invalid filter").build();
         }
 
-        RealmModel realm = context.getRealm();
-        if (realm == null) {
-            logger.warn("Realm not found");
-            throw new NotFoundException("Realm not found");
-        }
+        return organizationScimServer.listUsers(
+            scimContext,
+            scimFilter,
+            startIndex,
+            count
+        );
+    }
 
-        HttpHeaders headers = context.getRequestHeaders();
-        String authorization = headers.getHeaderString(HttpHeaders.AUTHORIZATION);
+    @GET
+    @Path("v2/organizations/{organizationId}/Users/{id}")
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response findOrganizationUser(
+            @Context KeycloakSession session,
+            @PathParam("id") String userId,
+            @PathParam("organizationId") String organizationId
+    ) {
+        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
+        organizationScimServer.verifyPermissions(scimContext);
 
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
-            logger.warn("Missing or invalid Authorization header");
-            throw new NotAuthorizedException("Missing or invalid Authorization header");
-        }
+        return organizationScimServer.findUser(
+            scimContext,
+            userId
+        );
+    }
 
-        String tokenString = authorization.substring("Bearer ".length()).trim();
+    @PUT
+    @Path("v2/organizations/{organizationId}/Users/{id}")
+    @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response updateOrganizationUser(
+            @Context KeycloakSession session,
+            @PathParam("id") String userId,
+            @PathParam("organizationId") String organizationId,
+            fi.metatavu.keycloak.scim.server.model.User updateRequest
+    ) {
+        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
+        organizationScimServer.verifyPermissions(scimContext);
 
-        if (scimConfig.getAuthenticationMode() == SCIMConfig.AuthenticationMode.KEYCLOAK) {
-            ClientConnection clientConnection = context.getConnection();
+        return organizationScimServer.updateUser(
+            scimContext,
+            userId,
+            updateRequest
+        );
+    }
 
-            AuthenticationManager.AuthResult auth = new AppAuthManager.BearerTokenAuthenticator(session)
-                .setRealm(realm)
-                .setConnection(clientConnection)
-                .setHeaders(headers)
-                .authenticate();
+    @PATCH
+    @Path("v2/organizations/{organizationId}/Users/{id}")
+    @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response patchOrganizationUser(
+            @Context KeycloakSession session,
+            @PathParam("id") String userId,
+            @PathParam("organizationId") String organizationId,
+            fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
+    ) {
+        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
+        organizationScimServer.verifyPermissions(scimContext);
 
-            if (auth == null || auth.getUser() == null || auth.getToken() == null) {
-                logger.warn("Keycloak authentication failed");
-                throw new NotAuthorizedException("Keycloak authentication failed");
-            }
+        return organizationScimServer.patchUser(
+                scimContext,
+                userId,
+                patchRequest
+        );
+    }
 
-            ClientModel client = auth.getClient();
-            if (client == null) {
-                logger.warn("Client not found");
-                throw new NotAuthorizedException("Client not found");
-            }
+    @DELETE
+    @Path("v2/organizations/{organizationId}/Users/{id}")
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response deleteOrganizationUser(
+        @Context KeycloakSession session,
+        @PathParam("organizationId") String organizationId,
+        @PathParam("id") String userId
+    ) {
+        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
+        organizationScimServer.verifyPermissions(scimContext);
 
-            UserModel serviceAccount = session.users().getServiceAccount(client);
+        return organizationScimServer.deleteUser(scimContext, userId);
+    }
 
-            RoleModel roleModel = realm.getRole(ScimRoles.SERVICE_ACCOUNT_ROLE);
-            if (roleModel == null) {
-                logger.warn("Service account role not configured");
-                throw new ForbiddenException("Service account role not configured");
-            }
+    @POST
+    @Path("v2/organizations/{organizationId}/Groups")
+    @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response createOrganizationGroup(
+        @Context KeycloakSession session,
+        @PathParam("organizationId") String organizationId,
+        fi.metatavu.keycloak.scim.server.model.Group createRequest
+    ) {
+        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
+        organizationScimServer.verifyPermissions(scimContext);
 
-            if (!hasServiceAccountRole(serviceAccount, roleModel)) {
-                logger.warn("Service account does not have required role");
-                throw new ForbiddenException("Service account does not have required role");
-            }
-        } else {
-            ExternalTokenVerifier verifier = new ExternalTokenVerifier(
-                scimConfig.getExternalIssuer(),
-                scimConfig.getExternalJwksUri(),
-                scimConfig.getExternalAudience()
-            );
+        return organizationScimServer.createGroup(
+            scimContext,
+            createRequest
+        );
+    }
 
-            if (!verifier.verify(tokenString)) {
-                logger.warn("External token verification failed");
-                throw new NotAuthorizedException("External token verification failed");
-            }
-        }
+    @GET
+    @Path("v2/organizations/{organizationId}/Groups")
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response listOrganizationGroups(
+            @Context KeycloakSession session,
+            @PathParam("organizationId") String organizationId,
+            @QueryParam("startIndex") @DefaultValue("0") int startIndex,
+            @QueryParam("count") @DefaultValue("100") int count
+    ) {
+        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
+        organizationScimServer.verifyPermissions(scimContext);
+
+        return organizationScimServer.listGroups(
+            scimContext,
+            startIndex,
+            count
+        );
+    }
+
+    @GET
+    @Path("v2/organizations/{organizationId}/Groups/{id}")
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response findOrganizationGroup(
+            @Context KeycloakSession session,
+            @PathParam("organizationId") String organizationId,
+            @PathParam("id") String id
+    ) {
+        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
+        organizationScimServer.verifyPermissions(scimContext);
+
+        return organizationScimServer.findGroup(
+            scimContext,
+            id
+        );
+    }
+
+    @PUT
+    @Path("v2/organizations/{organizationId}/Groups/{id}")
+    @Consumes("application/scim+json")
+    @Produces("application/scim+json")
+    @SuppressWarnings("unused")
+    public Response updateOrganizationGroup(
+            @Context KeycloakSession session,
+            @PathParam("id") String id,
+            @PathParam("organizationId") String organizationId,
+            Group updateRequest
+    ) {
+        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
+        organizationScimServer.verifyPermissions(scimContext);
+
+        return organizationScimServer.updateGroup(
+            scimContext,
+            id,
+            updateRequest
+        );
+    }
+
+    @PATCH
+    @Path("v2/organizations/{organizationId}/Groups/{id}")
+    @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response patchOrganizationGroup(
+            @Context KeycloakSession session,
+            @PathParam("id") String groupId,
+            @PathParam("organizationId") String organizationId,
+            fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
+    ) {
+        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
+        organizationScimServer.verifyPermissions(scimContext);
+
+        return organizationScimServer.patchGroup(
+                scimContext,
+                groupId,
+                patchRequest
+        );
+    }
+
+    @DELETE
+    @Path("v2/organizations/{organizationId}/Groups/{id}")
+    @SuppressWarnings("unused")
+    public Response deleteOrganizationGroup(
+            @Context KeycloakSession session,
+            @PathParam("organizationId") String organizationId,
+            @PathParam("id") String id
+    ) {
+        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
+        organizationScimServer.verifyPermissions(scimContext);
+
+        return organizationScimServer.deleteGroup(
+            scimContext,
+            id
+        );
+    }
+
+    @GET
+    @Path("v2/organizations/{organizationId}/ResourceTypes")
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response listOrganizationResourceTypes(
+        @Context KeycloakSession session,
+        @Context UriInfo uriInfo,
+        @PathParam("organizationId") String organizationId
+    ) {
+        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
+        organizationScimServer.verifyPermissions(scimContext);
+
+        return organizationScimServer.listResourceTypes(
+            scimContext
+        );
+    }
+
+    @GET
+    @Path("v2/organizations/{organizationId}/ResourceTypes/{id}")
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response findOrganizationResourceType(
+        @Context KeycloakSession session,
+        @PathParam("organizationId") String organizationId,
+        @PathParam("id") String id
+    ) {
+        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
+        organizationScimServer.verifyPermissions(scimContext);
+
+        return organizationScimServer.findResourceType(
+            scimContext,
+            id
+        );
+    }
+
+    @GET
+    @Path("v2/organizations/{organizationId}/Schemas")
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response listOrganizationSchemas(
+        @Context KeycloakSession session,
+        @PathParam("organizationId") String organizationId,
+        @Context UriInfo uriInfo
+    ) {
+        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
+        organizationScimServer.verifyPermissions(scimContext);
+
+        return organizationScimServer.listSchemas(
+            scimContext
+        );
+    }
+
+    @GET
+    @Path("v2/organizations/{organizationId}/Schemas/{id}")
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response findOrganizationSchema(
+        @Context KeycloakSession session,
+        @PathParam("organizationId") String organizationId,
+        @PathParam("id") String id
+    ) {
+        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
+        organizationScimServer.verifyPermissions(scimContext);
+
+        return organizationScimServer.findSchema(
+            scimContext,
+            id
+        );
+    }
+
+    @GET
+    @Path("v2/organizations/{organizationId}/ServiceProviderConfig")
+    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @SuppressWarnings("unused")
+    public Response getOrganizationServiceProviderConfig(
+        @Context KeycloakSession session,
+        @PathParam("organizationId") String organizationId,
+        @Context UriInfo uriInfo
+    ) {
+        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
+        organizationScimServer.verifyPermissions(scimContext);
+        return organizationScimServer.getServiceProviderConfig(scimContext);
     }
 
     /**
@@ -688,27 +673,6 @@ public class ScimResources {
         }
 
         return null;
-    }
-
-    /**
-     * Checks if the service account has the required role
-     *
-     * @param user service account
-     * @param serviceAccountRole service account role
-     * @return true if the service account has the required role; false otherwise
-     */
-    private boolean hasServiceAccountRole(UserModel user, RoleModel serviceAccountRole) {
-        return user != null && user.hasRole(serviceAccountRole);
-    }
-
-    /**
-     * Returns SCIM context
-     *
-     * @param session Keycloak session
-     * @return SCIM context
-     */
-    private ScimContext getScimContext(KeycloakSession session) {
-        return new ScimContext(session.getContext().getUri().getBaseUri(), session, session.getContext().getRealm());
     }
 
 }

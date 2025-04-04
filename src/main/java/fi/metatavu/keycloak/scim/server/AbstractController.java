@@ -1,8 +1,5 @@
 package fi.metatavu.keycloak.scim.server;
 
-import org.keycloak.models.RealmModel;
-
-import java.net.URI;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Date;
@@ -28,13 +25,11 @@ public class AbstractController {
         String resourceType,
         String resourcePath
     ) {
-        URI baseUri = scimContext.getBaseUri();
-        RealmModel realm = scimContext.getRealm();
         fi.metatavu.keycloak.scim.server.model.Meta result = new fi.metatavu.keycloak.scim.server.model.Meta();
         result.setCreated(createdAt);
         result.setLastModified(lastModifiedAt);
         result.setResourceType(resourceType);
-        result.setLocation(baseUri.resolve(String.format("/realms/%s/scim/v2/%s", realm.getName(), resourcePath)));
+        result.setLocation(scimContext.getServerBaseUri().resolve(resourcePath));
         return result;
     }
 

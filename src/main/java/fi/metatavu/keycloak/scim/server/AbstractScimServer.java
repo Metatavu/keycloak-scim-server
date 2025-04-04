@@ -85,13 +85,6 @@ public abstract class AbstractScimServer <T extends ScimContext> implements Scim
         KeycloakSession session = scimContext.getSession();
 
         RealmModel realm = scimContext.getRealm();
-        UserModel user = session.users().getUserById(realm, userId);
-        if (user == null) {
-            logger.warn(String.format("User not found: %s", userId));
-            return Response.status(Response.Status.NOT_FOUND).entity("User not found").build();
-        }
-
-        // Check if username is being changed to an already existing one
         UserModel existing = session.users().getUserById(realm, userId);
         if (existing == null) {
             logger.warn(String.format("User not found: %s", userId));

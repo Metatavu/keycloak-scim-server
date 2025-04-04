@@ -44,26 +44,61 @@ cp build/libs/keycloak-scim-server-*.jar $KEYCLOAK_HOME/providers/
 Configuration on realm level is done by defining environment variables in the Keycloak server. 
 
 The following environment variables are available:
-- `SCIM_AUTHENTICATION_MODE`: Authentication mode for SCIM API. Possible values are KEYCLOAK and EXTERNAL. If the value is not set the server will respond unauthorzed for all requests.
-- `SCIM_EXTERNAL_ISSUER`: Issuer for the external authentication. This is used to validate the JWT token.
-- `SCIM_EXTERNAL_JWKS_URI`: JWKS URI for the external authentication. This is used to validate the JWT token.
-- `SCIM_EXTERNAL_AUDIENCE`: Audience for the external authentication. This is used to validate the JWT token.
+| Setting                  | Value                                                                             |
+| ------------------------ | --------------------------------------------------------------------------------- |
+| SCIM_AUTHENTICATION_MODE | Authentication mode for SCIM API. Possible values are KEYCLOAK and EXTERNAL. If the value is not set the server will respond unauthorzed for all requests. |
+| SCIM_EXTERNAL_ISSUER     | Issuer for the external authentication. This is used to validate the JWT token.   |
+| SCIM_EXTERNAL_AUDIENCE   | JWKS URI for the external authentication. This is used to validate the JWT token. |
+| SCIM_EXTERNAL_JWKS_URI   | Audience for the external authentication. This is used to validate the JWT token. |
 
 ### Configuration on Organization level
 
 Configuration on organization level is done by defining organization attributes in the Keycloak server.
 The following organization attributes are available:
 
-- `SCIM_AUTHENTICATION_MODE`: Authentication mode for SCIM API. Possible values are KEYCLOAK and EXTERNAL. If the value is not set the server will respond unauthorzed for all requests. Currently on organization level only EXTERNAL is supported.
-- `SCIM_EXTERNAL_ISSUER`: Issuer for the external authentication. This is used to validate the JWT token.
-- `SCIM_EXTERNAL_JWKS_URI`: JWKS URI for the external authentication. This is used to validate the JWT token.
-- `SCIM_EXTERNAL_AUDIENCE`: Audience for the external authentication. This is used to validate the JWT token.
+| Setting                  | Value                                                                             |
+| ------------------------ | --------------------------------------------------------------------------------- |
+| SCIM_AUTHENTICATION_MODE | Authentication mode for SCIM API. Possible values are KEYCLOAK and EXTERNAL. If the value is not set the server will respond unauthorzed for all requests. Currently on organization level only EXTERNAL is supported. |
+| SCIM_EXTERNAL_ISSUER     | Issuer for the external authentication. This is used to validate the JWT token.   |
+| SCIM_EXTERNAL_AUDIENCE   | JWKS URI for the external authentication. This is used to validate the JWT token. |
+| SCIM_EXTERNAL_JWKS_URI   | Audience for the external authentication. This is used to validate the JWT token. |
 
 ### Azure Entra ID SCIM Configuration
 
 This extension is compatible with **Microsoft Entra ID** SCIM provisioning.
 
-Step-by-step:
+**Keycloak Configuration**
+
+Before Entra ID can provision users and groups to Keycloak via SCIM, you need to configure SCIM authentication settings.
+
+These settings can be applied either:
+
+* At the realm level (for /realms/{realm}/scim/v2)
+* Or at the organization level (for /realms/organizations/scim/v2/organizations/{organizationId})
+
+For more details, refer to the sections [Configuration on Realm Level] and [Configuration on Organization Level in this document].
+
+SCIM Settings for Entra ID
+
+When using Entra ID settings will be following:
+
+| Setting                  | Value                                                                   |
+| ------------------------ | ----------------------------------------------------------------------- |
+| SCIM_AUTHENTICATION_MODE | EXTERNAL                                                                |
+| SCIM_EXTERNAL_ISSUER     | https://sts.windows.net/<your-tenant-id>                                |
+| SCIM_EXTERNAL_AUDIENCE   | 8adf8e6e-67b2-4cf2-a259-e3dc5476c621                                    |
+| SCIM_EXTERNAL_JWKS_URI   | https://login.microsoftonline.com/<your-tenant-id>/discovery/v2.0/keys  |
+
+Replace <your-tenant-id> with your actual Azure tenant ID.
+
+* SCIM_AUTHENTICATION_MODE enables external authentication support for the SCIM server. In this case the external authentication source will be the Azure Entra ID.
+* SCIM_EXTERNAL_ISSUER ensures the JWT token was issued by your tenant.
+* SCIM_EXTERNAL_AUDIENCE must be exactly 8adf8e6e-67b2-4cf2-a259-e3dc5476c621 — this is the default audience used by Entra ID for non-gallery applications.
+* SCIM_EXTERNAL_JWKS_URI allows Keycloak to fetch public keys for token validation.
+
+**Azure Configuration**
+
+Step-by-step guide on the Azure:
 
 1. Sign in to the [Azure portal](https://portal.azure.com)
 2. Go to **Identity → Applications → Enterprise applications**

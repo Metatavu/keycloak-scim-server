@@ -8,8 +8,6 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -56,7 +54,7 @@ public class OrganizationUserDeleteTestsIT extends AbstractOrganizationScimTest 
 
         assertEquals(404, exception.getCode());
 
-        NotFoundException notFoundException = assertThrows(NotFoundException.class, () ->
+        assertThrows(NotFoundException.class, () ->
             findRealmUser(TestConsts.TEST_REALM, created.getId())
         );
     }

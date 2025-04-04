@@ -1,6 +1,7 @@
 package fi.metatavu.keycloak.scim.server;
 
 import dasniko.testcontainers.keycloak.KeycloakContainer;
+import fi.metatavu.keycloak.scim.server.test.client.ApiException;
 import fi.metatavu.keycloak.scim.server.test.client.model.User;
 import fi.metatavu.keycloak.scim.server.test.client.model.UserEmailsInner;
 import fi.metatavu.keycloak.scim.server.test.client.model.UserName;
@@ -9,6 +10,7 @@ import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.testcontainers.containers.Network;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -42,6 +44,60 @@ public abstract class AbstractScimTest {
             .users()
             .get(userId)
             .toRepresentation();
+    }
+
+    /**
+     * Creates a user with the given parameters
+     *
+     * @param scimClient SCIM client
+     * @param userName username
+     * @param firstName first name
+     * @param lastName last name
+     * @return created user
+     * @throws ApiException if an error occurs during user creation
+     */
+    protected User createUser(
+        ScimClient scimClient,
+        String userName,
+        String firstName,
+        String lastName
+    ) throws ApiException {
+        User user = new User();
+        user.setUserName(userName);
+        user.setActive(true);
+        user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
+        user.setName(getName(firstName, lastName));
+        user.setEmails(getEmails(String.format("%s@example.com", userName)));
+        User created = scimClient.createUser(user);
+        assertNotNull(created);
+        return created;
+    }
+
+    /**
+     * Creates multiple users with the given parameters
+     *
+     * @param scimClient SCIM client
+     * @param userName username
+     * @param firstName first name
+     * @param lastName last name
+     * @param count number of users to create
+     * @return list of created users
+     * @throws ApiException if an error occurs during user creation
+     */
+    @SuppressWarnings("SameParameterValue")
+    protected List<User> createUsers(
+        ScimClient scimClient,
+        String userName,
+        String firstName,
+        String lastName,
+        int count
+    ) throws ApiException {
+        List<User> users = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            users.add(createUser(scimClient, String.format("%s-%d", userName, i), String.format("%s-%d", firstName, i), String.format("%s-%d", lastName, i)));
+        }
+
+        return users;
     }
 
     /**
@@ -82,7 +138,7 @@ public abstract class AbstractScimTest {
     }
 
     /**
-     * Deletes user from the test realm
+     * Deletes user from Keycloak
      *
      * @param userId user ID
      */
@@ -96,6 +152,37 @@ public abstract class AbstractScimTest {
     }
 
     /**
+     * Deletes users from Keycloak
+     *
+     * @param users users to delete
+     */
+    @SuppressWarnings("SameParameterValue")
+    protected void deleteRealmUsers(String realm, List<User> users) {
+        for (User user : users) {
+            deleteRealmUser(realm, user.getId());
+        }
+    }
+
+    /**
+     * Asserts that two users are equal
+     *
+     * @param expected expected user
+     * @param actual actual user
+     */
+    protected void assertUserEquals(User expected, User actual) {
+        assertEquals(expected.getId(), actual.getId());
+        assertEquals(expected.getUserName(), actual.getUserName());
+        assertEquals(expected.getName() != null ? expected.getName().getGivenName() : null, actual.getName() != null ? actual.getName().getGivenName() : null);
+        assertEquals(expected.getName() != null ? expected.getName().getFamilyName() : null, actual.getName() != null ? actual.getName().getFamilyName() : null);
+        assertEquals(expected.getEmails() != null && !expected.getEmails().isEmpty() ? expected.getEmails().getFirst().getValue() : null, actual.getEmails() != null && !actual.getEmails().isEmpty() ? actual.getEmails().getFirst().getValue() : null);
+        assertEquals(expected.getAdditionalProperties(), actual.getAdditionalProperties());
+
+        if (expected.getAdditionalProperties() != null) {
+            expected.getAdditionalProperties().forEach((key, value) -> assertEquals(value, actual.getAdditionalProperty(key)));
+        }
+    }
+
+    /**
      * Asserts user
      *
      * @param user user
@@ -105,16 +192,16 @@ public abstract class AbstractScimTest {
      * @param expectedFamilyName expected family name
      * @param expectedEmail expected email
      */
-    protected static void assertUser(
-            User user,
-            String expectedId,
-            String expectedUserName,
-            String expectedGivenName,
-            String expectedFamilyName,
-            String expectedEmail,
-            String expectedExternalId,
-            String expectedPreferredLanguage,
-            String expectedDisplayName
+    protected void assertUser(
+        User user,
+        String expectedId,
+        String expectedUserName,
+        String expectedGivenName,
+        String expectedFamilyName,
+        String expectedEmail,
+        String expectedExternalId,
+        String expectedPreferredLanguage,
+        String expectedDisplayName
     ) {
         assertNotNull(user.getId());
         assertNotNull(user.getName());

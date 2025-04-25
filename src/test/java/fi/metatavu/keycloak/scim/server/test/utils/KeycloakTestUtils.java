@@ -1,4 +1,4 @@
-package fi.metatavu.keycloak.scim.server;
+package fi.metatavu.keycloak.scim.server.test.utils;
 
 import java.io.File;
 import java.util.Arrays;

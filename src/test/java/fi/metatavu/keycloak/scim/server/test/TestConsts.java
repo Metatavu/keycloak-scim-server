@@ -1,4 +1,4 @@
-package fi.metatavu.keycloak.scim.server;
+package fi.metatavu.keycloak.scim.server.test;
 
 /**
  * Test constants
@@ -14,6 +14,8 @@ public class TestConsts {
     public static final String ORGANIZATIONS_REALM = "organizations";
     public static final String ORGANIZATION_1_ID = "161ecf88-d86d-44ef-b777-fb8d2a28a1fa";
     public static final String ORGANIZATION_2_ID = "f849d141-ebb7-4078-b4aa-52094f043122";
+    public static final String EXTERNAL_USER_1_USERNAME = "test.user1@org1.example.com";
+    public static final String EXTERNAL_USER_1_PASSWORD = "test";
 
 }
 

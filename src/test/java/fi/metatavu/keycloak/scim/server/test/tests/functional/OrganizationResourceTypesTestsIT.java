@@ -1,9 +1,12 @@
-package fi.metatavu.keycloak.scim.server;
+package fi.metatavu.keycloak.scim.server.test.tests.functional;
 
 import dasniko.testcontainers.keycloak.KeycloakContainer;
+import fi.metatavu.keycloak.scim.server.test.tests.AbstractOrganizationScimTest;
+import fi.metatavu.keycloak.scim.server.test.ScimClient;
+import fi.metatavu.keycloak.scim.server.test.TestConsts;
 import fi.metatavu.keycloak.scim.server.test.client.ApiException;
-import fi.metatavu.keycloak.scim.server.test.client.model.ResourceType;
-import fi.metatavu.keycloak.scim.server.test.client.model.ResourceTypeListResponse;
+import fi.metatavu.keycloak.scim.server.test.client.model.*;
+import fi.metatavu.keycloak.scim.server.test.utils.KeycloakTestUtils;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -13,28 +16,28 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tests for realm server SCIM 2.0 user find (GET /Users/{id}) endpoint
+ * Tests for SCIM 2.0 Schemas endpoint
  */
 @Testcontainers
-public class RealmResourceTypesTestsIT extends AbstractRealmScimTest {
+public class OrganizationResourceTypesTestsIT extends AbstractOrganizationScimTest {
 
     @Container
     protected static final KeycloakContainer keycloakContainer = new KeycloakContainer("quay.io/keycloak/keycloak:26.1.2")
-        .withNetwork(network)
-        .withNetworkAliases("scim-keycloak")
-        .withEnv("SCIM_AUTHENTICATION_MODE", "KEYCLOAK")
-        .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
-        .withRealmImportFile("kc-test.json")
-        .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
+            .withNetwork(network)
+            .withNetworkAliases("scim-keycloak")
+            .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
+            .withRealmImportFiles("kc-organizations.json", "kc-external.json")
+            .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
 
     @Override
     protected KeycloakContainer getKeycloakContainer() {
         return keycloakContainer;
     }
 
+
     @Test
-    void testResourceTypes() throws ApiException {
-        ScimClient scimClient = getAuthenticatedScimClient();
+    void testResourceTypesOrg1() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
 
         ResourceTypeListResponse listResponse = scimClient.getResourceTypes();
         List<ResourceType> resourceTypes = listResponse.getResources();
@@ -45,8 +48,8 @@ public class RealmResourceTypesTestsIT extends AbstractRealmScimTest {
     }
 
     @Test
-    void testUserResourceType() throws ApiException {
-        ScimClient scimClient = getAuthenticatedScimClient();
+    void testUserResourceTypeOrg1() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
 
         ResourceType resourceType = scimClient.findResourceType("User");
         assertNotNull(resourceType);
@@ -54,8 +57,8 @@ public class RealmResourceTypesTestsIT extends AbstractRealmScimTest {
     }
 
     @Test
-    void testGroupResourceType() throws ApiException {
-        ScimClient scimClient = getAuthenticatedScimClient();
+    void testGroupResourceTypeOrg1() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
 
         ResourceType resourceType = scimClient.findResourceType("Group");
         assertNotNull(resourceType);
@@ -71,10 +74,10 @@ public class RealmResourceTypesTestsIT extends AbstractRealmScimTest {
      * @param description description
      */
     private void assertResourceType(
-        ResourceType resourceType,
-        String id,
-        String path,
-        String description
+            ResourceType resourceType,
+            String id,
+            String path,
+            String description
     ) {
         assertArrayEquals(new String[] { "urn:ietf:params:scim:schemas:core:2.0:ResourceType" }, resourceType.getSchemas().toArray());
         assertEquals(id, resourceType.getId());
@@ -86,7 +89,7 @@ public class RealmResourceTypesTestsIT extends AbstractRealmScimTest {
         assertEquals(0, resourceType.getSchemaExtensions().size());
         assertNotNull(resourceType.getMeta());
         assertEquals(id, resourceType.getMeta().getResourceType());
-        assertEquals(getScimUri().resolve(String.format("ResourceTypes/%s", id)), resourceType.getMeta().getLocation());
+        assertEquals(getScimUri(TestConsts.ORGANIZATION_1_ID).resolve(String.format("ResourceTypes/%s", id)), resourceType.getMeta().getLocation());
     }
 
 }

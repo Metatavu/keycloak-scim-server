@@ -1,5 +1,7 @@
-package fi.metatavu.keycloak.scim.server;
+package fi.metatavu.keycloak.scim.server.test.tests;
 
+import fi.metatavu.keycloak.scim.server.test.ScimClient;
+import fi.metatavu.keycloak.scim.server.test.TestConsts;
 import org.keycloak.OAuth2Constants;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.KeycloakBuilder;

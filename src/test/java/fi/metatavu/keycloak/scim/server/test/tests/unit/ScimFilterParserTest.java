@@ -1,4 +1,4 @@
-package fi.metatavu.keycloak.scim.server;
+package fi.metatavu.keycloak.scim.server.test.tests.unit;
 
 import fi.metatavu.keycloak.scim.server.filter.*;
 import org.junit.jupiter.api.Test;

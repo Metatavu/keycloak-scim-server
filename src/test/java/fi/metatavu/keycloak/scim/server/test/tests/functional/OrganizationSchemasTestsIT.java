@@ -1,10 +1,14 @@
-package fi.metatavu.keycloak.scim.server;
+package fi.metatavu.keycloak.scim.server.test.tests.functional;
 
 import dasniko.testcontainers.keycloak.KeycloakContainer;
+import fi.metatavu.keycloak.scim.server.test.tests.AbstractOrganizationScimTest;
+import fi.metatavu.keycloak.scim.server.test.ScimClient;
+import fi.metatavu.keycloak.scim.server.test.TestConsts;
 import fi.metatavu.keycloak.scim.server.test.client.ApiException;
 import fi.metatavu.keycloak.scim.server.test.client.model.SchemaAttribute;
 import fi.metatavu.keycloak.scim.server.test.client.model.SchemaListItem;
 import fi.metatavu.keycloak.scim.server.test.client.model.SchemaListResponse;
+import fi.metatavu.keycloak.scim.server.test.utils.KeycloakTestUtils;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;

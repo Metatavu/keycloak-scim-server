@@ -1,10 +1,14 @@
-package fi.metatavu.keycloak.scim.server;
+package fi.metatavu.keycloak.scim.server.test.tests.functional;
 
 import dasniko.testcontainers.keycloak.KeycloakContainer;
+import fi.metatavu.keycloak.scim.server.test.tests.AbstractRealmScimTest;
+import fi.metatavu.keycloak.scim.server.test.ScimClient;
+import fi.metatavu.keycloak.scim.server.test.TestConsts;
 import fi.metatavu.keycloak.scim.server.test.client.ApiException;
 import fi.metatavu.keycloak.scim.server.test.client.model.PatchRequest;
 import fi.metatavu.keycloak.scim.server.test.client.model.PatchRequestOperationsInner;
 import fi.metatavu.keycloak.scim.server.test.client.model.User;
+import fi.metatavu.keycloak.scim.server.test.utils.KeycloakTestUtils;
 import org.junit.jupiter.api.Test;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.testcontainers.junit.jupiter.Container;
@@ -18,15 +22,16 @@ import static org.junit.jupiter.api.Assertions.*;
  * Tests for SCIM 2.0 User create endpoint
  */
 @Testcontainers
-public class OrganizationUserPatchTestsIT extends AbstractOrganizationScimTest {
+public class RealmUserPatchTestsIT extends AbstractRealmScimTest {
 
     @Container
     protected static final KeycloakContainer keycloakContainer = new KeycloakContainer("quay.io/keycloak/keycloak:26.1.2")
-            .withNetwork(network)
-            .withNetworkAliases("scim-keycloak")
-            .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
-            .withRealmImportFiles("kc-organizations.json", "kc-external.json")
-            .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
+        .withNetwork(network)
+        .withNetworkAliases("scim-keycloak")
+        .withEnv("SCIM_AUTHENTICATION_MODE", "KEYCLOAK")
+        .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
+        .withRealmImportFile("kc-test.json")
+        .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
 
     @Override
     protected KeycloakContainer getKeycloakContainer() {
@@ -35,7 +40,7 @@ public class OrganizationUserPatchTestsIT extends AbstractOrganizationScimTest {
 
     @Test
     void testActivateAndDeactivateUser() throws ApiException {
-        ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
+        ScimClient scimClient = getAuthenticatedScimClient();
 
         // Create an active user
         User user = new User();
@@ -48,7 +53,7 @@ public class OrganizationUserPatchTestsIT extends AbstractOrganizationScimTest {
         assertNotNull(created.getActive());
         assertTrue(created.getActive());
 
-        UserRepresentation createdRealmUser = findRealmUser(TestConsts.ORGANIZATIONS_REALM, created.getId());
+        UserRepresentation createdRealmUser = findRealmUser(TestConsts.TEST_REALM, created.getId());
         assertNotNull(createdRealmUser);
         assertTrue(createdRealmUser.isEnabled());
 
@@ -66,7 +71,7 @@ public class OrganizationUserPatchTestsIT extends AbstractOrganizationScimTest {
         assertNotNull(deactivated.getActive());
         assertFalse(deactivated.getActive());
 
-        UserRepresentation deactivatedRealmUser = findRealmUser(TestConsts.ORGANIZATIONS_REALM, created.getId());
+        UserRepresentation deactivatedRealmUser = findRealmUser(TestConsts.TEST_REALM, created.getId());
         assertNotNull(deactivatedRealmUser);
         assertFalse(deactivatedRealmUser.isEnabled());
 
@@ -83,17 +88,17 @@ public class OrganizationUserPatchTestsIT extends AbstractOrganizationScimTest {
         assertNotNull(activated.getActive());
         assertTrue(activated.getActive());
 
-        UserRepresentation activatedRealmUser = findRealmUser(TestConsts.ORGANIZATIONS_REALM, created.getId());
+        UserRepresentation activatedRealmUser = findRealmUser(TestConsts.TEST_REALM, created.getId());
         assertNotNull(activatedRealmUser);
         assertTrue(activatedRealmUser.isEnabled());
 
         // Cleanup
-        deleteRealmUser(TestConsts.ORGANIZATIONS_REALM, created.getId());
+        deleteRealmUser(TestConsts.TEST_REALM, created.getId());
     }
 
     @Test
     void testPatchAttributes() throws ApiException {
-        ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
+        ScimClient scimClient = getAuthenticatedScimClient();
 
         // Create user
         User user = new User();
@@ -155,7 +160,7 @@ public class OrganizationUserPatchTestsIT extends AbstractOrganizationScimTest {
         assertEquals("en_US", patchedAgain.getAdditionalProperty("preferredLanguage"));
 
         // Cleanup
-        deleteRealmUser(TestConsts.ORGANIZATIONS_REALM, created.getId());
+        deleteRealmUser(TestConsts.TEST_REALM, created.getId());
     }
 
 }

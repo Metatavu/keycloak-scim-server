@@ -82,12 +82,12 @@ SCIM Settings for Entra ID
 
 When using Entra ID settings will be following:
 
-| Setting                  | Value                                                                   |
-| ------------------------ | ----------------------------------------------------------------------- |
-| SCIM_AUTHENTICATION_MODE | EXTERNAL                                                                |
-| SCIM_EXTERNAL_ISSUER     | https://sts.windows.net/<your-tenant-id>                                |
-| SCIM_EXTERNAL_AUDIENCE   | 8adf8e6e-67b2-4cf2-a259-e3dc5476c621                                    |
-| SCIM_EXTERNAL_JWKS_URI   | https://login.microsoftonline.com/<your-tenant-id>/discovery/v2.0/keys  |
+| Setting                  | Value                                                                         |
+| ------------------------ | ----------------------------------------------------------------------------- |
+| SCIM_AUTHENTICATION_MODE | ```EXTERNAL```                                                                |
+| SCIM_EXTERNAL_ISSUER     | ```https://sts.windows.net/<your-tenant-id>```                                |
+| SCIM_EXTERNAL_AUDIENCE   | ```8adf8e6e-67b2-4cf2-a259-e3dc5476c621```                                    |
+| SCIM_EXTERNAL_JWKS_URI   | ```https://login.microsoftonline.com/<your-tenant-id>/discovery/v2.0/keys```  |
 
 Replace <your-tenant-id> with your actual Azure tenant ID.
 

@@ -66,6 +66,11 @@ public class OrganizationScimConfig implements ScimConfig {
         return getAttribute("SCIM_EXTERNAL_AUDIENCE");
     }
 
+    @Override
+    public boolean getLinkIdp() {
+        return "true".equalsIgnoreCase(getAttribute("SCIM_LINK_IDP"));
+    }
+
     /**
      * Gets the organization attribute
      *
@@ -84,4 +89,6 @@ public class OrganizationScimConfig implements ScimConfig {
 
         return values.getFirst();
     }
+
+
 }

@@ -420,4 +420,18 @@ public class UsersController extends AbstractController {
         RealmModel realm = scimContext.getRealm();
         session.users().removeUser(realm, user);
     }
+
+    /**
+     * Returns the email domain from the email address
+     *
+     * @param email email address
+     * @return email domain
+     */
+    protected String getEmailDomain(String email) {
+        if (email != null && email.contains("@")) {
+            return email.substring(email.indexOf('@') + 1);
+        }
+
+        return null;
+    }
 }

@@ -75,4 +75,13 @@ public class RealmScimConfig implements ScimConfig {
         return config.getOptionalValue("scim.external.audience", String.class).orElse(null);
     }
 
+    /**
+     * Realm implementation does not currently support external IDP linking
+     *
+     * @return false
+     */
+    @Override
+    public boolean getLinkIdp() {
+        return false;
+    }
 }

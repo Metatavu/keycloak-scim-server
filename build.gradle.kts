@@ -37,6 +37,8 @@ val testContainersVersion: String by project
 val testContainersKeycloakVersion: String by project
 val junitVersion: String by project
 val awaitilityVersion: String by project
+val seleniumRemoteDriverVersion: String by project
+val seleniumVersion: String by project
 
 dependencies {
     implementation(enforcedPlatform("org.keycloak.bom:keycloak-bom-parent:$keycloakVersion"))
@@ -48,7 +50,10 @@ dependencies {
     testImplementation("org.testcontainers:testcontainers:$testContainersVersion")
     testImplementation("org.testcontainers:junit-jupiter:$testContainersVersion")
     testImplementation("com.github.dasniko:testcontainers-keycloak:$testContainersKeycloakVersion")
+    testImplementation("org.testcontainers:selenium:$testContainersVersion")
     testImplementation("org.awaitility:awaitility:$awaitilityVersion")
+    testImplementation("org.seleniumhq.selenium:selenium-remote-driver:$seleniumRemoteDriverVersion")
+    testImplementation("org.seleniumhq.selenium:selenium-java:$seleniumVersion")
 }
 
 group = "fi.metatavu.keycloak.scim.server"

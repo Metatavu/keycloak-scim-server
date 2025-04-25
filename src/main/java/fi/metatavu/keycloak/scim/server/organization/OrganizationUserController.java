@@ -34,6 +34,7 @@ public class OrganizationUserController extends UsersController  {
     ) {
         KeycloakSession session = scimContext.getSession();
         RealmModel realm = scimContext.getRealm();
+        OrganizationModel organization = scimContext.getOrganization();
 
         UserModel user = session.users().addUser(realm, scimUser.getUserName());
         user.setEnabled(scimUser.getActive() == null || Boolean.TRUE.equals(scimUser.getActive()));
@@ -43,8 +44,9 @@ public class OrganizationUserController extends UsersController  {
             user.setLastName(scimUser.getName().getFamilyName());
         }
 
-        if (scimUser.getEmails() != null && !scimUser.getEmails().isEmpty()) {
-            user.setEmail(scimUser.getEmails().getFirst().getValue());
+        String scimUserEmail = scimUser.getEmails() != null && !scimUser.getEmails().isEmpty() ? scimUser.getEmails().getFirst().getValue() : null;
+        if (scimUserEmail != null) {
+            user.setEmail(scimUserEmail);
             user.setEmailVerified(true);
         }
 
@@ -78,7 +80,12 @@ public class OrganizationUserController extends UsersController  {
         }
 
         OrganizationProvider organizationProvider = getOrganizationProvider(scimContext.getSession());
-        organizationProvider.addManagedMember(scimContext.getOrganization(), user);
+        organizationProvider.addManagedMember(organization, user);
+
+        if (scimContext.getConfig().getLinkIdp()) {
+            logger.info("Identity provider linking is enabled. Linking user to identity provider");
+            linkUserIdp(scimUser, scimUserEmail, organizationProvider, organization, session, realm, user);
+        }
 
         return translateUser(
             scimContext,
@@ -192,5 +199,66 @@ public class OrganizationUserController extends UsersController  {
         }
 
         return session.getProvider(OrganizationProvider.class);
+    }
+
+    /**
+     * Links user to identity provider
+     *
+     * @param scimUser SCIM user
+     * @param scimUserEmail user email
+     * @param organizationProvider organization provider
+     * @param organization organization
+     * @param session Keycloak session
+     * @param realm Keycloak realm
+     * @param user Keycloak user
+     */
+    private void linkUserIdp(
+            fi.metatavu.keycloak.scim.server.model.User scimUser,
+            String scimUserEmail,
+            OrganizationProvider organizationProvider,
+            OrganizationModel organization,
+            KeycloakSession session,
+            RealmModel realm,
+            UserModel user
+    ) {
+        if (scimUserEmail == null) {
+            logger.warn("User email is not set. Cannot link user to identity provider");
+            return;
+        }
+
+        String emailDomain = getEmailDomain(scimUserEmail);
+        if (emailDomain == null) {
+            logger.warn("User email domain is not set. Cannot link user to identity provider");
+            return;
+        }
+
+        Object externalIdObj = scimUser.getAdditionalProperty("externalId");
+        if (!(externalIdObj instanceof String externalId)) {
+            logger.warn("User external ID is not set. Cannot link user to identity provider");
+            return;
+        }
+
+        IdentityProviderModel identityProvider = organizationProvider.getIdentityProviders(organization)
+            .filter(identityProviderModel -> {
+                String identityProviderDomain = identityProviderModel.getConfig().get("kc.org.domain");
+                return identityProviderDomain != null && identityProviderDomain.equals(emailDomain);
+            })
+            .findFirst()
+            .orElse(null);
+
+        if (identityProvider == null) {
+            logger.warn("No identity provider found for email domain: " + emailDomain + ". Cannot link user to identity provider");
+            return;
+        }
+
+        logger.info("Linking user to identity provider: " + identityProvider.getAlias());
+
+        FederatedIdentityModel identityModel = new FederatedIdentityModel(
+            identityProvider.getAlias(),
+            externalId,
+            scimUser.getUserName()
+        );
+
+        session.users().addFederatedIdentity(realm, user, identityModel);
     }
 }

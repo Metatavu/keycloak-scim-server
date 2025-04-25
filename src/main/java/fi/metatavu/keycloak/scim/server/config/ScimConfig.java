@@ -48,4 +48,10 @@ public interface ScimConfig {
      */
     String getExternalAudience();
 
+    /**
+     * Returns whether identity provider should be automatically linked
+     *
+     * @return true if identity provider should be automatically linked
+     */
+    boolean getLinkIdp();
 }

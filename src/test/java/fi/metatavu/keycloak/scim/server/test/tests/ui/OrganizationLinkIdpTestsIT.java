@@ -19,7 +19,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
- * Tests for SCIM 2.0 User create endpoint
+ * Tests for SCIM 2.0 user linking with external identity provider
  */
 @Testcontainers
 public class OrganizationLinkIdpTestsIT extends AbstractOrganizationSeleniumScimTest {

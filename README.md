@@ -56,12 +56,13 @@ The following environment variables are available:
 Configuration on organization level is done by defining organization attributes in the Keycloak server.
 The following organization attributes are available:
 
-| Setting                  | Value                                                                             |
-| ------------------------ | --------------------------------------------------------------------------------- |
-| SCIM_AUTHENTICATION_MODE | Authentication mode for SCIM API. Possible values are KEYCLOAK and EXTERNAL. If the value is not set the server will respond unauthorzed for all requests. Currently on organization level only EXTERNAL is supported. |
-| SCIM_EXTERNAL_ISSUER     | Issuer for the external authentication. This is used to validate the JWT token.   |
-| SCIM_EXTERNAL_AUDIENCE   | JWKS URI for the external authentication. This is used to validate the JWT token. |
-| SCIM_EXTERNAL_JWKS_URI   | Audience for the external authentication. This is used to validate the JWT token. |
+| Setting                   | Value                                                                                                                                                                                                                  |
+|---------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| SCIM_AUTHENTICATION_MODE  | Authentication mode for SCIM API. Possible values are KEYCLOAK and EXTERNAL. If the value is not set the server will respond unauthorzed for all requests. Currently on organization level only EXTERNAL is supported. |
+| SCIM_EXTERNAL_ISSUER      | Issuer for the external authentication. This is used to validate the JWT token.                                                                                                                                        |
+| SCIM_EXTERNAL_AUDIENCE    | JWKS URI for the external authentication. This is used to validate the JWT token.                                                                                                                                      |
+| SCIM_EXTERNAL_JWKS_URI    | Audience for the external authentication. This is used to validate the JWT token.                                                                                                                                      |
+| SCIM_LINK_IDP            | Enables support for linking organization identity provider with user.                                                                                                                                                  |
 
 ### Azure Entra ID SCIM Configuration
 

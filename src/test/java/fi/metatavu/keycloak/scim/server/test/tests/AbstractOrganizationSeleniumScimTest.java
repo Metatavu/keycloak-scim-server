@@ -72,13 +72,13 @@ public abstract class AbstractOrganizationSeleniumScimTest extends AbstractOrgan
     /**
      * Waits for an element to be clickable and clicks it.
      * <p>
-     * If the element is not clickable within 60 seconds, the method will throw an exception.
+     * If the element is not clickable within default duration, the method will throw an exception.
      *
      * @param driver web driver
      * @param by element locator
      */
     protected void waitButtonAndClick(WebDriver driver, By by) {
-        WebDriverWait wait = new WebDriverWait(driver, DEFAULT_DURATION); // wait for a maximum of 60 seconds
+        WebDriverWait wait = new WebDriverWait(driver, DEFAULT_DURATION);
         WebElement element = wait.until(ExpectedConditions.elementToBeClickable(by));
         element.click();
     }
@@ -86,13 +86,14 @@ public abstract class AbstractOrganizationSeleniumScimTest extends AbstractOrgan
     /**
      * Waits for an element to have a specific text.
      * <p>
-     * If the element does not have the text within 60 seconds, the method will throw an exception.
+     * If the element does not have the text within default duration, the method will throw an exception.
      *
      * @param driver web driver
      * @param by element locator
      */
+    @SuppressWarnings("SameParameterValue")
     protected void waitText(WebDriver driver, By by, String text, boolean caseSensitive) {
-        WebDriverWait wait = new WebDriverWait(driver, DEFAULT_DURATION); // wait for a maximum of 60 seconds
+        WebDriverWait wait = new WebDriverWait(driver, DEFAULT_DURATION);
 
         if (caseSensitive) {
             wait.until(ExpectedConditions.textToBe(by, text));
@@ -104,21 +105,21 @@ public abstract class AbstractOrganizationSeleniumScimTest extends AbstractOrgan
     /**
      * Waits for an element to be present.
      * <p>
-     * If the element is not present within 60 seconds, the method will throw an exception.
+     * If the element is not present within default duration, the method will throw an exception.
      *
      * @param driver web driver
      * @param by element locator
      * @param duration maximum duration to wait
      */
     protected void waitPresent(WebDriver driver, By by, Duration duration) {
-        WebDriverWait wait = new WebDriverWait(driver, duration); // wait for a maximum of 60 seconds
+        WebDriverWait wait = new WebDriverWait(driver, duration);
         wait.until(ExpectedConditions.presenceOfElementLocated(by));
     }
 
     /**
      * Waits for an element to be present.
      * <p>
-     * If the element is not present within 60 seconds, the method will throw an exception.
+     * If the element is not present within default duration, the method will throw an exception.
      *
      * @param driver web driver
      * @param by element locator
@@ -131,14 +132,14 @@ public abstract class AbstractOrganizationSeleniumScimTest extends AbstractOrgan
     /**
      * Waits for an element to be clickable and types text into it.
      * <p>
-     * If the element is not clickable within 60 seconds, the method will throw an exception.
+     * If the element is not clickable within default duration, the method will throw an exception.
      *
      * @param driver web driver
      * @param by element locator
      * @param text text to type
      */
     protected void waitInputAndType(WebDriver driver, By by, String text) {
-        WebDriverWait wait = new WebDriverWait(driver, DEFAULT_DURATION); // wait for a maximum of 60 seconds
+        WebDriverWait wait = new WebDriverWait(driver, DEFAULT_DURATION);
         WebElement element = wait.until(ExpectedConditions.elementToBeClickable(by));
         element.sendKeys(text);
     }
@@ -146,14 +147,14 @@ public abstract class AbstractOrganizationSeleniumScimTest extends AbstractOrgan
     /**
      * Waits for an input to have a specific value.
      * <p>
-     * If the element is not clickable within 60 seconds, the method will throw an exception.
+     * If the element is not clickable within default duration, the method will throw an exception.
      *
      * @param driver web driver
      * @param by element locator
      * @param text text to type
      */
     protected void waitAndAssertInputValue(WebDriver driver, By by, String text) {
-        WebDriverWait wait = new WebDriverWait(driver, DEFAULT_DURATION); // wait for a maximum of 60 seconds
+        WebDriverWait wait = new WebDriverWait(driver, DEFAULT_DURATION);
         WebElement element = wait.until(ExpectedConditions.elementToBeClickable(by));
         assertEquals(text, element.getAttribute("value"));
     }

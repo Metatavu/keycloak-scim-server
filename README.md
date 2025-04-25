@@ -85,7 +85,7 @@ When using Entra ID settings will be following:
 | Setting                  | Value                                                                         |
 | ------------------------ | ----------------------------------------------------------------------------- |
 | SCIM_AUTHENTICATION_MODE | ```EXTERNAL```                                                                |
-| SCIM_EXTERNAL_ISSUER     | ```https://sts.windows.net/<your-tenant-id>```                                |
+| SCIM_EXTERNAL_ISSUER     | ```https://sts.windows.net/<your-tenant-id>/```                               |
 | SCIM_EXTERNAL_AUDIENCE   | ```8adf8e6e-67b2-4cf2-a259-e3dc5476c621```                                    |
 | SCIM_EXTERNAL_JWKS_URI   | ```https://login.microsoftonline.com/<your-tenant-id>/discovery/v2.0/keys```  |
 
@@ -109,8 +109,8 @@ Step-by-step guide on the Azure:
 7. In the application's left-hand menu, select **Provisioning**.
 8. Click **+ New configuration**.
 9. Fill in the following:
- - Tenant URL (realm): https://mykeycloak.example.com/auth/realms/my-realm/scim/v2 or 
- - Tenant URL (organization): https://mykeycloak.example.com/auth/realms/organizations/scim/v2/organizations/{organizationId} 
+ - Tenant URL (realm): https://mykeycloak.example.com/realms/my-realm/scim/v2 or 
+ - Tenant URL (organization): https://mykeycloak.example.com/realms/my-realm/scim/v2/organizations/{organizationId} 
  - Secret Token: Leave this field empty (the application will use the Entra ID bearer token).
 10. Click **Test Connection** to verify the SCIM endpoint.
 11. Click **Create**.

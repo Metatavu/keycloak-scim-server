@@ -186,7 +186,11 @@ Add the following attribute to your SCIM configuration (only supported by organi
     SCIM_LINK_IDP=true
 
 This will ensure that when a user is provisioned via SCIM, a corresponding Identity Provider link is also created automatically based on the externalId / oid.
- 
+
+## License
+
+[Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0)
+  
 ---
 
 <div id="metatavu-custom-footer"><div align="center">

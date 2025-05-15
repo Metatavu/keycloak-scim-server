@@ -206,7 +206,7 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
         }
 
         URI serverBaseUri = session.getContext().getUri().getBaseUri().resolve(String.format("realms/%s/scim/v2/", realm.getName()));
-        RealmScimConfig config = new RealmScimConfig();
+        RealmScimConfig config = new RealmScimConfig(realm);
 
         try {
             config.validateConfig();

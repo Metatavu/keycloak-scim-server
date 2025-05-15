@@ -6,6 +6,7 @@ package fi.metatavu.keycloak.scim.server.consts;
 public class ScimRoles {
 
     public static final String SERVICE_ACCOUNT_ROLE = "scim-access";
+    public static final String SERVICE_ACCOUNT_CONFIG_ADMIN_ROLE = "scim-config-admin";
     public static final String SCIM_MANAGED_ROLE = "scim-managed";
 
 }

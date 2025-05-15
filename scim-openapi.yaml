@@ -475,6 +475,35 @@ paths:
               schema:
                 $ref: '#/components/schemas/ServiceProviderConfig'
 
+  /config:
+    post:
+      summary: Update SCIM realm configuration
+      operationId: updateRealmConfig
+      tags: [Configuration]
+      description: >
+        Updates the SCIM-related configuration for the current realm.
+
+        Requires:
+        - OAuth2 access token (Bearer token)
+        - The service account must have the realm role `scim-config-admin`
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RealmScimConfigUpdateRequest'
+      responses:
+        '204':
+          description: Configuration updated
+        '400':
+          description: Invalid configuration
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+
 components:
   securitySchemes:
     bearerAuth:
@@ -912,3 +941,24 @@ components:
           type: string
           format: date-time
           example: "2011-05-13T04:42:34Z"
+
+    RealmScimConfigUpdateRequest:
+      type: object
+      required:
+        - authenticationMode
+      properties:
+        authenticationMode:
+          type: string
+          enum: [INTERNAL, EXTERNAL]
+          description: SCIM authentication mode
+        externalIssuer:
+          type: string
+          format: uri
+          description: External token issuer URI (required if mode is EXTERNAL)
+        jwksUri:
+          type: string
+          format: uri
+          description: JWKS URI (required if mode is EXTERNAL)
+        audience:
+          type: string
+          description: Expected audience for external token (optional)

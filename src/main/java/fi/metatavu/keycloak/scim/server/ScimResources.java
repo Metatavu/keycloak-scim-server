@@ -22,13 +22,11 @@ public class ScimResources {
     private final ScimFilterParser scimFilterParser;
     private final RealmScimServer realmScimServer;
     private final OrganizationScimServer organizationScimServer;
-    private final ConfigServer configServer;
 
     ScimResources() {
         scimFilterParser = new ScimFilterParser();
         realmScimServer = new RealmScimServer();
         organizationScimServer = new OrganizationScimServer();
-        configServer = new ConfigServer();
     }
 
     // Realm Server endpoints
@@ -661,24 +659,6 @@ public class ScimResources {
         OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
         organizationScimServer.verifyPermissions(scimContext);
         return organizationScimServer.getServiceProviderConfig(scimContext);
-    }
-
-    @POST
-    @Path("v2/config")
-    @Consumes(ContentTypes.APPLICATION_JSON)
-    @Produces(ContentTypes.APPLICATION_JSON)
-    @SuppressWarnings("unused")
-    public Response updateRealmAuthConfig(
-            @Context KeycloakSession session,
-            fi.metatavu.keycloak.scim.server.model.RealmScimConfigUpdateRequest updateRealmConfig
-    ) {
-        RealmModel realm = session.getContext().getRealm();
-        configServer.verifyPermissions(session);
-
-        return configServer.updateRealmAuthConfig(
-                realm,
-                updateRealmConfig
-        );
     }
 
     /**

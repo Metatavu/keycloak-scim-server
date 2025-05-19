@@ -53,17 +53,17 @@ The following environment variables are available:
 
 ### Configuration on Realm level
 
-Configuration on realm level is done through an API endpoint. The settings are stored underlying through realm attributes.
+The following REST call can be called through the Keycloak Admin API to store the settings under realm attributes. 
 
-The following REST call can be done. Make sure to have the "scim-config-admin" role assigned to the service account of the client to which you are authenticated.
-
-POST `/realms/{realm}/scim/v2/config`
+PUT `/admin/realms/{realm}`
 ```
 {
-    "authenticationMode": "EXTERNAL|INTERNAL",
-    "externalIssuer": "string",
-    "jwksUri": "string",
-    "audience": "string"
+    "attributes": {
+        "authenticationMode": "EXTERNAL|INTERNAL",
+        "externalIssuer": "string",
+        "jwksUri": "string",
+        "audience": "string"
+    }
 }
 ```
 

@@ -58,12 +58,12 @@ The following REST call can be called through the Keycloak Admin API to store th
 PUT `/admin/realms/{realm}`
 ```
 {
-    "attributes": {
-        "authenticationMode": "EXTERNAL|INTERNAL",
-        "externalIssuer": "string",
-        "jwksUri": "string",
-        "audience": "string"
-    }
+  "attributes": {
+    "scim.authentication.mode": "EXTERNAL|INTERNAL",
+    "scim.external.issuer": "string",
+    "scim.external.jwks.uri": "string",
+    "scim.external.audience": "string"
+  }
 }
 ```
 

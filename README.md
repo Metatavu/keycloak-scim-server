@@ -39,9 +39,9 @@ cp build/libs/keycloak-scim-server-*.jar $KEYCLOAK_HOME/providers/
 
 ## Configuration
 
-### Configuation on Realm level
+### Configuration on Instance level
 
-Configuration on realm level is done by defining environment variables in the Keycloak server. 
+Configuration on instance level is done by defining environment variables in the Keycloak server. 
 
 The following environment variables are available:
 | Setting                  | Value                                                                             |
@@ -50,6 +50,22 @@ The following environment variables are available:
 | SCIM_EXTERNAL_ISSUER     | Issuer for the external authentication. This is used to validate the JWT token.   |
 | SCIM_EXTERNAL_AUDIENCE   | JWKS URI for the external authentication. This is used to validate the JWT token. |
 | SCIM_EXTERNAL_JWKS_URI   | Audience for the external authentication. This is used to validate the JWT token. |
+
+### Configuration on Realm level
+
+The following REST call can be called through the Keycloak Admin API to store the settings under realm attributes. 
+
+PUT `/admin/realms/{realm}`
+```
+{
+  "attributes": {
+    "scim.authentication.mode": "EXTERNAL|INTERNAL",
+    "scim.external.issuer": "string",
+    "scim.external.jwks.uri": "string",
+    "scim.external.audience": "string"
+  }
+}
+```
 
 ### Configuration on Organization level
 

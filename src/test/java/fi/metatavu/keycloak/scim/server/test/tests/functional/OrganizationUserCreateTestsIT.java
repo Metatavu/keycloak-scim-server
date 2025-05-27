@@ -133,7 +133,6 @@ public class OrganizationUserCreateTestsIT extends AbstractOrganizationScimTest 
         user.setActive(true);
         user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
         user.setName(getName("New", "User"));
-        user.setEmails(getEmails("new.user@example.com"));
         user.putAdditionalProperty("externalId", "my-external-id");
         user.putAdditionalProperty("preferredLanguage", "fi-FI");
         user.putAdditionalProperty("displayName", "The New User");

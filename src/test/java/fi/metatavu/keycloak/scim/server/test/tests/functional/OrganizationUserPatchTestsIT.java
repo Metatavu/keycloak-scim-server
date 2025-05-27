@@ -162,4 +162,58 @@ public class OrganizationUserPatchTestsIT extends AbstractOrganizationScimTest {
         deleteRealmUser(TestConsts.ORGANIZATIONS_REALM, created.getId());
     }
 
+    @Test
+    void testPatchUsernameEmailAsUsername() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_EMAIL_AS_USERNAME_ID);
+
+        // Test that patching username with email as username enabled updates email instead of username
+
+        User patched = scimClient.patchUser(TestConsts.ORGANIZATION_EMAIL_AS_USERNAME_EXISTING_USER_ID, new PatchRequest()
+                .schemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"))
+                .operations(List.of(
+                        new PatchRequestOperationsInner()
+                                .op("replace")
+                                .path("userName")
+                                .value("new-email@example.com")
+                ))
+        );
+
+        assertNotNull(patched);
+        assertEquals("new-email@example.com", patched.getUserName());
+        assertNotNull(patched.getEmails());
+        assertEquals(1, patched.getEmails().size());
+        assertEquals("new-email@example.com", patched.getEmails().getFirst().getValue());
+
+        User found = scimClient.findUser(TestConsts.ORGANIZATION_EMAIL_AS_USERNAME_EXISTING_USER_ID);
+        assertNotNull(found);
+        assertEquals("new-email@example.com", found.getUserName());
+        assertNotNull(found.getEmails());
+        assertEquals(1, found.getEmails().size());
+        assertEquals("new-email@example.com", found.getEmails().getFirst().getValue());
+
+        // Assert that the userName in Keycloak user has not been changed, but email is updated
+
+        UserRepresentation realmUser = getKeycloakContainer().getKeycloakAdminClient()
+                .realm(TestConsts.ORGANIZATIONS_REALM)
+                .users()
+                .get(TestConsts.ORGANIZATION_EMAIL_AS_USERNAME_EXISTING_USER_ID)
+                .toRepresentation();
+
+        assertEquals("existing-user", realmUser.getUsername());
+        assertNotNull(realmUser.getEmail());
+        assertEquals("new-email@example.com", realmUser.getEmail());
+
+        // Revert changes
+
+        scimClient.patchUser(TestConsts.ORGANIZATION_EMAIL_AS_USERNAME_EXISTING_USER_ID, new PatchRequest()
+                .schemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"))
+                .operations(List.of(
+                        new PatchRequestOperationsInner()
+                                .op("replace")
+                                .path("userName")
+                                .value("existing-user@example.com")
+                ))
+        );
+    }
+
 }

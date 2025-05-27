@@ -318,4 +318,31 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
     deleteRealmUsers(TestConsts.ORGANIZATIONS_REALM, createdUsers);
   }
 
+  @Test
+  void testListUsersEmailAsUsername() throws ApiException {
+    ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_EMAIL_AS_USERNAME_ID);
+
+    UsersList usersList = scimClient.listUsers(null, 0, 10);
+    assertNotNull(usersList);
+    assertNotNull(usersList.getResources());
+    assertEquals(1, usersList.getTotalResults());
+    assertEquals("existing-user@example.com", usersList.getResources().getFirst().getUserName());
+  }
+
+  @Test
+  void testFilterUsersEmailAsUsername() throws ApiException {
+    ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_EMAIL_AS_USERNAME_ID);
+
+    UsersList usersByUsername = scimClient.listUsers("userName eq \"existing-user\"", 0, 10);
+    assertNotNull(usersByUsername);
+    assertNotNull(usersByUsername.getResources());
+    assertEquals(0, usersByUsername.getTotalResults());
+
+    UsersList usersByEmail = scimClient.listUsers("userName eq \"existing-user@example.com\"", 0, 10);
+    assertNotNull(usersByEmail);
+    assertNotNull(usersByEmail.getResources());
+    assertEquals(1, usersByEmail.getTotalResults());
+    assertEquals("existing-user@example.com", usersByEmail.getResources().getFirst().getUserName());
+  }
+
 }

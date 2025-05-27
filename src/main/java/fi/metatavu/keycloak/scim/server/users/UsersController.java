@@ -199,16 +199,16 @@ public class UsersController extends AbstractController {
         UserModel existing,
         User scimUser
     ) {
-        existing.setUsername(scimUser.getUserName());
-        existing.setEnabled(scimUser.getActive() == null || Boolean.TRUE.equals(scimUser.getActive()));
+        ((StringUserAttribute) userAttributes.findByScimPath("userName")).write(existing, scimUser.getUserName());
+        ((BooleanUserAttribute) userAttributes.findByScimPath("active")).write(existing, scimUser.getActive() == null || Boolean.TRUE.equals(scimUser.getActive()));
 
         if (scimUser.getName() != null) {
-            existing.setFirstName(scimUser.getName().getGivenName());
-            existing.setLastName(scimUser.getName().getFamilyName());
+            ((StringUserAttribute) userAttributes.findByScimPath("name.givenName")).write(existing, scimUser.getName().getGivenName());
+            ((StringUserAttribute) userAttributes.findByScimPath("name.familyName")).write(existing, scimUser.getName().getFamilyName());
         }
 
         if (scimUser.getEmails() != null && !scimUser.getEmails().isEmpty()) {
-            existing.setEmail(scimUser.getEmails().getFirst().getValue());
+            ((StringUserAttribute) userAttributes.findByScimPath("email")).write(existing, scimUser.getEmails().getFirst().getValue());
         }
 
         Map<String, Object> additionalProperties = scimUser.getAdditionalProperties();
@@ -380,9 +380,11 @@ public class UsersController extends AbstractController {
             return null;
         }
 
+        boolean emailAsUsername = scimContext.getConfig().getEmailAsUsername();
+
         fi.metatavu.keycloak.scim.server.model.User result = new fi.metatavu.keycloak.scim.server.model.User()
                 .id(user.getId())
-                .userName(user.getUsername())
+                .userName(emailAsUsername ? user.getEmail() : user.getUsername())
                 .active(user.isEnabled())
                 .emails(Collections.singletonList(new fi.metatavu.keycloak.scim.server.model.UserEmailsInner()
                         .value(user.getEmail())

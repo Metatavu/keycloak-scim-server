@@ -5,6 +5,7 @@ import java.util.*;
 
 import fi.metatavu.keycloak.scim.server.AbstractController;
 import fi.metatavu.keycloak.scim.server.ScimContext;
+import fi.metatavu.keycloak.scim.server.config.ScimConfig;
 import fi.metatavu.keycloak.scim.server.model.ResourceType;
 import fi.metatavu.keycloak.scim.server.model.SchemaListResponse;
 import fi.metatavu.keycloak.scim.server.model.SchemaListItem;
@@ -217,19 +218,20 @@ public class MetadataController extends AbstractController {
      */
     private List<UserAttribute<?>> getUserAttributeMappingList(ScimContext scimContext) {
         KeycloakSession session = scimContext.getSession();
+        ScimConfig config = scimContext.getConfig();
         UserProfileProvider userProfileProvider = session.getProvider(UserProfileProvider.class);
 
         List<UserAttribute<?>> builtIn = List.of(
             new StringUserAttribute(
                 UserAttribute.Source.USER_MODEL,
-                UserModel.USERNAME,
+                config.getEmailAsUsername() ? UserModel.EMAIL : UserModel.USERNAME,
                 "userName",
                 "User name",
                 SchemaAttribute.TypeEnum.STRING,
                 SchemaAttribute.MutabilityEnum.READWRITE,
                 SchemaAttribute.UniquenessEnum.SERVER,
-                    UserModel::getUsername,
-                    UserModel::setUsername
+                    config.getEmailAsUsername() ? UserModel::getEmail : UserModel::getUsername,
+                    config.getEmailAsUsername() ? UserModel::setEmail : UserModel::setUsername
             ),
             new StringUserAttribute(
                 UserAttribute.Source.USER_MODEL,
@@ -277,9 +279,13 @@ public class MetadataController extends AbstractController {
             )
         );
 
-        List<String> builtInAttributeNames = builtIn.stream()
-                .map(UserAttribute::getSourceId)
-                .toList();
+        List<String> builtInAttributeNames = List.of(
+            UserModel.USERNAME,
+            UserModel.EMAIL,
+            UserModel.FIRST_NAME,
+            UserModel.LAST_NAME,
+            UserModel.ENABLED
+        );
 
         List<UserAttribute<String>> customAttributes = new ArrayList<>();
 

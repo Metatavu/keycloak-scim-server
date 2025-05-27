@@ -386,6 +386,23 @@
   "webAuthnPolicyPasswordlessAvoidSameAuthenticatorRegister" : false,
   "webAuthnPolicyPasswordlessAcceptableAaguids" : [ ],
   "webAuthnPolicyPasswordlessExtraOrigins" : [ ],
+  "users" : [ {
+    "id" : "013cd8c2-e367-4b6c-a72d-c225bb75bc18",
+    "username" : "existing-user",
+    "firstName" : "Existing",
+    "lastName" : "User",
+    "email" : "existing-user@example.com",
+    "emailVerified" : true,
+    "createdTimestamp" : 1748346355800,
+    "enabled" : true,
+    "totp" : false,
+    "credentials" : [ ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ ],
+    "realmRoles" : [ "default-roles-organizations", "scim-managed" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  } ],
   "scopeMappings" : [ {
     "clientScope" : "offline_access",
     "roles" : [ "offline_access" ]
@@ -1249,7 +1266,38 @@
   "adminEventsEnabled" : false,
   "adminEventsDetailsEnabled" : false,
   "identityProviders" : [ {
-    "alias" : "external",
+    "alias" : "external-emailasusernameorg",
+    "displayName" : "",
+    "internalId" : "E34C6EFC-B782-4333-A958-8F2B315BD0C6",
+    "providerId" : "keycloak-oidc",
+    "enabled" : true,
+    "updateProfileFirstLoginMode" : "on",
+    "trustEmail" : false,
+    "storeToken" : false,
+    "addReadTokenRoleOnCreate" : false,
+    "authenticateByDefault" : false,
+    "linkOnly" : false,
+    "hideOnLogin" : true,
+    "config" : {
+      "userInfoUrl" : "http://scim-keycloak:8080/realms/external/protocol/openid-connect/userinfo",
+      "validateSignature" : "true",
+      "tokenUrl" : "http://scim-keycloak:8080/realms/external/protocol/openid-connect/token",
+      "clientId" : "external",
+      "jwksUrl" : "http://scim-keycloak:8080/realms/external/protocol/openid-connect/certs",
+      "issuer" : "http://scim-keycloak:8080/realms/external",
+      "useJwksUrl" : "true",
+      "kc.org.domain" : "emailasusernameorg.example.com",
+      "kc.org.broker.redirect.mode.email-matches" : "true",
+      "pkceEnabled" : "false",
+      "metadataDescriptorUrl" : "http://scim-keycloak:8080/realms/external/.well-known/openid-configuration",
+      "authorizationUrl" : "http://scim-keycloak:8080/realms/external/protocol/openid-connect/auth",
+      "clientAuthMethod" : "client_secret_post",
+      "logoutUrl" : "http://scim-keycloak:8080/realms/external/protocol/openid-connect/logout",
+      "syncMode" : "LEGACY",
+      "clientSecret" : "34FwMjsJdKPxcHjSkim289qsYTrzGIX4"
+    }
+  }, {
+    "alias" : "external-org1",
     "displayName" : "",
     "internalId" : "ded8b834-4873-4c92-a77a-5ba17f33559d",
     "providerId" : "keycloak-oidc",
@@ -1299,7 +1347,7 @@
       "subType" : "authenticated",
       "subComponents" : { },
       "config" : {
-        "allowed-protocol-mapper-types" : [ "oidc-usermodel-attribute-mapper", "oidc-full-name-mapper", "oidc-sha256-pairwise-sub-mapper", "saml-user-property-mapper", "saml-user-attribute-mapper", "oidc-usermodel-property-mapper", "oidc-address-mapper", "saml-role-list-mapper" ]
+        "allowed-protocol-mapper-types" : [ "oidc-usermodel-attribute-mapper", "oidc-full-name-mapper", "oidc-address-mapper", "saml-user-property-mapper", "oidc-usermodel-property-mapper", "saml-role-list-mapper", "saml-user-attribute-mapper", "oidc-sha256-pairwise-sub-mapper" ]
       }
     }, {
       "id" : "bda71de0-81fb-4739-b33c-74e2c87cd2a5",
@@ -1322,7 +1370,7 @@
       "subType" : "anonymous",
       "subComponents" : { },
       "config" : {
-        "allowed-protocol-mapper-types" : [ "oidc-full-name-mapper", "saml-role-list-mapper", "oidc-usermodel-attribute-mapper", "saml-user-attribute-mapper", "saml-user-property-mapper", "oidc-usermodel-property-mapper", "oidc-sha256-pairwise-sub-mapper", "oidc-address-mapper" ]
+        "allowed-protocol-mapper-types" : [ "saml-user-attribute-mapper", "saml-role-list-mapper", "oidc-sha256-pairwise-sub-mapper", "saml-user-property-mapper", "oidc-full-name-mapper", "oidc-usermodel-property-mapper", "oidc-usermodel-attribute-mapper", "oidc-address-mapper" ]
       }
     }, {
       "id" : "6bf02457-f91e-43bd-a6e7-b9507c6261af",
@@ -2047,10 +2095,44 @@
     "frontendUrl" : "",
     "acr.loa.map" : "{}"
   },
-  "keycloakVersion" : "26.1.4",
+  "keycloakVersion" : "26.1.2",
   "userManagedAccessAllowed" : false,
   "organizationsEnabled" : true,
   "organizations" : [ {
+    "id" : "75528102-90E8-4075-A520-2E0829B2CAC3",
+    "name" : "emailasusernameorg",
+    "alias" : "emailasusernameorg",
+    "enabled" : true,
+    "description" : "",
+    "attributes" : {
+      "SCIM_LINK_IDP" : [ "true" ],
+      "SCIM_EXTERNAL_JWKS_URI" : [ "http://localhost:8080/realms/external/protocol/openid-connect/certs" ],
+      "SCIM_EXTERNAL_ISSUER" : [ "*" ],
+      "SCIM_EMAIL_AS_USERNAME" : [ "true" ],
+      "SCIM_EXTERNAL_AUDIENCE" : [ "account" ],
+      "SCIM_AUTHENTICATION_MODE" : [ "EXTERNAL" ]
+    },
+    "domains" : [ {
+      "name" : "emailasusernameorg.example.com",
+      "verified" : false
+    } ],
+    "members" : [ {
+      "username" : "existing-user",
+      "membershipType" : "MANAGED"
+    } ],
+    "identityProviders" : [ {
+      "alias" : "external-emailasusernameorg",
+      "enabled" : true,
+      "updateProfileFirstLoginMode" : "on",
+      "trustEmail" : false,
+      "storeToken" : false,
+      "addReadTokenRoleOnCreate" : false,
+      "authenticateByDefault" : false,
+      "linkOnly" : false,
+      "hideOnLogin" : false,
+      "config" : { }
+    } ]
+  }, {
     "id" : "161ecf88-d86d-44ef-b777-fb8d2a28a1fa",
     "name" : "org1",
     "alias" : "org1",
@@ -2068,7 +2150,7 @@
       "verified" : false
     } ],
     "identityProviders" : [ {
-      "alias" : "external",
+      "alias" : "external-org1",
       "enabled" : true,
       "updateProfileFirstLoginMode" : "on",
       "trustEmail" : false,

@@ -1,5 +1,6 @@
 package fi.metatavu.keycloak.scim.server.organization;
 
+import fi.metatavu.keycloak.scim.server.config.ScimConfig;
 import fi.metatavu.keycloak.scim.server.consts.ScimRoles;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
 import fi.metatavu.keycloak.scim.server.metadata.BooleanUserAttribute;
@@ -35,6 +36,7 @@ public class OrganizationUserController extends UsersController  {
         KeycloakSession session = scimContext.getSession();
         RealmModel realm = scimContext.getRealm();
         OrganizationModel organization = scimContext.getOrganization();
+        ScimConfig config = scimContext.getConfig();
 
         UserModel user = session.users().addUser(realm, scimUser.getUserName());
         user.setEnabled(scimUser.getActive() == null || Boolean.TRUE.equals(scimUser.getActive()));
@@ -44,7 +46,13 @@ public class OrganizationUserController extends UsersController  {
             user.setLastName(scimUser.getName().getFamilyName());
         }
 
-        String scimUserEmail = scimUser.getEmails() != null && !scimUser.getEmails().isEmpty() ? scimUser.getEmails().getFirst().getValue() : null;
+        String scimUserEmail;
+        if (config.getEmailAsUsername()) {
+            scimUserEmail = scimUser.getUserName();
+        } else {
+            scimUserEmail = scimUser.getEmails() != null && !scimUser.getEmails().isEmpty() ? scimUser.getEmails().getFirst().getValue() : null;
+        }
+
         if (scimUserEmail != null) {
             user.setEmail(scimUserEmail);
             user.setEmailVerified(true);

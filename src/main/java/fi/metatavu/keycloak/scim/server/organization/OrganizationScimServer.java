@@ -31,17 +31,16 @@ public class OrganizationScimServer extends AbstractScimServer<OrganizationScimC
 
     @Override
     public Response createUser(OrganizationScimContext scimContext, User createRequest) {
-        RealmModel realm = scimContext.getRealm();
-        KeycloakSession session = scimContext.getSession();
+        boolean emailAsUsername = scimContext.getConfig().getEmailAsUsername();
 
         if (createRequest.getUserName().isBlank()) {
             logger.warn("Cannot create user: Missing userName");
             return Response.status(Response.Status.BAD_REQUEST).entity("Missing userName").build();
         }
 
-        UserModel existing = session.users().getUserByUsername(realm, createRequest.getUserName());
-        if (existing != null) {
-            return Response.status(Response.Status.CONFLICT).entity("User already exists").build();
+        if (emailAsUsername && !isValidEmail(createRequest.getUserName())) {
+            logger.warn("Cannot create user: Invalid email format for userName");
+            return Response.status(Response.Status.BAD_REQUEST).entity("Invalid email format for userName").build();
         }
 
         UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);

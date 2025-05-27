@@ -78,4 +78,13 @@ public class OrganizationUserFindTestsIT extends AbstractOrganizationScimTest {
         assertEquals(404, exception.getCode());
     }
 
+    @Test
+    void testFindEmailAsUsername() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_EMAIL_AS_USERNAME_ID);
+
+        User existingUser = scimClient.findUser(TestConsts.ORGANIZATION_EMAIL_AS_USERNAME_EXISTING_USER_ID);
+        assertNotNull(existingUser);
+        assertEquals("existing-user@example.com", existingUser.getUserName());
+    }
+
 }

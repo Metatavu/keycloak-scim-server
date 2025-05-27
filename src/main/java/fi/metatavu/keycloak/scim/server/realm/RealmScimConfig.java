@@ -6,7 +6,6 @@ import org.eclipse.microprofile.config.Config;
 import org.eclipse.microprofile.config.ConfigProvider;
 import org.keycloak.models.RealmModel;
 
-import java.util.List;
 import java.util.Optional;
 
 /**
@@ -98,6 +97,14 @@ public class RealmScimConfig implements ScimConfig {
      */
     @Override
     public boolean getLinkIdp() {
+        return false;
+    }
+
+    /**
+     * Returns whether email should be used as username.
+     */
+    @Override
+    public boolean getEmailAsUsername() {
         return false;
     }
 

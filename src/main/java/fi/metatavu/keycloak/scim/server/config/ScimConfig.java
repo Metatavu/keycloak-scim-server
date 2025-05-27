@@ -54,4 +54,11 @@ public interface ScimConfig {
      * @return true if identity provider should be automatically linked
      */
     boolean getLinkIdp();
+
+    /**
+     * Returns whether email should be used as username instead of username
+     *
+     * @return true if email should be used as username
+     */
+    boolean getEmailAsUsername();
 }

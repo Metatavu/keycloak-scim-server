@@ -123,4 +123,53 @@ public class OrganizationUserCreateTestsIT extends AbstractOrganizationScimTest 
         // Clean up
         deleteRealmUser(TestConsts.ORGANIZATIONS_REALM, created.getId());
     }
+
+    @Test
+    void testCreateEmailAsUsername() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_EMAIL_AS_USERNAME_ID);
+
+        User user = new User();
+        user.setUserName("new.user@example.com");
+        user.setActive(true);
+        user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
+        user.setName(getName("New", "User"));
+        user.putAdditionalProperty("externalId", "my-external-id");
+        user.putAdditionalProperty("preferredLanguage", "fi-FI");
+        user.putAdditionalProperty("displayName", "The New User");
+
+        User created = scimClient.createUser(user);
+
+        assertUser(created,
+                created.getId(),
+                "new.user@example.com",
+                "New",
+                "User",
+                "new.user@example.com",
+                "my-external-id",
+                "fi-FI",
+                "The New User"
+        );
+
+        // Clean up
+        deleteRealmUser(TestConsts.ORGANIZATIONS_REALM, created.getId());
+    }
+
+    @Test
+    void testCreateEmailAsUsernameMalformed() {
+        ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_EMAIL_AS_USERNAME_ID);
+
+        User user = new User();
+        user.setUserName("new.user");
+        user.setActive(true);
+        user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
+        user.setName(getName("New", "User"));
+        user.setEmails(getEmails("new.user@example.com"));
+        user.putAdditionalProperty("externalId", "my-external-id");
+        user.putAdditionalProperty("preferredLanguage", "fi-FI");
+        user.putAdditionalProperty("displayName", "The New User");
+
+        assertThrows(ApiException.class, () -> {
+            scimClient.createUser(user);
+        }, "Invalid email format for userName");
+    }
 }

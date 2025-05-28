@@ -7,6 +7,7 @@ import fi.metatavu.keycloak.scim.server.metadata.UserAttributes;
 import fi.metatavu.keycloak.scim.server.model.Group;
 import fi.metatavu.keycloak.scim.server.model.PatchRequest;
 import fi.metatavu.keycloak.scim.server.model.User;
+import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
 import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
@@ -14,6 +15,7 @@ import org.jboss.logging.Logger;
 import org.keycloak.models.*;
 
 import java.net.URI;
+import java.util.Objects;
 
 /**
  * SCIM server implementation for organizations
@@ -31,17 +33,16 @@ public class OrganizationScimServer extends AbstractScimServer<OrganizationScimC
 
     @Override
     public Response createUser(OrganizationScimContext scimContext, User createRequest) {
-        RealmModel realm = scimContext.getRealm();
-        KeycloakSession session = scimContext.getSession();
+        boolean emailAsUsername = scimContext.getConfig().getEmailAsUsername();
 
         if (createRequest.getUserName().isBlank()) {
             logger.warn("Cannot create user: Missing userName");
             return Response.status(Response.Status.BAD_REQUEST).entity("Missing userName").build();
         }
 
-        UserModel existing = session.users().getUserByUsername(realm, createRequest.getUserName());
-        if (existing != null) {
-            return Response.status(Response.Status.CONFLICT).entity("User already exists").build();
+        if (emailAsUsername && !isValidEmail(createRequest.getUserName())) {
+            logger.warn("Cannot create user: Invalid email format for userName");
+            return Response.status(Response.Status.BAD_REQUEST).entity("Invalid email format for userName").build();
         }
 
         UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
@@ -58,6 +59,77 @@ public class OrganizationScimServer extends AbstractScimServer<OrganizationScimC
             .created(location)
             .entity(user)
             .build();
+    }
+
+    @Override
+    public Response updateUser(OrganizationScimContext scimContext, String userId, fi.metatavu.keycloak.scim.server.model.User updateRequest) {
+        boolean emailAsUsername = scimContext.getConfig().getEmailAsUsername();
+        KeycloakSession session = scimContext.getSession();
+
+        if (updateRequest.getUserName().isBlank()) {
+            logger.warn("Missing userName");
+            return Response.status(Response.Status.BAD_REQUEST).entity("Missing userName").build();
+        }
+
+        if (emailAsUsername && !isValidEmail(updateRequest.getUserName())) {
+            logger.warn("Cannot update user: Invalid email format for userName");
+            return Response.status(Response.Status.BAD_REQUEST).entity("Invalid email format for userName").build();
+        }
+
+        if (emailAsUsername && updateRequest.getEmails() != null) {
+            for (fi.metatavu.keycloak.scim.server.model.UserEmailsInner email : updateRequest.getEmails()) {
+                if (!Objects.equals(email.getValue(), updateRequest.getUserName())) {
+                    logger.warn("Conflicting email and userName when emailAsUsername is enabled");
+                    return Response.status(Response.Status.BAD_REQUEST).entity("Username and email must match when emailAsUsername is enabled").build();
+                }
+            }
+        }
+
+        RealmModel realm = scimContext.getRealm();
+        UserModel user = session.users().getUserById(realm, userId);
+        if (user == null) {
+            logger.warn(String.format("User not found: %s", userId));
+            return Response.status(Response.Status.NOT_FOUND).entity("User not found").build();
+        }
+
+        // Check if username is being changed to an already existing one
+        UserModel existing;
+        if (emailAsUsername) {
+            existing = session.users().getUserByEmail(realm, updateRequest.getUserName());
+        } else {
+            existing = session.users().getUserByUsername(realm, updateRequest.getUserName());
+        }
+
+        if (existing != null && !existing.getId().equals(userId)) {
+            logger.warn(String.format("User name already taken: %s", updateRequest.getUserName()));
+            return Response.status(Response.Status.CONFLICT).entity("User name already taken").build();
+        }
+
+        UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
+        fi.metatavu.keycloak.scim.server.model.User result = organizationUserController.updateOrganizationUser(scimContext, userAttributes, user, updateRequest);
+
+        return Response.ok(result).build();
+    }
+
+    @Override
+    public Response patchUser(OrganizationScimContext scimContext, String userId, fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest) {
+        KeycloakSession session = scimContext.getSession();
+
+        RealmModel realm = scimContext.getRealm();
+        UserModel existing = session.users().getUserById(realm, userId);
+        if (existing == null) {
+            logger.warn(String.format("User not found: %s", userId));
+            return Response.status(Response.Status.NOT_FOUND).entity("User not found").build();
+        }
+
+        UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
+
+        try {
+            fi.metatavu.keycloak.scim.server.model.User result = organizationUserController.patchOrganizationUser(scimContext, userAttributes, existing, patchRequest);
+            return Response.ok(result).build();
+        } catch (UnsupportedPatchOperation e) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("Unsupported patch operation").build();
+        }
     }
 
     @Override

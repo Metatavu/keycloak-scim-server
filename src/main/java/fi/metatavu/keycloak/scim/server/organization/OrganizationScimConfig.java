@@ -71,6 +71,11 @@ public class OrganizationScimConfig implements ScimConfig {
         return "true".equalsIgnoreCase(getAttribute("SCIM_LINK_IDP"));
     }
 
+    @Override
+    public boolean getEmailAsUsername() {
+        return "true".equalsIgnoreCase(getAttribute("SCIM_EMAIL_AS_USERNAME"));
+    }
+
     /**
      * Gets the organization attribute
      *

@@ -6,8 +6,11 @@ import fi.metatavu.keycloak.scim.server.consts.ScimRoles;
 import fi.metatavu.keycloak.scim.server.groups.GroupsController;
 import fi.metatavu.keycloak.scim.server.metadata.MetadataController;
 import fi.metatavu.keycloak.scim.server.metadata.UserAttributes;
+import fi.metatavu.keycloak.scim.server.model.UserEmailsInner;
 import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
 import fi.metatavu.keycloak.scim.server.users.UsersController;
+import jakarta.mail.internet.AddressException;
+import jakarta.mail.internet.InternetAddress;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.NotAuthorizedException;
@@ -23,6 +26,7 @@ import org.keycloak.services.managers.AuthenticationManager;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.util.Objects;
 
 /**
  * Abstract SCIM server implementation
@@ -44,61 +48,6 @@ public abstract class AbstractScimServer <T extends ScimContext> implements Scim
         metadataController = new MetadataController();
         usersController = new UsersController();
         groupsController = new GroupsController();
-    }
-
-    @Override
-    public Response updateUser(T scimContext, String userId, fi.metatavu.keycloak.scim.server.model.User updateRequest) {
-        KeycloakSession session = scimContext.getSession();
-
-        if (updateRequest.getUserName().isBlank()) {
-            logger.warn("Missing userName");
-            return Response.status(Response.Status.BAD_REQUEST).entity("Missing userName").build();
-        }
-
-        RealmModel realm = scimContext.getRealm();
-        UserModel user = session.users().getUserById(realm, userId);
-        if (user == null) {
-            logger.warn(String.format("User not found: %s", userId));
-            return Response.status(Response.Status.NOT_FOUND).entity("User not found").build();
-        }
-
-        // Check if username is being changed to an already existing one
-        UserModel existing = session.users().getUserByUsername(realm, updateRequest.getUserName());
-        if (existing == null) {
-            logger.warn(String.format("User not found: %s", updateRequest.getUserName()));
-            return Response.status(Response.Status.NOT_FOUND).entity("User not found").build();
-        }
-
-        if (!existing.getId().equals(userId)) {
-            logger.warn(String.format("User name already taken: %s", updateRequest.getUserName()));
-            return Response.status(Response.Status.CONFLICT).entity("User name already taken").build();
-        }
-
-        UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
-        fi.metatavu.keycloak.scim.server.model.User result = usersController.updateUser(scimContext, userAttributes, existing, updateRequest);
-
-        return Response.ok(result).build();
-    }
-
-    @Override
-    public Response patchUser(T scimContext, String userId, fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest) {
-        KeycloakSession session = scimContext.getSession();
-
-        RealmModel realm = scimContext.getRealm();
-        UserModel existing = session.users().getUserById(realm, userId);
-        if (existing == null) {
-            logger.warn(String.format("User not found: %s", userId));
-            return Response.status(Response.Status.NOT_FOUND).entity("User not found").build();
-        }
-
-        UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
-
-        try {
-            fi.metatavu.keycloak.scim.server.model.User result = usersController.patchUser(scimContext, userAttributes, existing, patchRequest);
-            return Response.ok(result).build();
-        } catch (UnsupportedPatchOperation e) {
-            return Response.status(Response.Status.BAD_REQUEST).entity("Unsupported patch operation").build();
-        }
     }
 
     @Override
@@ -207,6 +156,22 @@ public abstract class AbstractScimServer <T extends ScimContext> implements Scim
                 throw new NotAuthorizedException(e);
             }
         }
+    }
+
+    /**
+     * Checks if the given email is valid
+     *
+     * @param email email to check
+     * @return true if the email is valid; false otherwise
+     */
+    protected boolean isValidEmail(String email) {
+        try {
+            new InternetAddress(email).validate();
+        } catch (AddressException e) {
+            return false;
+        }
+
+        return true;
     }
 
     /**

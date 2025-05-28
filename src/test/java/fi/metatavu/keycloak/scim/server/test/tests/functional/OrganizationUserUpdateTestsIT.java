@@ -144,4 +144,46 @@ public class OrganizationUserUpdateTestsIT extends AbstractOrganizationScimTest 
         deleteRealmUser(TestConsts.ORGANIZATIONS_REALM, createdB.getId());
     }
 
+    @Test
+    void testUpdateUserWithEmailAsUsername() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_EMAIL_AS_USERNAME_ID);
+
+        // Test that updating username updates email, but leaves username unchanged
+
+        User user = scimClient.findUser(TestConsts.ORGANIZATION_EMAIL_AS_USERNAME_EXISTING_USER_ID);
+        user.setUserName("new-email@example.com");
+        user.setEmails(null);
+        User updatedUser = scimClient.updateUser(user.getId(), user);
+
+        assertNotNull(updatedUser);
+        assertEquals("new-email@example.com", updatedUser.getUserName());
+        assertNotNull(updatedUser.getEmails());
+        assertEquals(1, updatedUser.getEmails().size());
+        assertEquals("new-email@example.com", updatedUser.getEmails().getFirst().getValue());
+
+        User found = scimClient.findUser(TestConsts.ORGANIZATION_EMAIL_AS_USERNAME_EXISTING_USER_ID);
+        assertNotNull(found);
+        assertEquals("new-email@example.com", found.getUserName());
+        assertNotNull(found.getEmails());
+        assertEquals(1, found.getEmails().size());
+        assertEquals("new-email@example.com", found.getEmails().getFirst().getValue());
+
+        // Assert that the userName in Keycloak user has not been changed, but email is updated
+
+        UserRepresentation realmUser = getKeycloakContainer().getKeycloakAdminClient()
+                .realm(TestConsts.ORGANIZATIONS_REALM)
+                .users()
+                .get(TestConsts.ORGANIZATION_EMAIL_AS_USERNAME_EXISTING_USER_ID)
+                .toRepresentation();
+
+        assertEquals("existing-user", realmUser.getUsername());
+        assertNotNull(realmUser.getEmail());
+        assertEquals("new-email@example.com", realmUser.getEmail());
+
+        // Revert changes
+
+        user.setUserName("existing-user@example.com");
+        scimClient.updateUser(user.getId(), user);
+    }
+
 }

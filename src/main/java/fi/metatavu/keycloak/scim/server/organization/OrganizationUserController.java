@@ -1,11 +1,16 @@
 package fi.metatavu.keycloak.scim.server.organization;
 
+import fi.metatavu.keycloak.scim.server.config.ScimConfig;
 import fi.metatavu.keycloak.scim.server.consts.ScimRoles;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
 import fi.metatavu.keycloak.scim.server.metadata.BooleanUserAttribute;
 import fi.metatavu.keycloak.scim.server.metadata.StringUserAttribute;
 import fi.metatavu.keycloak.scim.server.metadata.UserAttribute;
 import fi.metatavu.keycloak.scim.server.metadata.UserAttributes;
+import fi.metatavu.keycloak.scim.server.model.User;
+import fi.metatavu.keycloak.scim.server.patch.PatchOperation;
+import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
+import fi.metatavu.keycloak.scim.server.users.UnsupportedUserPath;
 import fi.metatavu.keycloak.scim.server.users.UsersController;
 import jakarta.ws.rs.NotFoundException;
 import org.jboss.logging.Logger;
@@ -35,6 +40,7 @@ public class OrganizationUserController extends UsersController  {
         KeycloakSession session = scimContext.getSession();
         RealmModel realm = scimContext.getRealm();
         OrganizationModel organization = scimContext.getOrganization();
+        ScimConfig config = scimContext.getConfig();
 
         UserModel user = session.users().addUser(realm, scimUser.getUserName());
         user.setEnabled(scimUser.getActive() == null || Boolean.TRUE.equals(scimUser.getActive()));
@@ -44,7 +50,8 @@ public class OrganizationUserController extends UsersController  {
             user.setLastName(scimUser.getName().getFamilyName());
         }
 
-        String scimUserEmail = scimUser.getEmails() != null && !scimUser.getEmails().isEmpty() ? scimUser.getEmails().getFirst().getValue() : null;
+        String scimUserEmail = getScimUserEmail(scimUser, config);
+
         if (scimUserEmail != null) {
             user.setEmail(scimUserEmail);
             user.setEmailVerified(true);
@@ -82,16 +89,166 @@ public class OrganizationUserController extends UsersController  {
         OrganizationProvider organizationProvider = getOrganizationProvider(scimContext.getSession());
         organizationProvider.addManagedMember(organization, user);
 
-        if (scimContext.getConfig().getLinkIdp()) {
-            logger.info("Identity provider linking is enabled. Linking user to identity provider");
-            linkUserIdp(scimUser, scimUserEmail, organizationProvider, organization, session, realm, user);
-        }
-
-        return translateUser(
+        User createdUser = translateUser(
             scimContext,
             userAttributes,
             user
         );
+
+        if (config.getLinkIdp()) {
+            String scimUsername = createdUser.getUserName();
+            String externalId = getExternalId(createdUser);
+            linkUserIdp(organizationProvider, organization, session, realm, user, scimUserEmail, scimUsername, externalId);
+        }
+
+
+        return createdUser;
+    }
+
+    /**
+     * Updates a user with SCIM user data
+     *
+     * @param scimContext SCIM context
+     * @param userAttributes user attributes
+     * @param existing existing user
+     * @param scimUser SCIM user
+     * @return updated user
+     */
+    public fi.metatavu.keycloak.scim.server.model.User updateOrganizationUser(
+            OrganizationScimContext scimContext,
+            UserAttributes userAttributes,
+            UserModel existing,
+            fi.metatavu.keycloak.scim.server.model.User scimUser
+    ) {
+        KeycloakSession session = scimContext.getSession();
+        RealmModel realm = scimContext.getRealm();
+        OrganizationModel organization = scimContext.getOrganization();
+        ScimConfig config = scimContext.getConfig();
+
+        ((StringUserAttribute) userAttributes.findByScimPath("userName")).write(existing, scimUser.getUserName());
+        ((BooleanUserAttribute) userAttributes.findByScimPath("active")).write(existing, scimUser.getActive() == null || Boolean.TRUE.equals(scimUser.getActive()));
+
+        if (scimUser.getName() != null) {
+            ((StringUserAttribute) userAttributes.findByScimPath("name.givenName")).write(existing, scimUser.getName().getGivenName());
+            ((StringUserAttribute) userAttributes.findByScimPath("name.familyName")).write(existing, scimUser.getName().getFamilyName());
+        }
+
+        if (scimUser.getEmails() != null && !scimUser.getEmails().isEmpty()) {
+            ((StringUserAttribute) userAttributes.findByScimPath("email")).write(existing, scimUser.getEmails().getFirst().getValue());
+        }
+
+        Map<String, Object> additionalProperties = scimUser.getAdditionalProperties();
+        if (additionalProperties != null) {
+            additionalProperties.forEach((key, value) -> {
+                UserAttribute<?> userAttribute = userAttributes.findByScimPath(key);
+                if (userAttribute != null) {
+                    if (userAttribute instanceof StringUserAttribute) {
+                        if (value instanceof String) {
+                            ((StringUserAttribute) userAttribute).write(existing, (String) value);
+                        } else {
+                            logger.warn("Unsupported value type: " + value.getClass());
+                        }
+                    } else if (userAttribute instanceof BooleanUserAttribute) {
+                        if (value instanceof Boolean) {
+                            ((BooleanUserAttribute) userAttribute).write(existing, (Boolean) value);
+                        } else {
+                            logger.warn("Unsupported value type: " + value.getClass());
+                        }
+                    } else {
+                        logger.warn("Unsupported attribute: " + key);
+                    }
+                }
+            });
+        }
+
+        User updatedUser = translateUser(
+            scimContext,
+            userAttributes,
+            existing
+        );
+
+        if (config.getLinkIdp()) {
+            OrganizationProvider organizationProvider = getOrganizationProvider(scimContext.getSession());
+            String scimUserEmail = getScimUserEmail(updatedUser, config);
+            String scimUsername = updatedUser.getUserName();
+            String externalId = getExternalId(updatedUser);
+            linkUserIdp(organizationProvider, organization, session, realm, existing, scimUserEmail, scimUsername, externalId);
+        }
+
+        return updatedUser;
+    }
+
+    /**
+     * Patch user with SCIM user data
+     *
+     * @param scimContext SCIM context
+     * @param userAttributes user attributes
+     * @param existing existing user
+     * @param patchRequest patch request
+     * @return patched user
+     */
+    public fi.metatavu.keycloak.scim.server.model.User patchOrganizationUser(
+        OrganizationScimContext scimContext,
+        UserAttributes userAttributes,
+        UserModel existing,
+        fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
+    ) throws UnsupportedPatchOperation {
+        KeycloakSession session = scimContext.getSession();
+        RealmModel realm = scimContext.getRealm();
+        OrganizationModel organization = scimContext.getOrganization();
+        ScimConfig config = scimContext.getConfig();
+
+        for (var operation : patchRequest.getOperations()) {
+            PatchOperation op = PatchOperation.fromString(operation.getOp());
+            if (op == null) {
+                logger.warn("Invalid patch operation: " + operation.getOp());
+                throw new UnsupportedPatchOperation("Unsupported patch operation: " + operation.getOp());
+            }
+
+            UserAttribute<?> userAttribute = userAttributes.findByScimPath(operation.getPath());
+            Object value = operation.getValue();
+
+            if (userAttribute == null) {
+                throw new UnsupportedUserPath("Unsupported attribute: " + operation.getPath());
+            }
+
+            switch (op) {
+                case REPLACE, ADD -> {
+                    switch (value) {
+                        case null:
+                            logger.warn("Value is null for patch operation: " + op);
+                            break;
+                        case String s when userAttribute instanceof StringUserAttribute:
+                            ((StringUserAttribute) userAttribute).write(existing, s);
+                            break;
+                        case Boolean b when userAttribute instanceof BooleanUserAttribute:
+                            ((BooleanUserAttribute) userAttribute).write(existing, b);
+                            break;
+                        default:
+                            logger.warn("Unsupported value type for patch operation: " + value.getClass());
+                            break;
+                    }
+
+                }
+                case REMOVE -> userAttribute.write(existing, null);
+            }
+        }
+
+        fi.metatavu.keycloak.scim.server.model.User patchedUser = translateUser(
+            scimContext,
+            userAttributes,
+            existing
+        );
+
+        if (config.getLinkIdp()) {
+            OrganizationProvider organizationProvider = getOrganizationProvider(scimContext.getSession());
+            String scimUserEmail = getScimUserEmail(patchedUser, config);
+            String scimUsername = patchedUser.getUserName();
+            String externalId = getExternalId(patchedUser);
+            linkUserIdp(organizationProvider, organization, session, realm, existing, scimUserEmail, scimUsername, externalId);
+        }
+
+        return patchedUser;
     }
 
     /**
@@ -202,39 +359,74 @@ public class OrganizationUserController extends UsersController  {
     }
 
     /**
-     * Links user to identity provider
+     * Gets the email from SCIM user
      *
      * @param scimUser SCIM user
-     * @param scimUserEmail user email
+     * @param config SCIM configuration
+     * @return user email
+     */
+    private String getScimUserEmail(fi.metatavu.keycloak.scim.server.model.User scimUser, ScimConfig config) {
+        if (config.getEmailAsUsername()) {
+            return scimUser.getUserName();
+        }
+
+        return scimUser.getEmails() != null && !scimUser.getEmails().isEmpty() ? scimUser.getEmails().getFirst().getValue() : null;
+    }
+
+    /**
+     * Gets the external ID from SCIM user
+     *
+     * @param scimUser SCIM user
+     * @return external ID or null if not set
+     */
+    private String getExternalId(fi.metatavu.keycloak.scim.server.model.User scimUser) {
+        if (scimUser.getAdditionalProperties() == null) {
+            return null;
+        }
+
+        Object externalIdObj = scimUser.getAdditionalProperty("externalId");
+        if (!(externalIdObj instanceof String externalId)) {
+            return null;
+        }
+
+        return externalId;
+    }
+
+    /**
+     * Links user to identity provider
+     *
      * @param organizationProvider organization provider
      * @param organization organization
      * @param session Keycloak session
      * @param realm Keycloak realm
      * @param user Keycloak user
+     * @param scimUserEmail SCIM user email
+     * @param scimUserName SCIM username
+     * @param scimExternalId SCIM user external ID
      */
     private void linkUserIdp(
-            fi.metatavu.keycloak.scim.server.model.User scimUser,
-            String scimUserEmail,
-            OrganizationProvider organizationProvider,
-            OrganizationModel organization,
-            KeycloakSession session,
-            RealmModel realm,
-            UserModel user
+        OrganizationProvider organizationProvider,
+        OrganizationModel organization,
+        KeycloakSession session,
+        RealmModel realm,
+        UserModel user,
+        String scimUserEmail,
+        String scimUserName,
+        String scimExternalId
     ) {
         if (scimUserEmail == null) {
             logger.warn("User email is not set. Cannot link user to identity provider");
             return;
         }
 
-        String emailDomain = getEmailDomain(scimUserEmail);
-        if (emailDomain == null) {
-            logger.warn("User email domain is not set. Cannot link user to identity provider");
+        if (scimExternalId == null) {
+            logger.warn("User externalId is not set. Cannot link user to identity provider");
             return;
         }
 
-        Object externalIdObj = scimUser.getAdditionalProperty("externalId");
-        if (!(externalIdObj instanceof String externalId)) {
-            logger.warn("User external ID is not set. Cannot link user to identity provider");
+        String emailDomain = getEmailDomain(scimUserEmail);
+        if (emailDomain == null) {
+            logger.warn("User email domain is not set. Cannot link user to identity provider");
             return;
         }
 
@@ -251,14 +443,16 @@ public class OrganizationUserController extends UsersController  {
             return;
         }
 
-        logger.info("Linking user to identity provider: " + identityProvider.getAlias());
+        if (session.users().getFederatedIdentity(realm, user, identityProvider.getAlias()) == null) {
+            logger.info("Linking user to identity provider: " + identityProvider.getAlias());
 
-        FederatedIdentityModel identityModel = new FederatedIdentityModel(
-            identityProvider.getAlias(),
-            externalId,
-            scimUser.getUserName()
-        );
+            FederatedIdentityModel identityModel = new FederatedIdentityModel(
+                identityProvider.getAlias(),
+                scimExternalId,
+                scimUserName
+            );
 
-        session.users().addFederatedIdentity(realm, user, identityModel);
+            session.users().addFederatedIdentity(realm, user, identityModel);
+        }
     }
 }

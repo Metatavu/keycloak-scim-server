@@ -9,6 +9,7 @@ import fi.metatavu.keycloak.scim.server.test.client.ApiException;
 import fi.metatavu.keycloak.scim.server.test.client.model.User;
 import fi.metatavu.keycloak.scim.server.test.client.model.UserEmailsInner;
 import fi.metatavu.keycloak.scim.server.test.client.model.UserName;
+import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriBuilder;
 import org.keycloak.representations.idm.MemberRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
@@ -146,6 +147,46 @@ public abstract class AbstractScimTest {
             .roles()
             .getAll()
             .getRealmMappings();
+    }
+
+    /**
+     * Creates a new organization member in Keycloak
+     *
+     * @param realm realm name
+     * @param organizationId organization ID
+     * @param newUser new user representation to create
+     * @return user ID of the created user
+     */
+    @SuppressWarnings("SameParameterValue")
+    protected String createOrganizationMember(
+            String realm,
+            String organizationId,
+            UserRepresentation newUser
+    ) {
+        String userId;
+
+        try (Response response = getKeycloakContainer()
+                .getKeycloakAdminClient()
+                .realm(realm)
+                .users()
+                .create(newUser)) {
+            assertEquals(201, response.getStatus());
+
+            String location = response.getHeaderString("Location");
+            userId = location.substring(location.lastIndexOf("/") + 1);
+        }
+
+        try (Response response = getKeycloakContainer()
+                .getKeycloakAdminClient()
+                .realm(realm)
+                .organizations()
+                .get(organizationId)
+                .members()
+                .addMember(userId)) {
+            assertEquals(201, response.getStatus());
+        }
+
+        return userId;
     }
 
     /**

@@ -57,7 +57,8 @@ public class OrganizationLinkIdpTestsIT extends AbstractOrganizationSeleniumScim
         user.setName(getName("Test", "User 1"));
         user.setEmails(getEmails("test.user1@org1.example.com"));
         user.putAdditionalProperty("externalId", "97d3bd9b-73ef-440e-80fb-795ad2b8086a");
-        assertNotNull(scimClient.createUser(user));
+        User createdUser = scimClient.createUser(user);
+        assertNotNull(createdUser);
 
         // Log in with external identity provider
 
@@ -72,6 +73,13 @@ public class OrganizationLinkIdpTestsIT extends AbstractOrganizationSeleniumScim
 
         waitAndAssertInputValue(webDriver, By.id("username"), "test.user1");
         waitAndAssertInputValue(webDriver, By.id("email"), "test.user1@org1.example.com");
+
+        // Clean up
+
+        deleteRealmUser(
+            TestConsts.ORGANIZATIONS_REALM,
+            createdUser.getId()
+        );
     }
 
     @Test

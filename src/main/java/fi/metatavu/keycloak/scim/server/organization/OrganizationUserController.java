@@ -221,6 +221,9 @@ public class OrganizationUserController extends UsersController  {
                         case String s when userAttribute instanceof StringUserAttribute:
                             ((StringUserAttribute) userAttribute).write(existing, s);
                             break;
+                        case String s when userAttribute instanceof BooleanUserAttribute:
+                            ((BooleanUserAttribute) userAttribute).write(existing, Boolean.parseBoolean(s));
+                            break;
                         case Boolean b when userAttribute instanceof BooleanUserAttribute:
                             ((BooleanUserAttribute) userAttribute).write(existing, b);
                             break;

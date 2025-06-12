@@ -44,6 +44,7 @@ dependencies {
     implementation(enforcedPlatform("org.keycloak.bom:keycloak-bom-parent:$keycloakVersion"))
     compileOnly("org.keycloak:keycloak-services:$keycloakVersion")
 
+    testImplementation("org.keycloak:keycloak-services:$keycloakVersion")
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.junit.jupiter:junit-jupiter:$junitVersion")
 

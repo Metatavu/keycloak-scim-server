@@ -15,7 +15,6 @@ import org.keycloak.events.admin.ResourceType;
 import org.keycloak.representations.idm.MemberRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
-import org.testcontainers.containers.BindMode;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -35,7 +34,6 @@ public class OrganizationUserCreateTestsIT extends AbstractOrganizationScimTest 
             .withNetwork(network)
             .withNetworkAliases("scim-keycloak")
             .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
-            .withFileSystemBind(KeycloakTestUtils.getTestDataDir().getAbsolutePath(), "/tmp/testdata", BindMode.READ_WRITE)
             .withRealmImportFiles("kc-organizations.json", "kc-external.json")
             .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
 

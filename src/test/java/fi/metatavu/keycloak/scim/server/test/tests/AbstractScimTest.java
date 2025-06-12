@@ -20,6 +20,7 @@ import org.keycloak.representations.idm.MemberRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.keycloak.util.JsonSerialization;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.Network;
 
 import java.io.File;
@@ -30,6 +31,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Stream;
 
@@ -44,7 +46,7 @@ public abstract class AbstractScimTest {
     protected static final Network network = Network.newNetwork();
 
     @AfterEach
-    void clearAdminEventsAfter() {
+    void clearAdminEventsAfter() throws IOException, InterruptedException {
         clearAdminEvents();
     }
 
@@ -394,14 +396,28 @@ public abstract class AbstractScimTest {
      *
      * @return list of admin events
      */
-    protected List<AdminEvent> getAdminEvents() {
-        File adminEventsDir = KeycloakTestUtils.getAdminEventsDir();
-        assertNotNull(adminEventsDir, "Admin events directory is not set");
+    protected List<AdminEvent> getAdminEvents() throws IOException {
+        Path testData = Files.createTempDirectory("testdata");
 
-        File[] files = adminEventsDir.listFiles();
-        assertNotNull(files, "Admin events directory is empty or not accessible");
+        try {
+            String containerDir = "/tmp/testdata/admin-events";
+            Container.ExecResult result = getKeycloakContainer().execInContainer("sh", "-c", "ls " + containerDir + "/*.json");
+            if (result.getExitCode() != 0) {
+                throw new RuntimeException("Failed to list files: " + result.getStderr());
+            }
 
-        return Arrays.stream(files)
+            String[] containerFiles = result.getStdout().split("\n");
+
+            for (String containerFile : containerFiles) {
+                String fileName = containerFile.substring(containerFile.lastIndexOf("/") + 1);
+                Path destPath = testData.resolve(fileName);
+                getKeycloakContainer().copyFileFromContainer(containerFile, destPath.toString());
+            }
+
+            File[] files = testData.toFile().listFiles();
+            assertNotNull(files, "Admin events directory is empty or not accessible");
+
+            return Arrays.stream(files)
                 .map(file -> {
                     try (FileInputStream fileInputStream = new FileInputStream(file)) {
                         return JsonSerialization.readValue(fileInputStream, AdminEvent.class);
@@ -410,24 +426,23 @@ public abstract class AbstractScimTest {
                     }
                 })
                 .toList();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**
      * Clears admin events recorded during the test execution
      */
-    protected void clearAdminEvents() {
-        File[] files = KeycloakTestUtils.getAdminEventsDir().listFiles();
-        if (files == null || files.length == 0) {
-            return;
+    protected void clearAdminEvents() throws IOException {
+        try {
+            getKeycloakContainer().execInContainer(
+                "sh", "-c",
+                "rm -rf /tmp/testdata/admin-events"
+            );
+        } catch (Exception e) {
+            throw new IOException("Failed to clear admin events", e);
         }
-
-        Stream.of(files).forEach(file -> {
-            try {
-                Files.delete(file.toPath());
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        });
     }
 
     /**

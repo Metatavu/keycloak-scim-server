@@ -32,7 +32,7 @@ public class OrganizationUserDeleteTestsIT extends AbstractOrganizationScimTest 
         .withNetwork(network)
         .withNetworkAliases("scim-keycloak")
         .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
-        .withFileSystemBind("build/testdata", "/tmp/testdata", BindMode.READ_WRITE)
+        .withFileSystemBind(KeycloakTestUtils.getTestDataDir().getAbsolutePath(), "/tmp/testdata", BindMode.READ_WRITE)
         .withRealmImportFiles("kc-organizations.json", "kc-external.json")
         .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
 

@@ -34,7 +34,7 @@ public class RealmUserPatchTestsIT extends AbstractRealmScimTest {
         .withNetworkAliases("scim-keycloak")
         .withEnv("SCIM_AUTHENTICATION_MODE", "KEYCLOAK")
         .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
-        .withFileSystemBind("build/testdata", "/tmp/testdata", BindMode.READ_WRITE)
+        .withFileSystemBind(KeycloakTestUtils.getTestDataDir().getAbsolutePath(), "/tmp/testdata", BindMode.READ_WRITE)
         .withRealmImportFile("kc-test.json")
         .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
 

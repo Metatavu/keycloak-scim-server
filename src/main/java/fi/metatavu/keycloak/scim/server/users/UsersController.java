@@ -19,8 +19,17 @@ import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
 import fi.metatavu.keycloak.scim.server.realm.RealmScimContext;
 import jakarta.ws.rs.NotFoundException;
 import org.jboss.logging.Logger;
+import org.keycloak.events.EventListenerProvider;
+import org.keycloak.events.EventListenerProviderFactory;
+import org.keycloak.events.admin.AdminEvent;
+import org.keycloak.events.admin.OperationType;
+import org.keycloak.events.admin.ResourceType;
 import org.keycloak.models.*;
+import org.keycloak.models.utils.ModelToRepresentation;
+import org.keycloak.representations.idm.UserRepresentation;
+import org.keycloak.util.JsonSerialization;
 
+import java.io.IOException;
 import java.util.*;
 
 /**
@@ -87,11 +96,18 @@ public class UsersController extends AbstractController {
             });
         }
 
-        return translateUser(
+        User createdUser = translateUser(
             scimContext,
             userAttributes,
             user
         );
+
+        dispatchUserCreateEvent(
+            scimContext,
+            user
+        );
+
+        return createdUser;
     }
 
     /**
@@ -235,6 +251,8 @@ public class UsersController extends AbstractController {
             });
         }
 
+        dispatchUserUpdateEvent(scimContext, existing);
+
         return translateUser(scimContext, userAttributes, existing);
     }
 
@@ -289,8 +307,155 @@ public class UsersController extends AbstractController {
             }
         }
 
+        dispatchUserUpdateEvent(scimContext, existing);
+
         return translateUser(scimContext, userAttributes, existing);
     }
+
+    /**
+     * Dispatches user create event
+     *
+     * @param scimContext SCIM context
+     * @param user user
+     */
+    protected void dispatchUserCreateEvent(
+        ScimContext scimContext,
+        UserModel user
+    ) {
+        KeycloakSession session = scimContext.getSession();
+        RealmModel realm = scimContext.getRealm();
+        UserRepresentation userRepresentation = ModelToRepresentation.toRepresentation(session, realm, user);
+
+        sendAdminEvent(
+            scimContext,
+            OperationType.CREATE,
+            ResourceType.USER,
+            "users/" + user.getId(),
+            userRepresentation
+        );
+    }
+
+    /**
+     * Dispatches user creation event
+     *
+     * @param scimContext SCIM context
+     * @param user user
+     */
+    protected void dispatchUserDeleteEvent(
+        ScimContext scimContext,
+        UserModel user
+    ) {
+        sendAdminEvent(
+            scimContext,
+            OperationType.DELETE,
+            ResourceType.USER,
+            "users/" + user.getId(),
+            null
+        );
+    }
+
+    /**
+     * Dispatches user update event
+     *
+     * @param scimContext SCIM context
+     * @param user user
+     */
+    protected void dispatchUserUpdateEvent(
+            ScimContext scimContext,
+            UserModel user
+    ) {
+        KeycloakSession session = scimContext.getSession();
+        RealmModel realm = scimContext.getRealm();
+        UserRepresentation userRepresentation = ModelToRepresentation.toRepresentation(session, realm, user);
+
+        sendAdminEvent(
+            scimContext,
+            OperationType.UPDATE,
+            ResourceType.USER,
+            "users/" + user.getId(),
+            userRepresentation
+        );
+    }
+
+    /**
+     * Sends an admin event
+     *
+     * @param scimContext SCIM context
+     * @param operationType operation type
+     * @param resourceType resource type
+     * @param resourcePath resource path
+     * @param representation representation
+     */
+    @SuppressWarnings("SameParameterValue")
+    protected void sendAdminEvent(
+        ScimContext scimContext,
+        OperationType operationType,
+        ResourceType resourceType,
+        String resourcePath,
+        Object representation
+    ) {
+        sendAdminEvent(scimContext, operationType, resourceType, resourcePath, representation, null);
+    }
+
+    /**
+     * Sends an admin event with additional details
+     *
+     * @param scimContext SCIM context
+     * @param operationType operation type
+     * @param resourceType resource type
+     * @param resourcePath resource path
+     * @param representation representation
+     * @param details additional details
+     */
+    protected void sendAdminEvent(
+        ScimContext scimContext,
+        OperationType operationType,
+        ResourceType resourceType,
+        String resourcePath,
+        Object representation,
+        Map<String, String> details
+    ) {
+        RealmModel realm = scimContext.getRealm();
+
+        if (!realm.isAdminEventsEnabled()) {
+            return;
+        }
+
+        KeycloakSession session = scimContext.getSession();
+
+        boolean includeRepresentation = realm.isAdminEventsDetailsEnabled();
+
+        AdminEvent event = new AdminEvent();
+        event.setId(UUID.randomUUID().toString());
+        event.setRealmId(realm.getId());
+        event.setRealmName(realm.getName());
+        event.setOperationType(operationType);
+        event.setResourceType(resourceType);
+        event.setResourcePath(resourcePath);
+        event.setTime(System.currentTimeMillis());
+        event.setDetails(details);
+
+        if (representation != null) {
+            try {
+                event.setRepresentation(JsonSerialization.writeValueAsString(representation));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        List<String> realmListenerIds = realm.getEventsListenersStream().toList();
+
+        session.getKeycloakSessionFactory()
+            .getProviderFactoriesStream(EventListenerProvider.class)
+            .filter(providerFactory -> realmListenerIds.contains(providerFactory.getId()) || ((EventListenerProviderFactory) providerFactory).isGlobal())
+            .map(providerFactory -> providerFactory.create(session))
+            .forEach(provider -> {
+                if (provider instanceof EventListenerProvider eventListenerProvider) {
+                    eventListenerProvider.onEvent(event, includeRepresentation);
+                }
+            });
+    }
+
     /**
      * Tests if user matches SCIM filter
      *
@@ -421,6 +586,7 @@ public class UsersController extends AbstractController {
         KeycloakSession session = scimContext.getSession();
         RealmModel realm = scimContext.getRealm();
         session.users().removeUser(realm, user);
+        dispatchUserDeleteEvent(scimContext, user);
     }
 
     /**

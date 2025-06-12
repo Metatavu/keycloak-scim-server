@@ -10,10 +10,14 @@ import fi.metatavu.keycloak.scim.server.test.client.model.PatchRequestOperations
 import fi.metatavu.keycloak.scim.server.test.client.model.User;
 import fi.metatavu.keycloak.scim.server.test.utils.KeycloakTestUtils;
 import org.junit.jupiter.api.Test;
+import org.keycloak.events.admin.AdminEvent;
+import org.keycloak.events.admin.OperationType;
 import org.keycloak.representations.idm.UserRepresentation;
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.io.IOException;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -214,6 +218,46 @@ public class OrganizationUserPatchTestsIT extends AbstractOrganizationScimTest {
                                 .value("existing-user@example.com")
                 ))
         );
+    }
+
+    @Test
+    void testPatchUserAdminEvents() throws ApiException, IOException {
+        ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
+
+        // Create user
+        User user = new User();
+        user.setUserName("patch-admin-events-user");
+        user.setActive(true);
+        user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
+
+        User created = scimClient.createUser(user);
+        clearAdminEvents();
+
+        // Patch user
+        scimClient.patchUser(created.getId(), new PatchRequest()
+            .schemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"))
+            .operations(List.of(
+                new PatchRequestOperationsInner()
+                    .op("replace")
+                    .path("userName")
+                    .value("patched-user-name")
+            )));
+
+        List<AdminEvent> adminEvents = getAdminEvents();
+        assertEquals(1, adminEvents.size());
+
+        AdminEvent updateUserEvent = adminEvents.getFirst();
+
+        assertUserAdminEvent(
+            updateUserEvent,
+            TestConsts.ORGANIZATIONS_REALM,
+            TestConsts.ORGANIZATIONS_REALM_ID,
+            created.getId(),
+            OperationType.UPDATE
+        );
+
+        // Cleanup
+        deleteRealmUser(TestConsts.ORGANIZATIONS_REALM, created.getId());
     }
 
 }

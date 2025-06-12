@@ -8,10 +8,14 @@ import fi.metatavu.keycloak.scim.server.test.client.ApiException;
 import fi.metatavu.keycloak.scim.server.test.client.model.User;
 import fi.metatavu.keycloak.scim.server.test.utils.KeycloakTestUtils;
 import org.junit.jupiter.api.Test;
+import org.keycloak.events.admin.AdminEvent;
+import org.keycloak.events.admin.OperationType;
 import org.keycloak.representations.idm.UserRepresentation;
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.io.IOException;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -145,4 +149,36 @@ public class RealmUserUpdateTestsIT extends AbstractRealmScimTest {
         deleteRealmUser(TestConsts.TEST_REALM, createdB.getId());
     }
 
+    @Test
+    void testUpdateUserAdminEvents() throws ApiException, IOException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+
+        // Create user
+        User user = new User();
+        user.setUserName("patch-admin-events-user");
+        user.setActive(true);
+        user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
+
+        User created = scimClient.createUser(user);
+        clearAdminEvents();
+
+        // Update user
+        scimClient.updateUser(created.getId(), user);
+
+        List<AdminEvent> adminEvents = getAdminEvents();
+        assertEquals(1, adminEvents.size());
+
+        AdminEvent updateUserEvent = adminEvents.getFirst();
+
+        assertUserAdminEvent(
+                updateUserEvent,
+                TestConsts.TEST_REALM,
+                TestConsts.TEST_REALM_ID,
+                created.getId(),
+                OperationType.UPDATE
+        );
+
+        // Cleanup
+        deleteRealmUser(TestConsts.TEST_REALM, created.getId());
+    }
 }

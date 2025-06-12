@@ -14,10 +14,14 @@ import fi.metatavu.keycloak.scim.server.users.UnsupportedUserPath;
 import fi.metatavu.keycloak.scim.server.users.UsersController;
 import jakarta.ws.rs.NotFoundException;
 import org.jboss.logging.Logger;
+import org.keycloak.events.admin.OperationType;
+import org.keycloak.events.admin.ResourceType;
 import org.keycloak.models.*;
+import org.keycloak.models.utils.ModelToRepresentation;
 import org.keycloak.organization.OrganizationProvider;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -101,6 +105,8 @@ public class OrganizationUserController extends UsersController  {
             linkUserIdp(organizationProvider, organization, session, realm, user, scimUserEmail, scimUsername, externalId);
         }
 
+        dispatchUserCreateEvent(scimContext, user);
+        dispatchOrganizationMemberAddEvent(scimContext, user);
 
         return createdUser;
     }
@@ -174,6 +180,8 @@ public class OrganizationUserController extends UsersController  {
             String externalId = getExternalId(updatedUser);
             linkUserIdp(organizationProvider, organization, session, realm, existing, scimUserEmail, scimUsername, externalId);
         }
+
+        dispatchUserUpdateEvent(scimContext, existing);
 
         return updatedUser;
     }
@@ -250,6 +258,8 @@ public class OrganizationUserController extends UsersController  {
             String externalId = getExternalId(patchedUser);
             linkUserIdp(organizationProvider, organization, session, realm, existing, scimUserEmail, scimUsername, externalId);
         }
+
+        dispatchUserUpdateEvent(scimContext, existing);
 
         return patchedUser;
     }
@@ -337,10 +347,10 @@ public class OrganizationUserController extends UsersController  {
         KeycloakSession session = scimContext.getSession();
         OrganizationProvider organizationProvider = getOrganizationProvider(session);
 
-        // TODO: Should we also remove the whole user?
-
         if (organizationProvider.isManagedMember(scimContext.getOrganization(), user)) {
             organizationProvider.removeMember(scimContext.getOrganization(), user);
+            dispatchOrganizationMemberDeleteEvent(scimContext, user);
+            dispatchUserDeleteEvent(scimContext, user);
         } else {
             throw new NotFoundException("User is not a member of the organization");
         }
@@ -457,5 +467,67 @@ public class OrganizationUserController extends UsersController  {
 
             session.users().addFederatedIdentity(realm, user, identityModel);
         }
+    }
+
+    /**
+     * Dispatches an event when a user is added to the organization
+     *
+     * @param scimContext SCIM context
+     * @param member user that was added to the organization
+     */
+    private void dispatchOrganizationMemberAddEvent(
+        OrganizationScimContext scimContext,
+        UserModel member
+    ) {
+        OrganizationModel organization = scimContext.getOrganization();
+        Map<String, String> eventDetails = new HashMap<>();
+
+        if (member.getUsername() != null) {
+            eventDetails.put(UserModel.USERNAME, member.getUsername());
+        }
+
+        if (member.getEmail() != null) {
+            eventDetails.put(UserModel.EMAIL, member.getEmail());
+        }
+
+        sendAdminEvent(
+            scimContext,
+            OperationType.CREATE,
+            ResourceType.ORGANIZATION_MEMBERSHIP,
+            "organizations/" + organization.getId() + "/members",
+            ModelToRepresentation.toRepresentation(organization),
+            eventDetails
+        );
+    }
+
+    /**
+     * Dispatches an event when a user is removed from the organization
+     *
+     * @param scimContext SCIM context
+     * @param member user that was deleted from the organization
+     */
+    private void dispatchOrganizationMemberDeleteEvent(
+        OrganizationScimContext scimContext,
+        UserModel member
+    ) {
+        OrganizationModel organization = scimContext.getOrganization();
+        Map<String, String> eventDetails = new HashMap<>();
+
+        if (member.getUsername() != null) {
+            eventDetails.put(UserModel.USERNAME, member.getUsername());
+        }
+
+        if (member.getEmail() != null) {
+            eventDetails.put(UserModel.EMAIL, member.getEmail());
+        }
+
+        sendAdminEvent(
+            scimContext,
+            OperationType.DELETE,
+            ResourceType.ORGANIZATION_MEMBERSHIP,
+            "organizations/" + organization.getId() + "/members/" + member.getId(),
+            ModelToRepresentation.toRepresentation(organization),
+            eventDetails
+        );
     }
 }

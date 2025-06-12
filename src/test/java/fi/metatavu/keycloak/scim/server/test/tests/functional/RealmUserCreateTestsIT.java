@@ -8,11 +8,16 @@ import fi.metatavu.keycloak.scim.server.test.client.ApiException;
 import fi.metatavu.keycloak.scim.server.test.client.model.User;
 import fi.metatavu.keycloak.scim.server.test.utils.KeycloakTestUtils;
 import org.junit.jupiter.api.Test;
+import org.keycloak.events.admin.AdminEvent;
+import org.keycloak.events.admin.OperationType;
+import org.keycloak.events.admin.ResourceType;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.io.IOException;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -110,6 +115,38 @@ public class RealmUserCreateTestsIT extends AbstractRealmScimTest {
 
         // Clean up
         deleteRealmUser(TestConsts.TEST_REALM, created.getId());
+    }
+
+    @Test
+    void testCreateUserAdminEvents() throws ApiException, IOException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+
+        User user = new User();
+        user.setUserName("new-user");
+        user.setActive(true);
+        user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
+        user.setName(getName("New", "User"));
+        user.setEmails(getEmails("new.user@example.com"));
+        user.putAdditionalProperty("externalId", "my-external-id");
+        user.putAdditionalProperty("preferredLanguage", "fi-FI");
+        user.putAdditionalProperty("displayName", "The New User");
+        user = scimClient.createUser(user);
+
+        List<AdminEvent> adminEvents = getAdminEvents();
+        assertEquals( 1, adminEvents.size());
+
+        AdminEvent createUserEvent = adminEvents.stream()
+            .filter(event -> event.getResourceType() == ResourceType.USER)
+            .findFirst()
+            .orElse(null);
+
+        assertUserAdminEvent(
+            createUserEvent,
+            TestConsts.TEST_REALM,
+            TestConsts.TEST_REALM_ID,
+            user.getId(),
+            OperationType.CREATE
+        );
     }
 
 }

@@ -9,22 +9,29 @@ import fi.metatavu.keycloak.scim.server.test.client.ApiException;
 import fi.metatavu.keycloak.scim.server.test.client.model.User;
 import fi.metatavu.keycloak.scim.server.test.client.model.UserEmailsInner;
 import fi.metatavu.keycloak.scim.server.test.client.model.UserName;
+import fi.metatavu.keycloak.scim.server.test.utils.KeycloakTestUtils;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriBuilder;
+import org.junit.jupiter.api.AfterEach;
+import org.keycloak.events.admin.AdminEvent;
+import org.keycloak.events.admin.OperationType;
+import org.keycloak.events.admin.ResourceType;
 import org.keycloak.representations.idm.MemberRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
+import org.keycloak.util.JsonSerialization;
 import org.testcontainers.containers.Network;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.nio.file.Files;
+import java.util.*;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -35,6 +42,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public abstract class AbstractScimTest {
 
     protected static final Network network = Network.newNetwork();
+
+    @AfterEach
+    void clearAdminEventsAfter() {
+        clearAdminEvents();
+    }
 
     /**
      * Returns the Keycloak container
@@ -302,8 +314,6 @@ public abstract class AbstractScimTest {
         return Collections.singletonList(result);
     }
 
-
-
     /**
      * Starts compliance tests in the compliance tester container
      *
@@ -375,6 +385,97 @@ public abstract class AbstractScimTest {
                 return objectMapper.readValue(responseBody, ComplianceStatus.class);
             } catch (IOException e) {
                 throw new RuntimeException("Failed to parse compliance status response: " + responseBody, e);
+            }
+        }
+    }
+
+    /**
+     * Returns admin events that have been recorded during the test execution
+     *
+     * @return list of admin events
+     */
+    protected List<AdminEvent> getAdminEvents() {
+        File adminEventsDir = KeycloakTestUtils.getAdminEventsDir();
+        assertNotNull(adminEventsDir, "Admin events directory is not set");
+
+        File[] files = adminEventsDir.listFiles();
+        assertNotNull(files, "Admin events directory is empty or not accessible");
+
+        return Arrays.stream(files)
+                .map(file -> {
+                    try (FileInputStream fileInputStream = new FileInputStream(file)) {
+                        return JsonSerialization.readValue(fileInputStream, AdminEvent.class);
+                    } catch (IOException e) {
+                        throw new RuntimeException("Failed to read admin event from file: " + file.getAbsolutePath(), e);
+                    }
+                })
+                .toList();
+    }
+
+    /**
+     * Clears admin events recorded during the test execution
+     */
+    protected void clearAdminEvents() {
+        File[] files = KeycloakTestUtils.getAdminEventsDir().listFiles();
+        if (files == null || files.length == 0) {
+            return;
+        }
+
+        Stream.of(files).forEach(file -> {
+            try {
+                Files.delete(file.toPath());
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
+    /**
+     * Asserts that the given user admin event matches the expected values
+     *
+     * @param userEvent the user admin event to assert
+     * @param realmName the name of the realm
+     * @param realmId the ID of the realm
+     * @param userId the ID of the user
+     * @param operationType the operation type of the event
+     * @throws IOException if there is an error reading the user representation
+     */
+    @SuppressWarnings("SameParameterValue")
+    protected void assertUserAdminEvent(
+            AdminEvent userEvent,
+            String realmName,
+            String realmId,
+            String userId,
+            OperationType operationType
+    ) throws IOException {
+        assertNotNull(userEvent);
+        assertEquals(realmId, userEvent.getRealmId());
+        assertEquals(realmName, userEvent.getRealmName());
+        assertEquals(ResourceType.USER, userEvent.getResourceType());
+        assertEquals(operationType, userEvent.getOperationType());
+        assertEquals("users/" + userId, userEvent.getResourcePath());
+        assertEquals("USER", userEvent.getResourceTypeAsString());
+
+        if (operationType != OperationType.DELETE) {
+            UserRepresentation realmUser = findRealmUser(realmName, userId);
+
+            UserRepresentation eventUser = JsonSerialization.readValue(userEvent.getRepresentation(), UserRepresentation.class);
+            assertNotNull(eventUser);
+
+            assertEquals(realmUser.getId(), eventUser.getId());
+            assertEquals(realmUser.getUsername(), eventUser.getUsername());
+            assertEquals(realmUser.getFirstName(), eventUser.getFirstName());
+            assertEquals(realmUser.getLastName(), eventUser.getLastName());
+            assertEquals(realmUser.getEmail(), eventUser.getEmail());
+            assertEquals(realmUser.isEnabled(), eventUser.isEnabled());
+
+            if (realmUser.getAttributes() == null) {
+                assertNull(eventUser.getAttributes());
+            } else {
+                assertNotNull(eventUser.getAttributes());
+                realmUser.getAttributes().forEach((key, values) -> {
+                    assertEquals(values, eventUser.getAttributes().get(key));
+                });
             }
         }
     }

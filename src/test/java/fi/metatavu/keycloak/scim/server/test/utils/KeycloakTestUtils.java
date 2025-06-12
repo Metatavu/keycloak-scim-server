@@ -21,6 +21,24 @@ public class KeycloakTestUtils {
     }
 
     /**
+     * Returns test data directory
+     *
+     * @return test data directory
+     */
+    public static File getTestDataDir() {
+        return new File(getBuildDir(), "testdata");
+    }
+
+    /**
+     * Returns test data directory for admin events
+     *
+     * @return test data directory for admin events
+     */
+    public static File getAdminEventsDir() {
+        return new File(getTestDataDir(), "admin-events");
+    }
+
+    /**
      * Returns build directory
      *
      * @return build directory

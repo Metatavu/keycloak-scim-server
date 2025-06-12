@@ -9,8 +9,15 @@ import fi.metatavu.keycloak.scim.server.test.client.model.User;
 import fi.metatavu.keycloak.scim.server.test.utils.KeycloakTestUtils;
 import jakarta.ws.rs.NotFoundException;
 import org.junit.jupiter.api.Test;
+import org.keycloak.events.admin.AdminEvent;
+import org.keycloak.events.admin.OperationType;
+import org.keycloak.events.admin.ResourceType;
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+
+import java.io.IOException;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -25,6 +32,7 @@ public class OrganizationUserDeleteTestsIT extends AbstractOrganizationScimTest 
         .withNetwork(network)
         .withNetworkAliases("scim-keycloak")
         .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
+        .withFileSystemBind("build/testdata", "/tmp/testdata", BindMode.READ_WRITE)
         .withRealmImportFiles("kc-organizations.json", "kc-external.json")
         .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
 
@@ -74,6 +82,47 @@ public class OrganizationUserDeleteTestsIT extends AbstractOrganizationScimTest 
         );
 
         assertEquals(404, exception.getCode());
+    }
+
+    @Test
+    void testDeleteUserAdminEvents() throws ApiException, IOException {
+        ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
+
+        User user = createUser(scimClient, "delete-me", "Delete", "Me");
+        clearAdminEvents();
+
+        // Delete user
+        scimClient.deleteUser(user.getId());
+
+        List<AdminEvent> adminEvents = getAdminEvents();
+        assertEquals(2, adminEvents.size());
+
+        AdminEvent deleteUserEvent = adminEvents.stream()
+                .filter(event -> event.getResourceType() == ResourceType.USER)
+                .findFirst()
+                .orElse(null);
+
+        assertUserAdminEvent(
+                deleteUserEvent,
+                TestConsts.ORGANIZATIONS_REALM,
+                TestConsts.ORGANIZATIONS_REALM_ID,
+                user.getId(),
+                OperationType.DELETE
+        );
+
+        AdminEvent removeMemberEvent = adminEvents.stream()
+                .filter(event -> event.getResourceType() == ResourceType.ORGANIZATION_MEMBERSHIP)
+                .findFirst()
+                .orElse(null);
+
+        assertOrganizationMemberEvent(
+                removeMemberEvent,
+                TestConsts.ORGANIZATIONS_REALM,
+                TestConsts.ORGANIZATIONS_REALM_ID,
+                user.getId(),
+                TestConsts.ORGANIZATION_1_ID,
+                OperationType.DELETE
+        );
     }
 
 }

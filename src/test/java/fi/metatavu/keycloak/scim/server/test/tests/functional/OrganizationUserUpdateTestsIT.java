@@ -8,10 +8,14 @@ import fi.metatavu.keycloak.scim.server.test.client.ApiException;
 import fi.metatavu.keycloak.scim.server.test.client.model.User;
 import fi.metatavu.keycloak.scim.server.test.utils.KeycloakTestUtils;
 import org.junit.jupiter.api.Test;
+import org.keycloak.events.admin.AdminEvent;
+import org.keycloak.events.admin.OperationType;
 import org.keycloak.representations.idm.UserRepresentation;
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.io.IOException;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -27,6 +31,7 @@ public class OrganizationUserUpdateTestsIT extends AbstractOrganizationScimTest 
             .withNetwork(network)
             .withNetworkAliases("scim-keycloak")
             .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
+            .withFileSystemBind("build/testdata", "/tmp/testdata", BindMode.READ_WRITE)
             .withRealmImportFiles("kc-organizations.json", "kc-external.json")
             .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
 
@@ -184,6 +189,39 @@ public class OrganizationUserUpdateTestsIT extends AbstractOrganizationScimTest 
 
         user.setUserName("existing-user@example.com");
         scimClient.updateUser(user.getId(), user);
+    }
+
+    @Test
+    void testUpdateUserAdminEvents() throws ApiException, IOException {
+        ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
+
+        // Create user
+        User user = new User();
+        user.setUserName("patch-admin-events-user");
+        user.setActive(true);
+        user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
+
+        User created = scimClient.createUser(user);
+        clearAdminEvents();
+
+        // Update user
+        scimClient.updateUser(created.getId(), user);
+
+        List<AdminEvent> adminEvents = getAdminEvents();
+        assertEquals(1, adminEvents.size());
+
+        AdminEvent updateUserEvent = adminEvents.getFirst();
+
+        assertUserAdminEvent(
+            updateUserEvent,
+            TestConsts.ORGANIZATIONS_REALM,
+            TestConsts.ORGANIZATIONS_REALM_ID,
+            created.getId(),
+            OperationType.UPDATE
+        );
+
+        // Cleanup
+        deleteRealmUser(TestConsts.ORGANIZATIONS_REALM, created.getId());
     }
 
 }

@@ -24,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class RealmSchemasTestsIT extends AbstractRealmScimTest {
 
     @Container
-    protected static final KeycloakContainer keycloakContainer = new KeycloakContainer("quay.io/keycloak/keycloak:26.1.2")
+    protected static final KeycloakContainer keycloakContainer = new KeycloakContainer(KeycloakTestUtils.getKeycloakImage())
         .withNetwork(network)
         .withEnv("SCIM_AUTHENTICATION_MODE", "KEYCLOAK")
         .withNetworkAliases("scim-keycloak")

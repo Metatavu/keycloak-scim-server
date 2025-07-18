@@ -1,7 +1,7 @@
 package fi.metatavu.keycloak.scim.server.test.utils;
 
 import java.io.File;
-import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -12,40 +12,33 @@ import java.util.Objects;
 public class KeycloakTestUtils {
 
     /**
-     * Returns build providers
+     * Returns Keycloak image
      *
-     * @return build providers
+     * @return Keycloak image
+     */
+    public static String getKeycloakImage() {
+        String keycloakVersion = System.getenv("KEYCLOAK_VERSION");
+        if (keycloakVersion == null || keycloakVersion.isEmpty()) {
+            throw new IllegalStateException("Environment variable 'KEYCLOAK_VERSION' is not set or is empty.");
+        }
+        return "quay.io/keycloak/keycloak:" + keycloakVersion;
+    }
+
+    /**
+     * Returns build Keycloak extensions
+     *
+     * @return build Keycloak extensions
      */
     public static List<File> getBuildProviders() {
-        File buildDir = new File(getBuildDir(), "libs");
-        return Arrays.stream(Objects.requireNonNull(buildDir.listFiles((dir, name) -> name.endsWith(".jar")))).toList();
-    }
+        File mainLibs = new File(getBuildDir(), "libs");
+        File testEventListenerLibs = new File(getTestEventsListenerBuildDir(), "libs");
 
-    /**
-     * Returns test data directory
-     *
-     * @return test data directory
-     */
-    public static File getTestDataDir() {
-        File result = new File(getBuildDir(), "testdata");
-        if (!result.exists()) {
-            try {
-                Files.createDirectories(result.toPath());
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to create test data directory: " + result.getAbsolutePath(), e);
-            }
-        }
+        List<File> result = new ArrayList<>();
+
+        result.addAll(getJarFiles(mainLibs));
+        result.addAll(getJarFiles(testEventListenerLibs));
 
         return result;
-    }
-
-    /**
-     * Returns test data directory for admin events
-     *
-     * @return test data directory for admin events
-     */
-    public static File getAdminEventsDir() {
-        return new File(getTestDataDir(), "admin-events");
     }
 
     /**
@@ -55,6 +48,33 @@ public class KeycloakTestUtils {
      */
     private static String getBuildDir() {
         return System.getenv("BUILD_DIR");
+    }
+
+    /**
+     * Returns build directory for test events listener
+     *
+     * @return build directory for test events listener
+     */
+    private static String getTestEventsListenerBuildDir() {
+        String dir = System.getenv("TEST_EVENTS_LISTENER_BUILD_DIR");
+        if (dir == null || dir.isEmpty()) {
+            throw new IllegalStateException("Environment variable TEST_EVENTS_LISTENER_BUILD_DIR is not set or is empty");
+        }
+        return dir;
+    }
+
+    /**
+     * Returns a list of JAR files in the specified directory
+     *
+     * @param dir directory to search for JAR files
+     * @return list of JAR files
+     */
+    private static List<File> getJarFiles(File dir) {
+        if (dir == null || !dir.isDirectory()) {
+            return new ArrayList<>();
+        }
+        return Arrays.stream(Objects.requireNonNull(dir.listFiles((d, name) -> name.endsWith(".jar"))))
+                .toList();
     }
 
 }

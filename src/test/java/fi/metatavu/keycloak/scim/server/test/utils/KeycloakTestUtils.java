@@ -63,6 +63,9 @@ public class KeycloakTestUtils {
      * @return list of JAR files
      */
     private static List<File> getJarFiles(File dir) {
+        if (dir == null || !dir.isDirectory()) {
+            return new ArrayList<>();
+        }
         return Arrays.stream(Objects.requireNonNull(dir.listFiles((d, name) -> name.endsWith(".jar"))))
                 .toList();
     }

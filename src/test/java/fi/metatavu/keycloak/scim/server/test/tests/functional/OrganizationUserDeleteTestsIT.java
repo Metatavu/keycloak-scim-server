@@ -28,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class OrganizationUserDeleteTestsIT extends AbstractOrganizationScimTest {
 
     @Container
-    protected static final KeycloakContainer keycloakContainer = new KeycloakContainer("quay.io/keycloak/keycloak:26.1.2")
+    protected static final KeycloakContainer keycloakContainer = new KeycloakContainer(KeycloakTestUtils.getKeycloakImage())
         .withNetwork(network)
         .withNetworkAliases("scim-keycloak")
         .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())

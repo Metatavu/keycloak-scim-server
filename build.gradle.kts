@@ -134,6 +134,8 @@ tasks.named("compileTestJava") {
 
 tasks.named<Test>("test") {
     environment("BUILD_DIR", getLayout().buildDirectory.asFile.get().absolutePath)
+    environment("TEST_EVENTS_LISTENER_BUILD_DIR", getLayout().projectDirectory.dir("test-event-listener/build").asFile.absolutePath)
+    environment("KEYCLOAK_VERSION", keycloakVersion)
     useJUnitPlatform()
 }
 

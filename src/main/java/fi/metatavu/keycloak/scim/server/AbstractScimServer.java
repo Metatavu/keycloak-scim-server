@@ -5,9 +5,6 @@ import fi.metatavu.keycloak.scim.server.config.ScimConfig;
 import fi.metatavu.keycloak.scim.server.consts.ScimRoles;
 import fi.metatavu.keycloak.scim.server.groups.GroupsController;
 import fi.metatavu.keycloak.scim.server.metadata.MetadataController;
-import fi.metatavu.keycloak.scim.server.metadata.UserAttributes;
-import fi.metatavu.keycloak.scim.server.model.UserEmailsInner;
-import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
 import fi.metatavu.keycloak.scim.server.users.UsersController;
 import jakarta.mail.internet.AddressException;
 import jakarta.mail.internet.InternetAddress;
@@ -26,7 +23,6 @@ import org.keycloak.services.managers.AuthenticationManager;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.util.Objects;
 
 /**
  * Abstract SCIM server implementation

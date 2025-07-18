@@ -56,7 +56,11 @@ public class KeycloakTestUtils {
      * @return build directory for test events listener
      */
     private static String getTestEventsListenerBuildDir() {
-        return System.getenv("TEST_EVENTS_LISTENER_BUILD_DIR");
+        String dir = System.getenv("TEST_EVENTS_LISTENER_BUILD_DIR");
+        if (dir == null || dir.isEmpty()) {
+            throw new IllegalStateException("Environment variable TEST_EVENTS_LISTENER_BUILD_DIR is not set or is empty");
+        }
+        return dir;
     }
 
     /**

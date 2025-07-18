@@ -18,6 +18,9 @@ public class KeycloakTestUtils {
      */
     public static String getKeycloakImage() {
         String keycloakVersion = System.getenv("KEYCLOAK_VERSION");
+        if (keycloakVersion == null || keycloakVersion.isEmpty()) {
+            throw new IllegalStateException("Environment variable 'KEYCLOAK_VERSION' is not set or is empty.");
+        }
         return "quay.io/keycloak/keycloak:" + keycloakVersion;
     }
 

@@ -1263,7 +1263,7 @@
   "eventsEnabled" : true,
   "eventsListeners" : [ "test-event-listener", "jboss-logging" ],
   "enabledEventTypes" : [ ],
-  "adminEventsEnabled" : true,
+  "adminEventsEnabled" : false,
   "adminEventsDetailsEnabled" : false,
   "identityProviders" : [ {
     "alias" : "external-emailasusernameorg",

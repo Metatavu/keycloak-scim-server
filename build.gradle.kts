@@ -24,6 +24,7 @@ abstract class FixAdditionalPropertyModels : DefaultTask() {
 plugins {
     `java-library`
     `maven-publish`
+    jacoco
     id("org.openapi.generator") version "7.2.0"
 }
 
@@ -39,6 +40,9 @@ val junitVersion: String by project
 val awaitilityVersion: String by project
 val seleniumRemoteDriverVersion: String by project
 val seleniumVersion: String by project
+val jacocoVersion: String by project
+
+val jacocoRuntime: Configuration by configurations.creating
 
 dependencies {
     implementation(enforcedPlatform("org.keycloak.bom:keycloak-bom-parent:$keycloakVersion"))
@@ -55,6 +59,8 @@ dependencies {
     testImplementation("org.awaitility:awaitility:$awaitilityVersion")
     testImplementation("org.seleniumhq.selenium:selenium-remote-driver:$seleniumRemoteDriverVersion")
     testImplementation("org.seleniumhq.selenium:selenium-java:$seleniumVersion")
+
+    jacocoRuntime("org.jacoco:org.jacoco.agent:$jacocoVersion:runtime")
 }
 
 group = "fi.metatavu.keycloak.scim.server"
@@ -74,6 +80,10 @@ sourceSets["main"].java {
 
 sourceSets["test"].java {
     srcDir("build/generated/scim-client/src/main/java")
+}
+
+jacoco {
+    toolVersion = jacocoVersion
 }
 
 val generateModelsCode = tasks.register("generateModelsCode", GenerateTask::class) {
@@ -133,10 +143,34 @@ tasks.named("compileTestJava") {
 }
 
 tasks.named<Test>("test") {
+    val jacocoAgent = configurations["jacocoRuntime"].singleFile
+
     environment("BUILD_DIR", getLayout().buildDirectory.asFile.get().absolutePath)
     environment("TEST_EVENTS_LISTENER_BUILD_DIR", getLayout().projectDirectory.dir("test-event-listener/build").asFile.absolutePath)
     environment("KEYCLOAK_VERSION", keycloakVersion)
+    environment("JACOCO_AGENT", jacocoAgent)
+
     useJUnitPlatform()
+}
+
+tasks.register<JacocoReport>("jacocoIntegrationReport") {
+    dependsOn("test")
+
+    val execFiles = fileTree("build/jacoco") {
+        include("**/*.exec")
+    }
+
+    sourceDirectories.setFrom(files("src/main/java"))
+    executionData.setFrom(execFiles)
+
+    classDirectories.setFrom(fileTree("build/classes/java/main") {
+        exclude("fi/metatavu/keycloak/scim/server/model/**")
+    })
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
 }
 
 tasks.register("nextReleaseVersion") {

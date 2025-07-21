@@ -1,7 +1,10 @@
 package fi.metatavu.keycloak.scim.server.test.tests;
 
+import dasniko.testcontainers.keycloak.KeycloakContainer;
 import fi.metatavu.keycloak.scim.server.test.ScimClient;
 import fi.metatavu.keycloak.scim.server.test.TestConsts;
+import fi.metatavu.keycloak.scim.server.test.utils.KeycloakTestUtils;
+import org.junit.jupiter.api.AfterAll;
 import org.keycloak.OAuth2Constants;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.KeycloakBuilder;
@@ -11,6 +14,7 @@ import org.keycloak.events.admin.ResourceType;
 import org.keycloak.representations.idm.OrganizationRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.keycloak.util.JsonSerialization;
+import org.testcontainers.junit.jupiter.Container;
 
 import java.io.IOException;
 import java.net.URI;
@@ -18,7 +22,23 @@ import java.net.URI;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+/**
+ * Abstract base class for organization SCIM tests
+ */
 public abstract class AbstractOrganizationScimTest extends AbstractScimTest {
+
+    @Container
+    protected static final KeycloakContainer keycloakContainer = KeycloakTestUtils.createOrganizationKeycloakContainer(network);
+
+    @AfterAll
+    static void tearDown() {
+        KeycloakTestUtils.stopKeycloakContainer(keycloakContainer);
+    }
+
+    @Override
+    protected KeycloakContainer getKeycloakContainer() {
+        return keycloakContainer;
+    }
 
     /**
      * Returns SCIM URI for the test realm

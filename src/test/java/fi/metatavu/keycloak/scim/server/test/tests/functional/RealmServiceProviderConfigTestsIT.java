@@ -1,14 +1,11 @@
 package fi.metatavu.keycloak.scim.server.test.tests.functional;
 
-import dasniko.testcontainers.keycloak.KeycloakContainer;
-import fi.metatavu.keycloak.scim.server.test.tests.AbstractRealmScimTest;
+import fi.metatavu.keycloak.scim.server.test.tests.AbstractInternalAuthRealmScimTest;
 import fi.metatavu.keycloak.scim.server.test.ScimClient;
 import fi.metatavu.keycloak.scim.server.test.client.ApiException;
 import fi.metatavu.keycloak.scim.server.test.client.model.AuthenticationScheme;
 import fi.metatavu.keycloak.scim.server.test.client.model.ServiceProviderConfig;
-import fi.metatavu.keycloak.scim.server.test.utils.KeycloakTestUtils;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.net.URI;
@@ -20,21 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Tests for realm server SCIM 2.0 ServiceProviderConfig endpoint
  */
 @Testcontainers
-public class RealmServiceProviderConfigTestsIT extends AbstractRealmScimTest {
-
-    @Container
-    protected static final KeycloakContainer keycloakContainer = new KeycloakContainer(KeycloakTestUtils.getKeycloakImage())
-        .withNetwork(network)
-        .withNetworkAliases("scim-keycloak")
-        .withEnv("SCIM_AUTHENTICATION_MODE", "KEYCLOAK")
-        .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
-        .withRealmImportFile("kc-test.json")
-        .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
-
-    @Override
-    protected KeycloakContainer getKeycloakContainer() {
-        return keycloakContainer;
-    }
+public class RealmServiceProviderConfigTestsIT extends AbstractInternalAuthRealmScimTest {
 
     @Test
     void testServiceProviderConfig() throws ApiException {

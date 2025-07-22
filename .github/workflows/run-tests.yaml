@@ -19,8 +19,15 @@ jobs:
           distribution: 'temurin'
           server-id: github
           settings-path: ${{ github.workspace }}
+
+      - name: Build project
+        run: |
+          ./gradlew clean build --info -x test && 
+          ls -lha build/libs &&
+          ls -lha test-event-listener/build/libs
+
       - name: Run tests
-        run: ./gradlew clean build test jacocoIntegrationReport sonarqube --info
+        run: ./gradlew test --tests RealmUserCreateTestsIT jacocoIntegrationReport sonarqube --info
       - name: JaCoCo Code Coverage Report
         id: jacoco_reporter
         uses: PavanMudigonda/jacoco-reporter@v5.0

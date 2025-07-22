@@ -26,7 +26,7 @@ plugins {
     `maven-publish`
     jacoco
     id("org.openapi.generator") version "7.2.0"
-    id("org.sonarqube") version "3.5.0.2730"
+    id("org.sonarqube") version "6.2.0.5505"
 }
 
 repositories {

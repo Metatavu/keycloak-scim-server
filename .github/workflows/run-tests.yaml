@@ -20,7 +20,7 @@ jobs:
           server-id: github
           settings-path: ${{ github.workspace }}
       - name: Run tests
-        run: ./gradlew build test jacocoIntegrationReport --info
+        run: ./gradlew build test jacocoIntegrationReport sonarqube --info
       - name: JaCoCo Code Coverage Report
         id: jacoco_reporter
         uses: PavanMudigonda/jacoco-reporter@v5.0

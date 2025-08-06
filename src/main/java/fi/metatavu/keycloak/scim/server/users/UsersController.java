@@ -416,11 +416,6 @@ public class UsersController extends AbstractController {
         Map<String, String> details
     ) {
         RealmModel realm = scimContext.getRealm();
-
-        if (!realm.isAdminEventsEnabled()) {
-            return;
-        }
-
         KeycloakSession session = scimContext.getSession();
 
         boolean includeRepresentation = realm.isAdminEventsDetailsEnabled();

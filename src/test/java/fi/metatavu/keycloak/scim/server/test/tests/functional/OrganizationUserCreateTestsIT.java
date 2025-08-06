@@ -1,12 +1,10 @@
 package fi.metatavu.keycloak.scim.server.test.tests.functional;
 
-import dasniko.testcontainers.keycloak.KeycloakContainer;
 import fi.metatavu.keycloak.scim.server.test.tests.AbstractOrganizationScimTest;
 import fi.metatavu.keycloak.scim.server.test.ScimClient;
 import fi.metatavu.keycloak.scim.server.test.TestConsts;
 import fi.metatavu.keycloak.scim.server.test.client.ApiException;
 import fi.metatavu.keycloak.scim.server.test.client.model.User;
-import fi.metatavu.keycloak.scim.server.test.utils.KeycloakTestUtils;
 import jakarta.ws.rs.NotFoundException;
 import org.junit.jupiter.api.Test;
 import org.keycloak.events.admin.AdminEvent;
@@ -15,7 +13,6 @@ import org.keycloak.events.admin.ResourceType;
 import org.keycloak.representations.idm.MemberRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.io.IOException;
@@ -28,19 +25,6 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 @Testcontainers
 public class OrganizationUserCreateTestsIT extends AbstractOrganizationScimTest {
-
-    @Container
-    protected static final KeycloakContainer keycloakContainer = new KeycloakContainer("quay.io/keycloak/keycloak:26.1.2")
-            .withNetwork(network)
-            .withNetworkAliases("scim-keycloak")
-            .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
-            .withRealmImportFiles("kc-organizations.json", "kc-external.json")
-            .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
-
-    @Override
-    protected KeycloakContainer getKeycloakContainer() {
-        return keycloakContainer;
-    }
 
     @Test
     void testCreateUser() throws ApiException {

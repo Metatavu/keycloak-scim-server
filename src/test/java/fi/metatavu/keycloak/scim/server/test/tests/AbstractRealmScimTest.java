@@ -8,6 +8,9 @@ import org.keycloak.admin.client.KeycloakBuilder;
 
 import java.net.URI;
 
+/**
+ * Abstract base class for realm level SCIM tests
+ */
 public abstract class AbstractRealmScimTest extends AbstractScimTest {
 
     /**

@@ -1,14 +1,11 @@
 package fi.metatavu.keycloak.scim.server.test.tests.functional;
 
-import dasniko.testcontainers.keycloak.KeycloakContainer;
 import fi.metatavu.keycloak.scim.server.test.tests.AbstractOrganizationScimTest;
 import fi.metatavu.keycloak.scim.server.test.ScimClient;
 import fi.metatavu.keycloak.scim.server.test.TestConsts;
 import fi.metatavu.keycloak.scim.server.test.client.ApiException;
 import fi.metatavu.keycloak.scim.server.test.client.model.*;
-import fi.metatavu.keycloak.scim.server.test.utils.KeycloakTestUtils;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.util.List;
@@ -16,24 +13,10 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tests for SCIM 2.0 Schemas endpoint
+ * Tests for SCIM 2.0 resource types endpoint
  */
 @Testcontainers
 public class OrganizationResourceTypesTestsIT extends AbstractOrganizationScimTest {
-
-    @Container
-    protected static final KeycloakContainer keycloakContainer = new KeycloakContainer("quay.io/keycloak/keycloak:26.1.2")
-            .withNetwork(network)
-            .withNetworkAliases("scim-keycloak")
-            .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
-            .withRealmImportFiles("kc-organizations.json", "kc-external.json")
-            .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
-
-    @Override
-    protected KeycloakContainer getKeycloakContainer() {
-        return keycloakContainer;
-    }
-
 
     @Test
     void testResourceTypesOrg1() throws ApiException {

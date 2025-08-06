@@ -2,14 +2,12 @@ package fi.metatavu.keycloak.scim.server.test.tests.functional;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import dasniko.testcontainers.keycloak.KeycloakContainer;
 
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import fi.metatavu.keycloak.scim.server.test.tests.AbstractRealmScimTest;
+import fi.metatavu.keycloak.scim.server.test.tests.AbstractInternalAuthRealmScimTest;
 import fi.metatavu.keycloak.scim.server.test.TestConsts;
-import fi.metatavu.keycloak.scim.server.test.utils.KeycloakTestUtils;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -27,16 +25,7 @@ import java.util.Objects;
  * SCIM compliance tests
  */
 @Testcontainers
-public class RealmScimComplianceTestIT extends AbstractRealmScimTest {
-
-    @Container
-    protected static final KeycloakContainer keycloakContainer = new KeycloakContainer("quay.io/keycloak/keycloak:26.1.2")
-        .withNetwork(network)
-        .withNetworkAliases("scim-keycloak")
-        .withEnv("SCIM_AUTHENTICATION_MODE", "KEYCLOAK")
-        .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
-        .withRealmImportFile("kc-test.json")
-        .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
+public class RealmScimComplianceTestIT extends AbstractInternalAuthRealmScimTest {
 
     @Container
     @SuppressWarnings({"try", "resource"})
@@ -46,11 +35,6 @@ public class RealmScimComplianceTestIT extends AbstractRealmScimTest {
         .withNetworkAliases("scim-tester")
         .waitingFor(Wait.forLogMessage(".*Started Scim2Application.*", 1))
         .withLogConsumer(outputFrame -> System.out.printf("COMPLIANCE-TEST: %s", outputFrame.getUtf8String()));
-
-    @Override
-    protected KeycloakContainer getKeycloakContainer() {
-        return keycloakContainer;
-    }
 
     @Test
     void scimComplianceShouldPass() throws IOException, InterruptedException {

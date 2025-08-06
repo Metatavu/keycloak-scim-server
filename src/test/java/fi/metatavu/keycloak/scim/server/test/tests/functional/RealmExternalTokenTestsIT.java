@@ -6,6 +6,7 @@ import fi.metatavu.keycloak.scim.server.test.ScimClient;
 import fi.metatavu.keycloak.scim.server.test.TestConsts;
 import fi.metatavu.keycloak.scim.server.test.client.ApiException;
 import fi.metatavu.keycloak.scim.server.test.utils.KeycloakTestUtils;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.keycloak.OAuth2Constants;
 import org.keycloak.admin.client.Keycloak;
@@ -20,21 +21,17 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 public class RealmExternalTokenTestsIT extends AbstractRealmScimTest {
 
     @Container
-    protected static final KeycloakContainer keycloakContainer = new KeycloakContainer("quay.io/keycloak/keycloak:26.1.2")
-        .withNetwork(network)
-        .withNetworkAliases("scim-keycloak")
-        .withEnv("SCIM_AUTHENTICATION_MODE", "EXTERNAL")
-        .withEnv("SCIM_EXTERNAL_ISSUER", "*") // Just for testing purposes
-        .withEnv("SCIM_EXTERNAL_AUDIENCE", "account")
-        .withEnv("SCIM_EXTERNAL_JWKS_URI", "http://localhost:8080/realms/external/protocol/openid-connect/certs")
-        .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
-        .withRealmImportFiles("kc-test.json", "kc-external.json")
-        .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
+    protected static final KeycloakContainer keycloakContainer = KeycloakTestUtils.createExternalAuthRealmKeycloakContainer(network);
 
 
     @Override
     protected KeycloakContainer getKeycloakContainer() {
         return keycloakContainer;
+    }
+
+    @AfterAll
+    static void tearDown() {
+        KeycloakTestUtils.stopKeycloakContainer(keycloakContainer);
     }
 
     @Test

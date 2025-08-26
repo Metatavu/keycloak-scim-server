@@ -65,8 +65,9 @@ public class OrganizationScimServer extends AbstractScimServer<OrganizationScimC
     public Response updateUser(OrganizationScimContext scimContext, String userId, fi.metatavu.keycloak.scim.server.model.User updateRequest) {
         boolean emailAsUsername = scimContext.getConfig().getEmailAsUsername();
         KeycloakSession session = scimContext.getSession();
+        String username = updateRequest.getUserName();
 
-        if (updateRequest.getUserName().isBlank()) {
+        if (isBlank(username)) {
             logger.warn("Missing userName");
             return Response.status(Response.Status.BAD_REQUEST).entity("Missing userName").build();
         }

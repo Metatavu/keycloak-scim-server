@@ -164,9 +164,13 @@ https://learn.microsoft.com/en-us/entra/identity/saas-apps/tutorial-list
 
 Identity Provider linking with Entra ID requires a few additional configuration steps on both the Entra and Keycloak sides.
 
-**Step 1: Map externalId in SCIM provisioning**
+**Step 1: Add externalId**
 
-First, ensure that the objectId from Entra ID is mapped into the SCIM externalId field:
+In the Keycloak admin console, ensure that you have externalId attribute defined in your Realm Settings > User Profile. This attribute is used to store user's external id in the Keycloak side and without it the Identity Provider linking will fail. 
+
+**Step 2: Map externalId in SCIM provisioning**
+
+In the Entra Id, make sure that the objectId from Entra ID is mapped into the SCIM externalId field:
 
 1. Navigate to your **Enterprise Application** > **Provisioning** > **Attribute Mapping (Preview)** > **Provision Microsoft Entra ID Users**.
 2. Click **Add New Mapping**.
@@ -177,7 +181,7 @@ First, ensure that the objectId from Entra ID is mapped into the SCIM externalId
 
 This ensures that during SCIM provisioning, the Entra objectId is stored in Keycloak as the user’s externalId, which will later be used for identity linking.
 
-**Step 2: Configure Keycloak Identity Provider to Use Object ID**
+**Step 3: Configure Keycloak Identity Provider to Use Object ID**
 
 Next, configure your Entra ID Identity Provider in Keycloak to use the oid claim from the login token instead of the default sub claim (which is app-specific).
 
@@ -194,7 +198,7 @@ Next, configure your Entra ID Identity Provider in Keycloak to use the oid claim
 
 This mapper tells Keycloak to use the Entra oid claim as the Broker ID, ensuring that the login user is matched correctly with the SCIM-provisioned user.
 
-**Step 3: Enable Identity Provider Linking in SCIM**
+**Step 4: Enable Identity Provider Linking in SCIM**
 
 Finally, instruct your SCIM server to automatically link users to the configured Identity Provider during provisioning:
 

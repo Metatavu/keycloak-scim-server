@@ -2,6 +2,7 @@ package fi.metatavu.keycloak.scim.server.groups;
 
 import fi.metatavu.keycloak.scim.server.AbstractController;
 import fi.metatavu.keycloak.scim.server.ScimContext;
+import fi.metatavu.keycloak.scim.server.adminEvents.AdminEventController;
 import fi.metatavu.keycloak.scim.server.metadata.GroupAttribute;
 import fi.metatavu.keycloak.scim.server.patch.PatchOperation;
 import fi.metatavu.keycloak.scim.server.consts.Schemas;
@@ -10,10 +11,14 @@ import fi.metatavu.keycloak.scim.server.model.GroupMembersInner;
 import fi.metatavu.keycloak.scim.server.model.GroupsList;
 import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
 import org.jboss.logging.Logger;
+import org.keycloak.events.admin.OperationType;
+import org.keycloak.events.admin.ResourceType;
 import org.keycloak.models.GroupModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
+import org.keycloak.models.utils.ModelToRepresentation;
+import org.keycloak.representations.idm.GroupRepresentation;
 
 import java.util.Collections;
 import java.util.List;
@@ -26,6 +31,7 @@ import java.util.stream.Collectors;
 public class GroupsController extends AbstractController {
 
     private static final Logger logger = Logger.getLogger(GroupsController.class);
+    private final AdminEventController adminEventController = new AdminEventController();
 
     /**
      * Creates a group
@@ -51,6 +57,8 @@ public class GroupsController extends AbstractController {
                 }
             }
         }
+
+        dispatchGroupCreateEvent(scimContext, group);
 
         return translateGroup(scimContext, group);
     }
@@ -187,6 +195,7 @@ public class GroupsController extends AbstractController {
                                 UserModel user = scimContext.getSession().users().getUserById(scimContext.getRealm(), memberId);
                                 if (user != null) {
                                     user.joinGroup(existing);
+                                    dispatchGroupMembershipJoinEvent(scimContext, existing, user);
                                 }
                             }
                         }
@@ -212,6 +221,7 @@ public class GroupsController extends AbstractController {
                                 UserModel user = scimContext.getSession().users().getUserById(scimContext.getRealm(), memberId);
                                 if (user != null) {
                                     user.leaveGroup(existing);
+                                    dispatchGroupMembershipLeaveEvent(scimContext, existing, user);
                                 }
                             }
                         }
@@ -233,6 +243,8 @@ public class GroupsController extends AbstractController {
         KeycloakSession session = scimContext.getSession();
         RealmModel realm = scimContext.getRealm();
         session.groups().removeGroup(realm, group);
+
+        dispatchGroupDeleteEvent(scimContext, group);
     }
 
     /**
@@ -261,5 +273,99 @@ public class GroupsController extends AbstractController {
                 .members(members)
                 .schemas(Collections.singletonList(Schemas.GROUP_SCHEMA))
                 .meta(getMeta(scimContext, "Group", String.format("Groups/%s", group.getId())));
+    }
+
+    /**
+     * Dispatches group create event
+     *
+     * @param scimContext SCIM context
+     * @param group group
+     */
+    protected void dispatchGroupCreateEvent(
+            ScimContext scimContext,
+            GroupModel group
+    ) {
+        GroupRepresentation groupRepresentation = ModelToRepresentation.toRepresentation(group, false);
+
+        adminEventController.sendAdminEvent(
+                scimContext,
+                OperationType.CREATE,
+                ResourceType.GROUP,
+                "groups/" + group.getId(),
+                groupRepresentation
+        );
+    }
+
+    /**
+     * Dispatches group creation event
+     *
+     * @param scimContext SCIM context
+     * @param group group
+     */
+    protected void dispatchGroupDeleteEvent(
+            ScimContext scimContext,
+            GroupModel group
+    ) {
+        adminEventController.sendAdminEvent(
+                scimContext,
+                OperationType.DELETE,
+                ResourceType.GROUP,
+                "groups/" + group.getId(),
+                null
+        );
+    }
+
+    /**
+     * Dispatches group membership join event
+     *
+     * @param scimContext SCIM context
+     * @param group group
+     * @param user user
+     */
+    protected void dispatchGroupMembershipJoinEvent(
+            ScimContext scimContext,
+            GroupModel group,
+            UserModel user
+    ) {
+        GroupRepresentation groupRepresentation = ModelToRepresentation.toRepresentation(group, false);
+
+        adminEventController.sendAdminEvent(
+                scimContext,
+                OperationType.CREATE,
+                ResourceType.GROUP_MEMBERSHIP,
+                "groups/" + group.getId() + "/members/" + user.getId(),
+                groupRepresentation,
+                 Map.of(
+                         UserModel.USERNAME, user.getUsername(),
+                        UserModel.EMAIL, user.getEmail()
+                )
+        );
+    }
+
+    /**
+     * Dispatches group membership leave event
+     *
+     * @param scimContext SCIM context
+     * @param group group
+     * @param user user
+     */
+    protected void dispatchGroupMembershipLeaveEvent(
+            ScimContext scimContext,
+            GroupModel group,
+            UserModel user
+    ) {
+        GroupRepresentation groupRepresentation = ModelToRepresentation.toRepresentation(group, false);
+
+        adminEventController.sendAdminEvent(
+                scimContext,
+                OperationType.DELETE,
+                ResourceType.GROUP_MEMBERSHIP,
+                "groups/" + group.getId() + "/members/" + user.getId(),
+                groupRepresentation,
+                Map.of(
+                        UserModel.USERNAME, user.getUsername(),
+                        UserModel.EMAIL, user.getEmail()
+                )
+        );
     }
 }

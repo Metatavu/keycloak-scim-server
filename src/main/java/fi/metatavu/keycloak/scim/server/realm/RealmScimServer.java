@@ -32,7 +32,7 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
         RealmModel realm = scimContext.getRealm();
         KeycloakSession session = scimContext.getSession();
 
-        if (createRequest.getUserName().isBlank()) {
+        if (isBlank(createRequest.getUserName())) {
             logger.warn("Cannot create user: Missing userName");
             return Response.status(Response.Status.BAD_REQUEST).entity("Missing userName").build();
         }
@@ -63,7 +63,7 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
         boolean emailAsUsername = scimContext.getConfig().getEmailAsUsername();
         KeycloakSession session = scimContext.getSession();
 
-        if (updateRequest.getUserName().isBlank()) {
+        if (isBlank(updateRequest.getUserName())) {
             logger.warn("Missing userName");
             return Response.status(Response.Status.BAD_REQUEST).entity("Missing userName").build();
         }

@@ -265,6 +265,67 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
   }
 
   @Test
+  void testFilterWithStartsWith() throws ApiException {
+    ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
+
+    List<User> users = createUsers(scimClient, "filter-me", "Filter", "Me", 5);
+
+    UsersList usersList = scimClient.listUsers("userName sw \"filter-me-\"", 0, 10);
+
+    assertEquals(5, usersList.getTotalResults());
+    assertNotNull(usersList.getResources());
+    assertEquals(5, usersList.getResources().size());
+
+    deleteRealmUsers(TestConsts.ORGANIZATIONS_REALM, users);
+  }
+
+  @Test
+  void testFilterWithEndsWith() throws ApiException {
+    ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
+
+    List<User> users = createUsers(scimClient, "filter-me", "Filter", "Me", 5);
+
+    UsersList usersList = scimClient.listUsers("userName ew \"-me-1\"", 0, 10);
+
+    assertEquals(1, usersList.getTotalResults());
+    assertNotNull(usersList.getResources());
+    assertEquals(1, usersList.getResources().size());
+    assertEquals("filter-me-1", usersList.getResources().getFirst().getUserName());
+
+    deleteRealmUsers(TestConsts.ORGANIZATIONS_REALM, users);
+  }
+
+  @Test
+  void filterByPresentAttribute() throws ApiException {
+    ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
+
+    List<User> users = createUsers(scimClient, "filter-me", "Filter", "Me", 5);
+
+    UsersList usersList = scimClient.listUsers("name.familyName pr", 0, 10);
+
+    assertEquals(5, usersList.getTotalResults());
+    assertNotNull(usersList.getResources());
+    assertEquals(5, usersList.getResources().size());
+
+    deleteRealmUsers(TestConsts.ORGANIZATIONS_REALM, users);
+  }
+
+  @Test
+  void filterByUsernameOrUsername() throws ApiException {
+    ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
+
+    List<User> users = createUsers(scimClient, "filter-me", "Filter", "Me", 5);
+
+    UsersList usersList = scimClient.listUsers("userName eq \"filter-me-1\" or userName eq \"filter-me-2\"", 0, 10);
+
+    assertEquals(2, usersList.getTotalResults());
+    assertNotNull(usersList.getResources());
+    assertEquals(2, usersList.getResources().size());
+
+    deleteRealmUsers(TestConsts.ORGANIZATIONS_REALM, users);
+  }
+
+  @Test
   void testPagination() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
     List<User> createdUsers = new ArrayList<>();

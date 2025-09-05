@@ -46,6 +46,7 @@ val jacocoVersion: String by project
 val jacocoRuntime: Configuration by configurations.creating
 
 dependencies {
+    implementation("io.phasetwo.keycloak:keycloak-orgs:0.114")
     implementation(enforcedPlatform("org.keycloak.bom:keycloak-bom-parent:$keycloakVersion"))
     compileOnly("org.keycloak:keycloak-services:$keycloakVersion")
 

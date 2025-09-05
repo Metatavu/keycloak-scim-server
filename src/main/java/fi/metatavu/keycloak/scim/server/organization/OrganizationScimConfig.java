@@ -2,7 +2,6 @@ package fi.metatavu.keycloak.scim.server.organization;
 
 import fi.metatavu.keycloak.scim.server.config.ConfigurationError;
 import fi.metatavu.keycloak.scim.server.config.ScimConfig;
-import org.keycloak.models.OrganizationModel;
 
 import java.util.List;
 import java.util.Map;
@@ -10,13 +9,7 @@ import java.util.Map;
 /**
  * SCIM configuration for organizations
  */
-public class OrganizationScimConfig implements ScimConfig {
-
-    private final OrganizationModel organization;
-
-    public OrganizationScimConfig(OrganizationModel organization) {
-        this.organization = organization;
-    }
+public abstract class OrganizationScimConfig implements ScimConfig {
 
     @Override
     public void validateConfig() throws ConfigurationError {
@@ -76,24 +69,6 @@ public class OrganizationScimConfig implements ScimConfig {
         return "true".equalsIgnoreCase(getAttribute("SCIM_EMAIL_AS_USERNAME"));
     }
 
-    /**
-     * Gets the organization attribute
-     *
-     * @return organization attribute value
-     */
-    private String getAttribute(String attributeName) {
-        Map<String, List<String>> attributes = organization.getAttributes();
-        if (attributes == null) {
-            return null;
-        }
-
-        List<String> values = attributes.get(attributeName);
-        if (values == null || values.isEmpty()) {
-            return null;
-        }
-
-        return values.getFirst();
-    }
-
+    public abstract String getAttribute(String attributeName);
 
 }

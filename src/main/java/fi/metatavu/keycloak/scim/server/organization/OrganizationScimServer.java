@@ -21,14 +21,14 @@ import java.util.Objects;
 /**
  * SCIM server implementation for organizations
  */
-public class OrganizationScimServer extends AbstractScimServer<OrganizationScimContext> {
+public abstract class OrganizationScimServer extends AbstractScimServer<OrganizationScimContext> {
 
     private static final Logger logger = Logger.getLogger(OrganizationScimServer.class);
-    private final OrganizationController organizationController;
     private final OrganizationUserController organizationUserController;
-
-    public OrganizationScimServer() {
-        this.organizationController = new OrganizationController();
+    protected final KeycloakSession session;
+  
+    public OrganizationScimServer(KeycloakSession session) {
+        this.session = session;
         this.organizationUserController = new OrganizationUserController();
     }
 
@@ -225,46 +225,6 @@ public class OrganizationScimServer extends AbstractScimServer<OrganizationScimC
         return Response.status(Response.Status.NOT_IMPLEMENTED).build();
     }
 
-    /**
-     * Returns SCIM context
-     *
-     * @param session Keycloak session
-     * @return SCIM context
-     */
-    public OrganizationScimContext getScimContext(KeycloakSession session, String organizationId) {
-        RealmModel realm = session.getContext().getRealm();
-        if (realm == null) {
-            throw new NotFoundException("Realm not found");
-        }
-
-        OrganizationModel organization = organizationController.findOrganizationById(
-            session,
-            organizationId
-        );
-
-        if (organization == null) {
-            throw new NotFoundException("Organization not found");
-        }
-
-        KeycloakContext context = session.getContext();
-        context.setOrganization(organization);
-
-        URI baseUri = session.getContext().getUri().getBaseUri().resolve(String.format("realms/%s/scim/v2/organizations/%s/", realm.getName(), organization.getId()));
-        OrganizationScimConfig config = new OrganizationScimConfig(organization);
-
-        try {
-            config.validateConfig();
-        } catch (ConfigurationError e) {
-            throw new InternalServerErrorException("Invalid SCIM configuration", e);
-        }
-
-        return new OrganizationScimContext(
-            baseUri,
-            session,
-            realm,
-            organization,
-            config
-        );
-    }
+    public abstract OrganizationScimContext getScimContext(KeycloakSession session, String organizationId);
 
 }

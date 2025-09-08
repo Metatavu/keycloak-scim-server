@@ -14,6 +14,7 @@ import org.keycloak.models.GroupModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
+import org.keycloak.models.utils.KeycloakModelUtils;
 
 import java.util.Collections;
 import java.util.List;
@@ -247,7 +248,6 @@ public class GroupsController extends AbstractController {
     ) {
         RealmModel realm = scimContext.getRealm();
         KeycloakSession session = scimContext.getSession();
-
         List<GroupMembersInner> members = session.users().getGroupMembersStream(realm, group)
                 .map(member -> new GroupMembersInner()
                         .value(member.getId())
@@ -257,7 +257,7 @@ public class GroupsController extends AbstractController {
 
         return new Group()
                 .id(group.getId())
-                .displayName(group.getName())
+                .displayName(KeycloakModelUtils.buildGroupPath(group))
                 .members(members)
                 .schemas(Collections.singletonList(Schemas.GROUP_SCHEMA))
                 .meta(getMeta(scimContext, "Group", String.format("Groups/%s", group.getId())));

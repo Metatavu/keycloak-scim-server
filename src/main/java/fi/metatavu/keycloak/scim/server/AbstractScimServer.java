@@ -171,6 +171,16 @@ public abstract class AbstractScimServer <T extends ScimContext> implements Scim
     }
 
     /**
+     * Checks if the given string is not null and not blank
+     *
+     * @param str string to check
+     * @return true if the string is not null and not blank; false otherwise
+     */
+    protected boolean isBlank(String str) {
+        return str == null || str.isBlank();
+    }
+
+    /**
      * Checks if the service account has the required role
      *
      * @param user service account

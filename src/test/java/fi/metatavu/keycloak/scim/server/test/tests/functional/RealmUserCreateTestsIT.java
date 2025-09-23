@@ -76,6 +76,23 @@ public class RealmUserCreateTestsIT extends AbstractInternalAuthRealmScimTest {
     }
 
     @Test
+    void testCreateUserWithoutUsernameReturnsBadRequest() {
+        ScimClient scimClient = getAuthenticatedScimClient();
+
+        User user = new User();
+        user.setActive(true);
+        user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
+
+
+        try {
+            scimClient.createUser(user);
+            fail("Expected ApiException");
+        } catch (ApiException e) {
+            assertEquals(400, e.getCode());
+        }
+    }
+
+    @Test
     void testCreateDuplicateUserReturnsConflict() throws ApiException {
         ScimClient scimClient = getAuthenticatedScimClient();
 

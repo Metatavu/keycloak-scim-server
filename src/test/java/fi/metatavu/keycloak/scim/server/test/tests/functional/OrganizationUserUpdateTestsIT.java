@@ -173,6 +173,87 @@ public class OrganizationUserUpdateTestsIT extends AbstractOrganizationScimTest 
         scimClient.updateUser(user.getId(), user);
     }
 
+    /**
+     * Tests that asserts that updating a user without a username fails with 400 Bad Request
+     *
+     * @throws ApiException in case of API error
+     */
+    @Test
+    void testUpdateUserWithoutUsername() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
+
+        // Create user
+        User user = new User();
+        user.setUserName("new-user");
+        user.setActive(true);
+        user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
+
+        User created = scimClient.createUser(user);
+        created.setUserName(null);
+
+        try {
+            scimClient.updateUser(created.getId(), created);
+            fail("Expected ApiException");
+        } catch (ApiException e) {
+            assertEquals(400, e.getCode());
+        }
+    }
+
+    /**
+     * Test that asserts that updating a user with username that is not a valid email address
+     * fails with 400 Bad Request when email as username is enabled
+     *
+     * @throws ApiException in case of API error
+     */
+    @Test
+    void testUpdateUserWithInvalidEmail() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_EMAIL_AS_USERNAME_ID);
+
+        // Create user
+        User user = new User();
+        user.setUserName("valid-email@example.com");
+        user.setActive(true);
+        user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
+
+        User created = scimClient.createUser(user);
+        created.setUserName("not-an-email");
+
+        try {
+            scimClient.updateUser(created.getId(), created);
+            fail("Expected ApiException");
+        } catch (ApiException e) {
+            assertEquals(400, e.getCode());
+        }
+    }
+
+    /**
+     * Test that asserts that updating a user with conflicting username and email with email as username enabled
+     * fails with bad request
+     * @throws ApiException in case of API error
+     */
+    @Test
+    void testUpdateUserWithConflictingUsernameAndEmail() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_EMAIL_AS_USERNAME_ID);
+
+        // Create user
+        User user = new User();
+        user.setUserName("same-emailg@example.com");
+        user.setEmails(getEmails("same-email@example.com"));
+        user.setActive(true);
+        user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
+
+        User created = scimClient.createUser(user);
+        created.setUserName("same-email@example.com");
+        created.setEmails(getEmails("other-email@example.com"));
+
+        try {
+            scimClient.updateUser(created.getId(), created);
+            fail("Expected ApiException");
+        } catch (ApiException e) {
+            assertEquals(400, e.getCode());
+        }
+    }
+
     @Test
     void testUpdateUserAdminEvents() throws ApiException, IOException {
         ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);

@@ -48,6 +48,12 @@ public class OrganizationResourceTypesTestsIT extends AbstractOrganizationScimTe
         assertResourceType(resourceType, "Group", "/Groups", "Group");
     }
 
+    @Test
+    void testResourceTypesOrg3() throws ApiException {
+        ScimClient scimClient = getAuthenticatedSharedSecretScimClient(TestConsts.ORGANIZATION_3_ID);
+        scimClient.getResourceTypes();
+    }
+
     /**
      * Asserts resource type
      *

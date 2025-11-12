@@ -2177,6 +2177,20 @@
       "name" : "org2.example.com",
       "verified" : false
     } ]
+  }, {
+    "id" : "f849d141-ebb7-4078-b4aa-52094f043123",
+    "name" : "org3",
+    "alias" : "org3",
+    "enabled" : true,
+    "description" : "",
+    "attributes" : {
+      "SCIM_EXTERNAL_SHARED_SECRET" : [ "10e06b990d44de0091a2113fd95c92fc905166af147aa7632639c41aa7f26b1620c47443813c605b924c05591c161ecc35944fc69c4433a49d10fc6b04a33611" ],
+      "SCIM_AUTHENTICATION_MODE" : [ "EXTERNAL" ]
+    },
+    "domains" : [ {
+      "name" : "org3.example.com",
+      "verified" : false
+    } ]
   } ],
   "verifiableCredentialsEnabled" : false,
   "adminPermissionsEnabled" : false,

@@ -114,6 +114,23 @@ public class KeycloakTestUtils {
     }
 
     @SuppressWarnings("resource")
+    public static KeycloakContainer createExternalAuthSharedSecretRealmKeycloakContainer(Network network) {
+        return new KeycloakContainer(KeycloakTestUtils.getKeycloakImage())
+                .withNetwork(network)
+                .withNetworkAliases("scim-keycloak")
+                .withEnv("SCIM_AUTHENTICATION_MODE", "EXTERNAL")
+                .withEnv("SCIM_EXTERNAL_SHARED_SECRET", "10e06b990d44de0091a2113fd95c92fc905166af147aa7632639c41aa7f26b1620c47443813c605b924c05591c161ecc35944fc69c4433a49d10fc6b04a33611")
+                .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
+                .withRealmImportFiles("kc-test.json", "kc-external.json")
+                .withEnv("JAVA_OPTS_APPEND", "-javaagent:/jacoco-agent/org.jacoco.agent-runtime.jar=destfile=/tmp/jacoco.exec")
+                .withCopyFileToContainer(
+                        MountableFile.forHostPath(getJacocoAgentPath()),
+                        "/jacoco-agent/org.jacoco.agent-runtime.jar"
+                )
+                .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
+    }
+
+    @SuppressWarnings("resource")
     public static KeycloakContainer createNoAuthRealmKeycloakContainer(Network network) {
         return new KeycloakContainer(KeycloakTestUtils.getKeycloakImage())
                 .withNetwork(network)

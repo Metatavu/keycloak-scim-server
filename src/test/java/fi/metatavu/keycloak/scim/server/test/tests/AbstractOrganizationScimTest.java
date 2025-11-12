@@ -59,6 +59,15 @@ public abstract class AbstractOrganizationScimTest extends AbstractScimTest {
     }
 
     /**
+     * Returns authenticated SCIM client with shared secret
+     *
+     * @return authenticated SCIM client
+     */
+    protected ScimClient getAuthenticatedSharedSecretScimClient(String organizationId) {
+        return new ScimClient(getScimUri(organizationId), "toto");
+    }
+
+    /**
      * Returns access token for external service account
      *
      * @return access token

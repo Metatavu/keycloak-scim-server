@@ -208,6 +208,28 @@ Add the following attribute to your SCIM configuration (only supported by organi
 
 This will ensure that when a user is provisioned via SCIM, a corresponding Identity Provider link is also created automatically based on the externalId / oid.
 
+## SCIM-Managed Users
+
+By default, the SCIM server only exposes users who are explicitly assigned the scim-managed role within the realm. This ensures that only users intended to be managed through SCIM are returned or modifiable via SCIM API operations.
+
+This prevents accidental exposure or modification of users that were:
+   - created manually via the Keycloak admin UI
+   - imported from external identity providers
+   - or otherwise not intended to be managed through SCIM
+
+If you want to expose all users (i.e., bypass filtering), you can simply assign the scim-managed role to every user. This effectively disables the filter, making the SCIM behavior equivalent to an unfiltered list.
+
+This role-based filtering applies to all SCIM operations, including:
+   - GET /Users
+   - PATCH /Users/{id}
+   - DELETE /Users/{id}
+
+Users without the scim-managed role will be invisible to SCIM clients — they won’t be listed, updated, or removed through SCIM.
+
+This filtering mechanism is designed to improve safety, especially in complex deployments involving federated users, legacy accounts, or overlapping identity sources (such as Entra ID + local users).
+
+This design does mean that provisioning a user through SCIM who previously existed without the role may cause conflicts or provisioning failures if role assignment isn’t handled correctly. However, this is a deliberate design choice to provide fine-grained control over which users are SCIM-visible.
+
 ## License
 
 [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0)

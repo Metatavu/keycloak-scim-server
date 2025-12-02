@@ -49,9 +49,12 @@ public class OrganizationScimConfig implements ScimConfig {
                 }
             }
         } else {
-            throw new ConfigurationError(String.format(SCIM_AUTHENTICATION_MODE + " %s AuthenticationMode not supported in organization mode",
-                                                       mode
-            ));
+            throw new ConfigurationError(
+                String.format(
+                    SCIM_AUTHENTICATION_MODE + " %s AuthenticationMode not supported in organization mode",
+                    mode
+                )
+            );
         }
     }
 

@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 @Testcontainers
 public class RealmExternalSharedSecretTestsIT extends AbstractRealmScimTest {
 
@@ -29,7 +31,17 @@ public class RealmExternalSharedSecretTestsIT extends AbstractRealmScimTest {
 
     @Test
     void testGetResourceTypesWithExternalToken() throws ApiException {
-        ScimClient scimClient = new ScimClient(getScimUri(), "toto");
+        ScimClient scimClient = new ScimClient(getScimUri(), "tutu");
         scimClient.getResourceTypes();
+    }
+
+    @Test
+    void testErrorGetResourceTypesWithExternalToken() {
+        assertThrows(
+            ApiException.class, () -> {
+                ScimClient scimClient = new ScimClient(getScimUri(), "titi");
+                scimClient.getResourceTypes();
+            }
+        );
     }
 }

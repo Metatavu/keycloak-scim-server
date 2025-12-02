@@ -42,7 +42,7 @@ public abstract class AbstractScimServer <T extends ScimContext> implements Scim
     /**
      * Constructor
      */
-    public AbstractScimServer() {
+    protected AbstractScimServer() {
         metadataController = new MetadataController();
         usersController = new UsersController();
         groupsController = new GroupsController();
@@ -106,12 +106,12 @@ public abstract class AbstractScimServer <T extends ScimContext> implements Scim
         if (config.getAuthenticationMode() == ScimConfig.AuthenticationMode.KEYCLOAK) {
             keycloakAuthentication(context, session, realm, headers);
         } else {
-            externalAuthentication(config, extractToken(authorization));
+            externalAuthentication(config, extractToken(authorization), session);
         }
     }
 
-    private void externalAuthentication(ScimConfig config, String tokenString) {
-        Verifier verifier = VerifierFactory.build(config);
+    private void externalAuthentication(ScimConfig config, String tokenString, KeycloakSession session) {
+        Verifier verifier = VerifierFactory.build(config, session);
 
         if (!verifier.verify(tokenString)) {
             logger.warn("External token verification failed");

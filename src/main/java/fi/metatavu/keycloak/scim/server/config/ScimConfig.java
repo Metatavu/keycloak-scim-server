@@ -49,7 +49,7 @@ public interface ScimConfig {
     String getExternalAudience();
 
     /**
-     * Gets the shared secret (if in EXTERNAL mode)
+     * Gets the shared secret (if in EXTERNAL mode) using PHC String format
      *
      * @return shared secret
      */

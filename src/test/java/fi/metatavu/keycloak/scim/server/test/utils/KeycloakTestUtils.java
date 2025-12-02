@@ -119,7 +119,7 @@ public class KeycloakTestUtils {
                 .withNetwork(network)
                 .withNetworkAliases("scim-keycloak")
                 .withEnv("SCIM_AUTHENTICATION_MODE", "EXTERNAL")
-                .withEnv("SCIM_EXTERNAL_SHARED_SECRET", "10e06b990d44de0091a2113fd95c92fc905166af147aa7632639c41aa7f26b1620c47443813c605b924c05591c161ecc35944fc69c4433a49d10fc6b04a33611")
+                .withEnv("SCIM_EXTERNAL_SHARED_SECRET", "$argon2id$v=19$m=16,t=2,p=1$UUppcFAwQUp0SkQwVGZudQ$j5RwfEzt3Gvwpbqp0VDcJg") // tutu with argon2id
                 .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
                 .withRealmImportFiles("kc-test.json", "kc-external.json")
                 .withEnv("JAVA_OPTS_APPEND", "-javaagent:/jacoco-agent/org.jacoco.agent-runtime.jar=destfile=/tmp/jacoco.exec")

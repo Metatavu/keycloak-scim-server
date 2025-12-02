@@ -41,6 +41,7 @@ public class ExternalTokenVerifier implements Verifier {
      * @param tokenString JWT token string
      * @return true if the token is valid, false otherwise
      */
+    @Override
     public boolean verify(String tokenString) {
         try {
             for (JwkKey jwkKey : JwksUtils.getPublicKeysFromJwks(jwksUrl)) {

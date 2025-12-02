@@ -17,6 +17,7 @@ public class RealmScimConfig implements ScimConfig {
     public static final String SCIM_EXTERNAL_AUDIENCE = "scim.external.audience";
     public static final String SCIM_EXTERNAL_SHARED_SECRET = "scim.external.shared.secret";
     public static final String SCIM_AUTHENTICATION_MODE = "scim.authentication.mode";
+    public static final String SCIM_EXTERNAL_ISSUER = "scim.external.issuer";
     private final Config config;
     private final RealmModel realm;
 
@@ -73,8 +74,8 @@ public class RealmScimConfig implements ScimConfig {
      */
     @Override
     public String getExternalIssuer() {
-        return readRealmAttribute("scim.external.issuer")
-                .or(() -> config.getOptionalValue("scim.external.issuer", String.class))
+        return readRealmAttribute(SCIM_EXTERNAL_ISSUER)
+                .or(() -> config.getOptionalValue(SCIM_EXTERNAL_ISSUER, String.class))
                 .orElse(null);
     }
 

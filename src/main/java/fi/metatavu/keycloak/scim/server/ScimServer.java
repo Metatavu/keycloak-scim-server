@@ -2,7 +2,6 @@ package fi.metatavu.keycloak.scim.server;
 
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
 import jakarta.ws.rs.core.Response;
-import org.keycloak.models.KeycloakSession;
 
 /**
  * * SCIM server interface

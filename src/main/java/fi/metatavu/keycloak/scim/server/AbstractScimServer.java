@@ -143,7 +143,7 @@ public abstract class AbstractScimServer <T extends ScimContext> implements Scim
             );
 
             try {
-                if (!verifier.verify(tokenString)) {
+                if (!verifier.verify(tokenString, scimContext)) {
                     logger.warn("External token verification failed");
                     throw new NotAuthorizedException("External token verification failed");
                 }

@@ -1,5 +1,6 @@
 package fi.metatavu.keycloak.scim.server.authentication;
 
+import fi.metatavu.keycloak.scim.server.ScimContext;
 import org.jboss.logging.Logger;
 import org.keycloak.jose.jws.JWSInput;
 
@@ -40,10 +41,11 @@ public class ExternalTokenVerifier {
      * Verifies the given token.
      *
      * @param tokenString JWT token string
+     * @param scimContext the context, used to retrieve a Keycloak HTTP client
      * @return true if the token is valid, false otherwise
      */
-    public boolean verify(String tokenString) throws URISyntaxException, IOException, InterruptedException, JWSInputException {
-        for (JwkKey jwkKey : JwksUtils.getPublicKeysFromJwks(jwksUrl)) {
+    public boolean verify(String tokenString, ScimContext scimContext) throws URISyntaxException, IOException, InterruptedException, JWSInputException {
+        for (JwkKey jwkKey : JwksUtils.getPublicKeysFromJwks(jwksUrl, scimContext)) {
             if (verify(tokenString, jwkKey.getPublicKey())) {
                 logger.info("Token verification succeeded with key: " + jwkKey.getKid());
                 return true;

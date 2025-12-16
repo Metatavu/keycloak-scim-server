@@ -180,6 +180,8 @@ public class UsersController extends AbstractController {
             throw new IllegalStateException("SCIM managed role not found");
         }
 
+        
+
         List<UserModel> filteredUsers = session.users()
             .searchForUserStream(scimContext.getRealm(), searchParams)
             .filter(user -> !searchParams.isEmpty() || matchScimFilter(user, userAttributes, scimFilter))
@@ -290,16 +292,19 @@ public class UsersController extends AbstractController {
                     switch (value) {
                         case null:
                             logger.warn("Value is null for patch operation: " + op);
-                        break;
+                            break;
                         case String s when userAttribute instanceof StringUserAttribute:
                             ((StringUserAttribute) userAttribute).write(existing, s);
-                        break;
+                            break;
+                        case String s when userAttribute instanceof BooleanUserAttribute:
+                            ((BooleanUserAttribute) userAttribute).write(existing, Boolean.parseBoolean(s));
+                            break;
                         case Boolean b when userAttribute instanceof BooleanUserAttribute:
                             ((BooleanUserAttribute) userAttribute).write(existing, b);
-                        break;
+                            break;
                         default:
-                            logger.warn("Unsupported value type for patch operation: " + value.getClass());
-                        break;
+                            logger.warn("Unsupported value type for patch operation: " + value.getClass() + " for SCIM path " + userAttribute.getScimPath());
+                            break;
                     }
 
                 }

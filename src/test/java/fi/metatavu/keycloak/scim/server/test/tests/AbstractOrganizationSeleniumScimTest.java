@@ -160,6 +160,19 @@ public abstract class AbstractOrganizationSeleniumScimTest extends AbstractOrgan
     }
 
     /**
+     * Waits for a disabled input to have a specific value.
+     * <p>
+     * @param driver web driver
+     * @param by element locator
+     * @param text text to type
+     */
+    protected void waitAndAssertDisabledInputValue(WebDriver driver, By by, String text) {
+        WebDriverWait wait = new WebDriverWait(driver, DEFAULT_DURATION);
+        WebElement element = wait.until(ExpectedConditions.presenceOfElementLocated(by));
+        assertEquals(text, element.getAttribute("value"));
+    }
+
+    /**
      * Returns a By locator for a data-testid attribute
      *
      * @param dataTestId data-testid value

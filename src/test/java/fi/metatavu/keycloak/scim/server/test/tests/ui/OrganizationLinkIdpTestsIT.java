@@ -41,7 +41,14 @@ public class OrganizationLinkIdpTestsIT extends AbstractOrganizationSeleniumScim
         user.setName(getName("Test", "User 1"));
         user.setEmails(getEmails("test.user1@org1.example.com"));
         user.putAdditionalProperty("externalId", "97d3bd9b-73ef-440e-80fb-795ad2b8086a");
-        User createdUser = scimClient.createUser(user);
+        User createdUser;
+        try {
+             createdUser = scimClient.createUser(user);
+            System.out.println("Created user: " + createdUser);
+        } catch (ApiException e) {
+            System.err.println("API Exception: " + e.getResponseBody());
+            throw e;
+        }
         assertNotNull(createdUser);
 
         // Log in with external identity provider
@@ -55,7 +62,7 @@ public class OrganizationLinkIdpTestsIT extends AbstractOrganizationSeleniumScim
 
         // Assert that the user is logged in
 
-        waitAndAssertInputValue(webDriver, By.id("username"), "test.user1");
+        waitAndAssertDisabledInputValue(webDriver, By.id("username"), "test.user1");
         waitAndAssertInputValue(webDriver, By.id("email"), "test.user1@org1.example.com");
 
         // Clean up
@@ -104,7 +111,7 @@ public class OrganizationLinkIdpTestsIT extends AbstractOrganizationSeleniumScim
 
         // Assert that the user is logged in
 
-        waitAndAssertInputValue(webDriver, By.id("username"), "test.user1");
+        waitAndAssertDisabledInputValue(webDriver, By.id("username"), "test.user1");
         waitAndAssertInputValue(webDriver, By.id("email"), "test.user1@org1.example.com");
 
         // Clean up
@@ -159,7 +166,7 @@ public class OrganizationLinkIdpTestsIT extends AbstractOrganizationSeleniumScim
 
         // Assert that the user is logged in
 
-        waitAndAssertInputValue(webDriver, By.id("username"), "test.user1");
+        waitAndAssertDisabledInputValue(webDriver, By.id("username"), "test.user1");
         waitAndAssertInputValue(webDriver, By.id("email"), "test.user1@org1.example.com");
 
         // Clean up

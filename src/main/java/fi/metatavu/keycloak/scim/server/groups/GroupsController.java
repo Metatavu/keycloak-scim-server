@@ -159,14 +159,20 @@ public class GroupsController extends AbstractController {
                 throw new UnsupportedPatchOperation("Unsupported patch operation: " + operation.getOp());
             }
 
-            if (value == null) {
-                logger.warn("Value is null for patch operation: " + op);
-                break;
-            }
+            // Extract base attribute path (e.g., "members" from "members[value eq \"id\"]")
+            String attributePath = path != null && path.contains("[")
+                ? path.substring(0, path.indexOf("["))
+                : path;
 
-            GroupAttribute groupAttribute = GroupAttribute.findByScimPath(operation.getPath());
+            GroupAttribute groupAttribute = GroupAttribute.findByScimPath(attributePath);
             if (groupAttribute == null) {
                 throw new UnsupportedGroupPath("Unsupported patch path: " + path);
+            }
+
+            // Value can be null for REMOVE operations with path filters
+            if (value == null && op != PatchOperation.REMOVE) {
+                logger.warn("Value is null for patch operation: " + op);
+                break;
             }
 
             switch (op) {
@@ -206,22 +212,29 @@ public class GroupsController extends AbstractController {
                     switch (groupAttribute) {
                         case DISPLAY_NAME -> existing.setName(null);
                         case MEMBERS -> {
-                            for (Object obj : (List<?>) value) {
-                                if (!(obj instanceof Map<?, ?> memberMap)) {
-                                    logger.warn("Invalid member object: " + obj);
-                                    continue;
+                            // Handle path filter (e.g., "members[value eq \"user-id\"]")
+                            if (path != null && path.contains("[")) {
+                                String memberId = extractValueFromFilter(path);
+                                if (memberId != null) {
+                                    UserModel user = session.users().getUserById(realm, memberId);
+                                    if (user != null) {
+                                        user.leaveGroup(existing);
+                                        dispatchGroupMembershipLeaveEvent(scimContext, existing, user);
+                                    }
                                 }
-
-                                String memberId = (String) memberMap.get("value");
-                                if (memberId == null) {
-                                    logger.warn("Member value missing: " + obj);
-                                    continue;
-                                }
-
-                                UserModel user = scimContext.getSession().users().getUserById(scimContext.getRealm(), memberId);
-                                if (user != null) {
-                                    user.leaveGroup(existing);
-                                    dispatchGroupMembershipLeaveEvent(scimContext, existing, user);
+                            } else if (value instanceof List<?> list) {
+                                // Handle direct value list
+                                for (Object obj : list) {
+                                    if (obj instanceof Map<?, ?> memberMap) {
+                                        String memberId = (String) memberMap.get("value");
+                                        if (memberId != null) {
+                                            UserModel user = session.users().getUserById(realm, memberId);
+                                            if (user != null) {
+                                                user.leaveGroup(existing);
+                                                dispatchGroupMembershipLeaveEvent(scimContext, existing, user);
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -245,6 +258,28 @@ public class GroupsController extends AbstractController {
         session.groups().removeGroup(realm, group);
 
         dispatchGroupDeleteEvent(scimContext, group);
+    }
+
+    /**
+     * Extracts value from SCIM filter path
+     * Example: "members[value eq \"user-id\"]" -> "user-id"
+     *
+     * @param path path with filter
+     * @return extracted value or null
+     */
+    private String extractValueFromFilter(String path) {
+        if (path == null || !path.contains("\"")) {
+            return null;
+        }
+
+        int firstQuote = path.indexOf("\"");
+        int lastQuote = path.lastIndexOf("\"");
+
+        if (firstQuote != -1 && lastQuote > firstQuote) {
+            return path.substring(firstQuote + 1, lastQuote);
+        }
+
+        return null;
     }
 
     /**

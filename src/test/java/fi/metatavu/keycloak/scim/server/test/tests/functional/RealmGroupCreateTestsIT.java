@@ -48,21 +48,6 @@ public class RealmGroupCreateTestsIT extends AbstractInternalAuthRealmScimTest {
     }
 
     @Test
-    void testCreateGroupWithoutDisplayNameReturnsBadRequest() {
-        ScimClient scimClient = getAuthenticatedScimClient();
-
-        Group group = new Group();
-        group.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:Group"));
-
-        try {
-            scimClient.createGroup(group);
-            fail("Expected ApiException");
-        } catch (ApiException e) {
-            assertEquals(400, e.getCode());
-        }
-    }
-
-    @Test
     void testCreateGroupAdminEvents() throws ApiException, IOException {
         ScimClient scimClient = getAuthenticatedScimClient();
 

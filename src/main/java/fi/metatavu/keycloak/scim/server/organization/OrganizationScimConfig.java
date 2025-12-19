@@ -2,15 +2,22 @@ package fi.metatavu.keycloak.scim.server.organization;
 
 import fi.metatavu.keycloak.scim.server.config.ConfigurationError;
 import fi.metatavu.keycloak.scim.server.config.ScimConfig;
-import org.keycloak.models.OrganizationModel;
-
 import java.util.List;
 import java.util.Map;
+import org.keycloak.models.OrganizationModel;
 
 /**
  * SCIM configuration for organizations
  */
 public class OrganizationScimConfig implements ScimConfig {
+
+    public static final String SCIM_EXTERNAL_SHARED_SECRET = "SCIM_EXTERNAL_SHARED_SECRET";
+    public static final String SCIM_EXTERNAL_JWKS_URI = "SCIM_EXTERNAL_JWKS_URI";
+    public static final String SCIM_EXTERNAL_AUDIENCE = "SCIM_EXTERNAL_AUDIENCE";
+    public static final String SCIM_LINK_IDP = "SCIM_LINK_IDP";
+    public static final String SCIM_EXTERNAL_ISSUER = "SCIM_EXTERNAL_ISSUER";
+    public static final String SCIM_AUTHENTICATION_MODE = "SCIM_AUTHENTICATION_MODE";
+    public static final String SCIM_EMAIL_AS_USERNAME = "SCIM_EMAIL_AS_USERNAME";
 
     private final OrganizationModel organization;
 
@@ -20,30 +27,40 @@ public class OrganizationScimConfig implements ScimConfig {
 
     @Override
     public void validateConfig() throws ConfigurationError {
-        if (getAuthenticationMode() == null) {
-            throw new ConfigurationError("SCIM_AUTHENTICATION_MODE is not set");
+        AuthenticationMode mode = getAuthenticationMode();
+        if (mode == null) {
+            throw new ConfigurationError(SCIM_AUTHENTICATION_MODE + " is not set");
         }
 
-        if (getAuthenticationMode() == AuthenticationMode.EXTERNAL) {
-            if (getExternalIssuer() == null) {
-                throw new ConfigurationError("SCIM_EXTERNAL_ISSUER is not set");
-            }
+        boolean isSharedSecretPresent = getSharedSecret() != null && !getSharedSecret().isBlank();
 
-            if (getExternalJwksUri() == null) {
-                throw new ConfigurationError("SCIM_EXTERNAL_JWKS_URI is not set");
-            }
+        if (mode == AuthenticationMode.EXTERNAL) {
+            if (!isSharedSecretPresent) {
+                if (getExternalIssuer() == null) {
+                    throw new ConfigurationError(SCIM_EXTERNAL_ISSUER + " is not set");
+                }
 
-            if (getExternalAudience() == null) {
-                throw new ConfigurationError("SCIM_EXTERNAL_AUDIENCE is not set");
+                if (getExternalJwksUri() == null) {
+                    throw new ConfigurationError(SCIM_EXTERNAL_JWKS_URI + " is not set");
+                }
+
+                if (getExternalAudience() == null) {
+                    throw new ConfigurationError(SCIM_EXTERNAL_AUDIENCE + " is not set");
+                }
             }
         } else {
-            throw new ConfigurationError(String.format("SCIM_AUTHENTICATION_MODE %s AuthenticationMode not supported in organization mode", getAuthenticationMode()));
+            throw new ConfigurationError(
+                String.format(
+                    SCIM_AUTHENTICATION_MODE + " %s AuthenticationMode not supported in organization mode",
+                    mode
+                )
+            );
         }
     }
 
     @Override
     public AuthenticationMode getAuthenticationMode() {
-        String value = getAttribute("SCIM_AUTHENTICATION_MODE");
+        String value = getAttribute(SCIM_AUTHENTICATION_MODE);
         if (value == null || value.isEmpty()) {
             return null;
         }
@@ -53,27 +70,32 @@ public class OrganizationScimConfig implements ScimConfig {
 
     @Override
     public String getExternalIssuer() {
-        return getAttribute("SCIM_EXTERNAL_ISSUER");
+        return getAttribute(SCIM_EXTERNAL_ISSUER);
     }
 
     @Override
     public String getExternalJwksUri() {
-        return getAttribute("SCIM_EXTERNAL_JWKS_URI");
+        return getAttribute(SCIM_EXTERNAL_JWKS_URI);
     }
 
     @Override
     public String getExternalAudience() {
-        return getAttribute("SCIM_EXTERNAL_AUDIENCE");
+        return getAttribute(SCIM_EXTERNAL_AUDIENCE);
+    }
+
+    @Override
+    public String getSharedSecret() {
+        return getAttribute(SCIM_EXTERNAL_SHARED_SECRET);
     }
 
     @Override
     public boolean getLinkIdp() {
-        return "true".equalsIgnoreCase(getAttribute("SCIM_LINK_IDP"));
+        return "true".equalsIgnoreCase(getAttribute(SCIM_LINK_IDP));
     }
 
     @Override
     public boolean getEmailAsUsername() {
-        return "true".equalsIgnoreCase(getAttribute("SCIM_EMAIL_AS_USERNAME"));
+        return "true".equalsIgnoreCase(getAttribute(SCIM_EMAIL_AS_USERNAME));
     }
 
     /**

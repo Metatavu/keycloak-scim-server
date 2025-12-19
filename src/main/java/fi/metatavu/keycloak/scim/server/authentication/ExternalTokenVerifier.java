@@ -45,13 +45,11 @@ public class ExternalTokenVerifier {
     public boolean verify(String tokenString) throws URISyntaxException, IOException, InterruptedException, JWSInputException {
         for (JwkKey jwkKey : JwksUtils.getPublicKeysFromJwks(jwksUrl)) {
             if (verify(tokenString, jwkKey.getPublicKey())) {
-                logger.info("Token verification succeeded with key: " + jwkKey.getKid());
                 return true;
             }
 
-            logger.warn("Token verification failed with key: " + jwkKey.getKid());
         }
-
+        logger.warn("Token verification failed ");
         return false;
     }
 
@@ -67,7 +65,6 @@ public class ExternalTokenVerifier {
         boolean validSignature = RSAProvider.verify(jwsInput, publicKey);
 
         if (!validSignature) {
-            logger.warn("Token signature verification failed");
             return false;
         }
 

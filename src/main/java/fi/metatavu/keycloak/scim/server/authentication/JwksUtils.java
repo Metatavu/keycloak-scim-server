@@ -2,14 +2,16 @@ package fi.metatavu.keycloak.scim.server.authentication;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import fi.metatavu.keycloak.scim.server.ScimContext;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.keycloak.connections.httpclient.HttpClientProvider;
 import org.keycloak.jose.jwk.JWKParser;
 
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.security.PublicKey;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,27 +25,28 @@ public class JwksUtils {
     /**
      * Loads all public keys from JWKS URL
      *
-     * @param jwksUrl JWKS endpoint URL
+     * @param jwksUrl     JWKS endpoint URL
+     * @param scimContext the context, used to retrieve a Keycloak HTTP client
      * @return list of public keys
      */
-    public static List<JwkKey> getPublicKeysFromJwks(String jwksUrl) throws URISyntaxException, IOException, InterruptedException {
+    public static List<JwkKey> getPublicKeysFromJwks(String jwksUrl, ScimContext scimContext) throws URISyntaxException, IOException, InterruptedException {
         List<JwkKey> result = new ArrayList<>();
 
-        try (HttpClient httpClient = HttpClient.newHttpClient()) {
-            HttpRequest request = HttpRequest.newBuilder()
-                .uri(new URI(jwksUrl))
-                .GET()
-                .build();
+        HttpClientProvider clientProvider = scimContext.getSession().getProvider(HttpClientProvider.class);
+        // never close an HttpClient from the Keycloak pool
+        CloseableHttpClient httpClient = clientProvider.getHttpClient();
 
-            HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
+        HttpGet request = new HttpGet(new URI(jwksUrl));
+        try (CloseableHttpResponse response = httpClient.execute(request)) {
 
-            if (response.statusCode() != 200) {
-                throw new RuntimeException("Failed to fetch JWKS: HTTP " + response.statusCode());
+            int statusCode = response.getStatusLine().getStatusCode();
+            if (statusCode != 200) {
+                throw new RuntimeException("Failed to fetch JWKS: HTTP " + statusCode);
             }
 
             ObjectMapper objectMapper = new ObjectMapper();
 
-            Map<String, Object> jwks = objectMapper.readValue(response.body(), new TypeReference<>() { });
+            Map<String, Object> jwks = objectMapper.readValue(response.getEntity().getContent(), new TypeReference<>() { });
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> keys = (List<Map<String, Object>>) jwks.get("keys");
 
@@ -63,14 +66,12 @@ public class JwksUtils {
 
                 String jwkJson = objectMapper.writeValueAsString(jwk);
                 PublicKey publicKey = JWKParser.create()
-                    .parse(jwkJson)
-                    .toPublicKey();
+                        .parse(jwkJson)
+                        .toPublicKey();
 
                 result.add(new JwkKey(publicKey, kid, use));
             }
-
-            return result;
         }
+        return result;
     }
-
 }

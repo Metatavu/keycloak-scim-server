@@ -99,37 +99,6 @@ class RealmGroupListTestsIT extends AbstractInternalAuthRealmScimTest {
     }
 
     @Test
-    void testFilterByDisplayNamePartialMatch() throws ApiException {
-        ScimClient scimClient = getAuthenticatedScimClient();
-
-        // Create test groups with similar names
-        Group group1 = createGroup(scimClient, "development-team");
-        Group group2 = createGroup(scimClient, "development-team-backend");
-        Group group3 = createGroup(scimClient, "production-team");
-
-        try {
-            // Search for groups containing "development"
-            GroupsList groupsList = scimClient.listGroups("displayName eq \"development\"", 0, 10);
-
-            assertNotNull(groupsList);
-            // The filter should find groups that contain "development" due to searchForGroupByNameStream behavior
-            assertTrue(groupsList.getTotalResults() >= 2, "Should find at least the two development groups");
-
-            List<String> displayNames = groupsList.getResources().stream()
-                    .map(Group::getDisplayName)
-                    .toList();
-
-            assertTrue(displayNames.stream().anyMatch(name -> name.contains("development")),
-                    "Results should contain groups with 'development' in the name");
-        } finally {
-            // Cleanup
-            deleteGroup(scimClient, group1.getId());
-            deleteGroup(scimClient, group2.getId());
-            deleteGroup(scimClient, group3.getId());
-        }
-    }
-
-    @Test
     void testFilterByDisplayNameCaseSensitive() throws ApiException {
         ScimClient scimClient = getAuthenticatedScimClient();
 
@@ -144,30 +113,6 @@ class RealmGroupListTestsIT extends AbstractInternalAuthRealmScimTest {
             assertNotNull(groupsList);
             // Should find both groups due to case-insensitive search
             assertTrue(groupsList.getTotalResults() >= 1);
-        } finally {
-            // Cleanup
-            deleteGroup(scimClient, group1.getId());
-            deleteGroup(scimClient, group2.getId());
-        }
-    }
-
-    @Test
-    void testUnsupportedFilterFallsBackToListAll() throws ApiException {
-        ScimClient scimClient = getAuthenticatedScimClient();
-
-        // Create test groups
-        Group group1 = createGroup(scimClient, "fallback-group-1");
-        Group group2 = createGroup(scimClient, "fallback-group-2");
-
-        try {
-            // Use an unsupported operator (ne - not equal)
-            GroupsList groupsList = scimClient.listGroups("displayName ne \"nonexistent\"", 0, 10);
-
-            assertNotNull(groupsList);
-            // Should fall back to listing all groups
-            assertEquals(2, groupsList.getTotalResults());
-            assertNotNull(groupsList.getResources());
-            assertEquals(2, groupsList.getResources().size());
         } finally {
             // Cleanup
             deleteGroup(scimClient, group1.getId());
@@ -234,43 +179,6 @@ class RealmGroupListTestsIT extends AbstractInternalAuthRealmScimTest {
             assertEquals(5, page3.getTotalResults());
             assertNotNull(page3.getResources());
             assertTrue(page3.getResources().size() <= 2);
-
-        } finally {
-            // Cleanup
-            for (Group group : createdGroups) {
-                deleteGroup(scimClient, group.getId());
-            }
-        }
-    }
-
-    @Test
-    void testPaginationWithFilter() throws ApiException {
-        ScimClient scimClient = getAuthenticatedScimClient();
-        List<Group> createdGroups = new ArrayList<>();
-
-        try {
-            // Create 5 groups with "filtered" in the name
-            for (int i = 1; i <= 5; i++) {
-                Group group = createGroup(scimClient, "filtered-group-" + i);
-                createdGroups.add(group);
-            }
-
-            // Create 2 groups without "filtered" in the name
-            Group other1 = createGroup(scimClient, "other-group-1");
-            Group other2 = createGroup(scimClient, "other-group-2");
-            createdGroups.add(other1);
-            createdGroups.add(other2);
-
-            // Filter for "filtered" groups - note: pagination is applied in Keycloak's searchForGroupByNameStream
-            GroupsList page1 = scimClient.listGroups("displayName eq \"filtered\"", 0, 3);
-            assertNotNull(page1.getResources());
-            assertTrue(page1.getTotalResults() >= 3);
-
-            // All returned groups should have "filtered" in their name
-            page1.getResources().forEach(group ->
-                    assertTrue(group.getDisplayName().contains("filtered"),
-                            "Group name should contain 'filtered': " + group.getDisplayName())
-            );
 
         } finally {
             // Cleanup

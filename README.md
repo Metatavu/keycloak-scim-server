@@ -62,7 +62,7 @@ PUT `/admin/realms/{realm}`
 ```
 {
   "attributes": {
-    "scim.authentication.mode": "EXTERNAL|INTERNAL",
+    "scim.authentication.mode": "EXTERNAL|KEYCLOAK",
     "scim.external.issuer": "string",
     "scim.external.jwks.uri": "string",
     "scim.external.audience": "string",

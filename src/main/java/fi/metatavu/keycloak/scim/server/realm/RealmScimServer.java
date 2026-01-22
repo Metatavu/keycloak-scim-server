@@ -7,6 +7,7 @@ import fi.metatavu.keycloak.scim.server.groups.UnsupportedGroupPath;
 import fi.metatavu.keycloak.scim.server.metadata.UserAttributes;
 import fi.metatavu.keycloak.scim.server.model.User;
 import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
@@ -185,7 +186,7 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
     public Response createGroup(RealmScimContext scimContext, fi.metatavu.keycloak.scim.server.model.Group createRequest) {
         // TODO: conflict check
 
-        if (isBlank(created.getDisplayName())) {
+        if (isBlank(createRequest.getDisplayName())) {
             logger.warn("Cannot create group: Missing displayName");
             throw new BadRequestException("Missing displayName");
         }

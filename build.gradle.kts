@@ -38,6 +38,7 @@ val keycloakVersion: String by project
 val testContainersVersion: String by project
 val testContainersKeycloakVersion: String by project
 val junitVersion: String by project
+val mockitoVersion: String by project
 val awaitilityVersion: String by project
 val seleniumRemoteDriverVersion: String by project
 val seleniumVersion: String by project
@@ -52,6 +53,8 @@ dependencies {
     testImplementation("org.keycloak:keycloak-services:$keycloakVersion")
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.junit.jupiter:junit-jupiter:$junitVersion")
+    testImplementation ("org.mockito:mockito-core:${mockitoVersion}")
+    testImplementation("org.mockito:mockito-junit-jupiter:${mockitoVersion}")
 
     testImplementation("org.testcontainers:testcontainers:$testContainersVersion")
     testImplementation("org.testcontainers:junit-jupiter:$testContainersVersion")

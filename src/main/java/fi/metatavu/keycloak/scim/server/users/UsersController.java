@@ -180,7 +180,7 @@ public class UsersController extends AbstractController {
             throw new IllegalStateException("SCIM managed role not found");
         }
 
-        
+
 
         List<UserModel> filteredUsers = session.users()
             .searchForUserStream(scimContext.getRealm(), searchParams)
@@ -268,10 +268,10 @@ public class UsersController extends AbstractController {
      * @return patched user
      */
     public fi.metatavu.keycloak.scim.server.model.User patchUser(
-        ScimContext scimContext,
-        UserAttributes userAttributes,
-        UserModel existing,
-        fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
+            ScimContext scimContext,
+            UserAttributes userAttributes,
+            UserModel existing,
+            fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
     ) throws UnsupportedPatchOperation {
         for (var operation : patchRequest.getOperations()) {
             PatchOperation op = PatchOperation.fromString(operation.getOp());
@@ -283,36 +283,40 @@ public class UsersController extends AbstractController {
             UserAttribute<?> userAttribute = userAttributes.findByScimPath(operation.getPath());
             Object value = operation.getValue();
 
-            if (userAttribute == null) {
-                throw new UnsupportedUserPath("Unsupported attribute: " + operation.getPath());
-            }
+            logger.debugf("Patching user %s: op=%s, path=%s, value=%s, userAttribute=[scimPath=%s, source=%s, sourceId=%s]",
+                    existing.getId(), op, operation.getPath(), value,
+                    userAttribute != null ? userAttribute.getScimPath() : null,
+                    userAttribute != null ? userAttribute.getSource() : null,
+                    userAttribute != null ? userAttribute.getSourceId() : null);
 
-            switch (op) {
-                case REPLACE, ADD -> {
-                    switch (value) {
-                        case null:
-                            logger.warn("Value is null for patch operation: " + op);
-                            break;
-                        case String s when userAttribute instanceof StringUserAttribute:
-                            ((StringUserAttribute) userAttribute).write(existing, s);
-                            break;
-                        case String s when userAttribute instanceof BooleanUserAttribute:
-                            ((BooleanUserAttribute) userAttribute).write(existing, Boolean.parseBoolean(s));
-                            break;
-                        case Boolean b when userAttribute instanceof BooleanUserAttribute:
-                            ((BooleanUserAttribute) userAttribute).write(existing, b);
-                            break;
-                        default:
-                            logger.warn("Unsupported value type for patch operation: " + value.getClass() + " for SCIM path " + userAttribute.getScimPath());
-                            break;
+            if (userAttribute != null) {
+
+                switch (op) {
+                    case REPLACE, ADD -> {
+                        switch (value) {
+                            case null:
+                                logger.warn("Value is null for patch operation: " + op);
+                                break;
+                            case String s when userAttribute instanceof StringUserAttribute:
+                                ((StringUserAttribute) userAttribute).write(existing, s);
+                                break;
+                            case String s when userAttribute instanceof BooleanUserAttribute:
+                                ((BooleanUserAttribute) userAttribute).write(existing, Boolean.parseBoolean(s));
+                                break;
+                            case Boolean b when userAttribute instanceof BooleanUserAttribute:
+                                ((BooleanUserAttribute) userAttribute).write(existing, b);
+                                break;
+                            default:
+                                logger.warn("Unsupported value type for patch operation: " + value.getClass() + " for SCIM path " + userAttribute.getScimPath());
+                                break;
+                        }
+
                     }
-
+                    case REMOVE -> userAttribute.write(existing, null);
                 }
-                case REMOVE -> userAttribute.write(existing, null);
+                dispatchUserUpdateEvent(scimContext, existing);
             }
         }
-
-        dispatchUserUpdateEvent(scimContext, existing);
 
         return translateUser(scimContext, userAttributes, existing);
     }

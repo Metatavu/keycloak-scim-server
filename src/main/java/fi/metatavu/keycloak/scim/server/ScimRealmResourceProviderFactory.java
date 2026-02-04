@@ -23,7 +23,7 @@ public class ScimRealmResourceProviderFactory implements RealmResourceProviderFa
 
     @Override
     public void init(Config.Scope config) {
-        // allows overriding the default organization type with 'phasetwo'
+        // allows overriding the default organization type with a custom implementation (e.g. `phasetwo`)
         String orgTypeConfig = config.get("organizationType");
         if (!Strings.isNullOrEmpty(orgTypeConfig)) organizationType = orgTypeConfig;
     }

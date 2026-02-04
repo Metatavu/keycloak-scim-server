@@ -44,12 +44,15 @@ cp build/libs/keycloak-scim-server-*.jar $KEYCLOAK_HOME/providers/
 Configuration on instance level is done by defining environment variables in the Keycloak server. 
 
 The following environment variables are available:
-| Setting                  | Value                                                                             |
-| ------------------------ | --------------------------------------------------------------------------------- |
-| SCIM_AUTHENTICATION_MODE | Authentication mode for SCIM API. Possible values are KEYCLOAK and EXTERNAL. If the value is not set the server will respond unauthorzed for all requests. |
-| SCIM_EXTERNAL_ISSUER     | Issuer for the external authentication. This is used to validate the JWT token.   |
-| SCIM_EXTERNAL_AUDIENCE   | JWKS URI for the external authentication. This is used to validate the JWT token. |
-| SCIM_EXTERNAL_JWKS_URI   | Audience for the external authentication. This is used to validate the JWT token. |
+
+| Setting                                    | Value                                                                                                                                                                                                                      |
+|--------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| SCIM_AUTHENTICATION_MODE                   | Authentication mode for SCIM API. Possible values are KEYCLOAK and EXTERNAL. If the value is not set the server will respond unauthorzed for all requests.                                                                 |
+| SCIM_EXTERNAL_ISSUER                       | Issuer for the external authentication. This is used to validate the JWT token.                                                                                                                                            |
+| SCIM_EXTERNAL_AUDIENCE                     | JWKS URI for the external authentication. This is used to validate the JWT token.                                                                                                                                          |
+| SCIM_EXTERNAL_JWKS_URI                     | Audience for the external authentication. This is used to validate the JWT token.                                                                                                                                          |
+| SCIM_EXTERNAL_SHARED_SECRET                | Shared secret value used for request authentication/validation.                                                                                                                                                            |
+| SCIM_EXTERNAL_SHARED_SECRET_HASH_ALGORITHM | PHC String Format representing hash algorithms and its parameters, used for request authentication/validation ([must be on of the following](https://www.keycloak.org/docs/26.1.5/server_admin/index.html#hashalgorithm)). |
 
 ### Configuration on Realm level
 
@@ -62,7 +65,9 @@ PUT `/admin/realms/{realm}`
     "scim.authentication.mode": "EXTERNAL|INTERNAL",
     "scim.external.issuer": "string",
     "scim.external.jwks.uri": "string",
-    "scim.external.audience": "string"
+    "scim.external.audience": "string",
+    "scim.external.shared.secret": "string",
+    "scim.external.shared.secret.hash.algorithm": "string"
   }
 }
 ```
@@ -72,14 +77,16 @@ PUT `/admin/realms/{realm}`
 Configuration on organization level is done by defining organization attributes in the Keycloak server.
 The following organization attributes are available:
 
-| Setting                    | Value                                                                                                                                                                                                                                |
-|----------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| SCIM_AUTHENTICATION_MODE   | Authentication mode for SCIM API. Possible values are KEYCLOAK and EXTERNAL. If the value is not set the server will respond unauthorzed for all requests. Currently on organization level only EXTERNAL is supported.               |
-| SCIM_EXTERNAL_ISSUER       | Issuer for the external authentication. This is used to validate the JWT token.                                                                                                                                                      |
-| SCIM_EXTERNAL_AUDIENCE     | JWKS URI for the external authentication. This is used to validate the JWT token.                                                                                                                                                    |
-| SCIM_EXTERNAL_JWKS_URI     | Audience for the external authentication. This is used to validate the JWT token.                                                                                                                                                    |
-| SCIM_LINK_IDP              | Enables support for linking organization identity provider with user.                                                                                                                                                                |
-| SCIM_EMAIL_AS_USERNAME     | Forces server to user email as username instead of actual username. When this setting is enabled username will be unaffected by any update operations. This setting is currently supported only in organization level configuration  |
+| Setting                                    | Value                                                                                                                                                                                                                               |
+|--------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| SCIM_AUTHENTICATION_MODE                   | Authentication mode for SCIM API. Possible values are KEYCLOAK and EXTERNAL. If the value is not set the server will respond unauthorzed for all requests. Currently on organization level only EXTERNAL is supported.              |
+| SCIM_EXTERNAL_ISSUER                       | Issuer for the external authentication. This is used to validate the JWT token.                                                                                                                                                     |
+| SCIM_EXTERNAL_AUDIENCE                     | Audience for the external authentication. This is used to validate the JWT token.                                                                                                                                                   |
+| SCIM_EXTERNAL_JWKS_URI                     | JWKS URI for the external authentication. This is used to validate the JWT token.                                                                                                                                                   |
+| SCIM_LINK_IDP                              | Enables support for linking organization identity provider with user.                                                                                                                                                               |
+| SCIM_EMAIL_AS_USERNAME                     | Forces server to user email as username instead of actual username. When this setting is enabled username will be unaffected by any update operations. This setting is currently supported only in organization level configuration |
+| SCIM_EXTERNAL_SHARED_SECRET                | Shared secret value used for request authentication/validation.                                                                                                                                                                     |
+| SCIM_EXTERNAL_SHARED_SECRET_HASH_ALGORITHM | PHC String Format representing hash algorithms and its parameters, used for request authentication/validation ([must be on of the following](https://www.keycloak.org/docs/26.1.5/server_admin/index.html#hashalgorithm)). |
 
 ### Azure Entra ID SCIM Configuration
 
@@ -100,12 +107,12 @@ SCIM Settings for Entra ID
 
 When using Entra ID settings will be following:
 
-| Setting                  | Value                                                                         |
-| ------------------------ | ----------------------------------------------------------------------------- |
-| SCIM_AUTHENTICATION_MODE | ```EXTERNAL```                                                                |
-| SCIM_EXTERNAL_ISSUER     | ```https://sts.windows.net/<your-tenant-id>/```                               |
-| SCIM_EXTERNAL_AUDIENCE   | ```8adf8e6e-67b2-4cf2-a259-e3dc5476c621```                                    |
-| SCIM_EXTERNAL_JWKS_URI   | ```https://login.microsoftonline.com/<your-tenant-id>/discovery/v2.0/keys```  |
+| Setting                  | Value                                                                        |
+|--------------------------|------------------------------------------------------------------------------|
+| SCIM_AUTHENTICATION_MODE | ```EXTERNAL```                                                               |
+| SCIM_EXTERNAL_ISSUER     | ```https://sts.windows.net/<your-tenant-id>/```                              |
+| SCIM_EXTERNAL_AUDIENCE   | ```8adf8e6e-67b2-4cf2-a259-e3dc5476c621```                                   |
+| SCIM_EXTERNAL_JWKS_URI   | ```https://login.microsoftonline.com/<your-tenant-id>/discovery/v2.0/keys``` |
 
 Replace <your-tenant-id> with your actual Azure tenant ID.
 
@@ -113,6 +120,15 @@ Replace <your-tenant-id> with your actual Azure tenant ID.
 * SCIM_EXTERNAL_ISSUER ensures the JWT token was issued by your tenant.
 * SCIM_EXTERNAL_AUDIENCE must be exactly 8adf8e6e-67b2-4cf2-a259-e3dc5476c621 — this is the default audience used by Entra ID for non-gallery applications.
 * SCIM_EXTERNAL_JWKS_URI allows Keycloak to fetch public keys for token validation.
+
+OR
+
+| Setting                     | Value                      |
+|-----------------------------|----------------------------|
+| SCIM_AUTHENTICATION_MODE    | ```EXTERNAL```             |
+| SCIM_EXTERNAL_SHARED_SECRET | ```<token_hashed_value>``` |
+
+Replace <token_hashed_value> with your hashed token value (using SHA-512 Hex).
 
 #### Azure Configuration
 
@@ -129,7 +145,7 @@ Step-by-step guide on the Azure:
 9. Fill in the following:
  - Tenant URL (realm): https://mykeycloak.example.com/realms/my-realm/scim/v2 or 
  - Tenant URL (organization): https://mykeycloak.example.com/realms/my-realm/scim/v2/organizations/{organizationId} 
- - Secret Token: Leave this field empty (the application will use the Entra ID bearer token).
+ - Secret Token: Leave this field empty (the application will use the Entra ID bearer token) OR enter the shared secret value (not hashed).
 10. Click **Test Connection** to verify the SCIM endpoint.
 11. Click **Create**.
 12. Navigate to **Attribute Mapping (Preview)**.
@@ -207,6 +223,28 @@ Add the following attribute to your SCIM configuration (only supported by organi
     SCIM_LINK_IDP=true
 
 This will ensure that when a user is provisioned via SCIM, a corresponding Identity Provider link is also created automatically based on the externalId / oid.
+
+## SCIM-Managed Users
+
+By default, the SCIM server only exposes users who are explicitly assigned the scim-managed role within the realm. This ensures that only users intended to be managed through SCIM are returned or modifiable via SCIM API operations.
+
+This prevents accidental exposure or modification of users that were:
+   - created manually via the Keycloak admin UI
+   - imported from external identity providers
+   - or otherwise not intended to be managed through SCIM
+
+If you want to expose all users (i.e., bypass filtering), you can simply assign the scim-managed role to every user. This effectively disables the filter, making the SCIM behavior equivalent to an unfiltered list.
+
+This role-based filtering applies to all SCIM operations, including:
+   - GET /Users
+   - PATCH /Users/{id}
+   - DELETE /Users/{id}
+
+Users without the scim-managed role will be invisible to SCIM clients — they won’t be listed, updated, or removed through SCIM.
+
+This filtering mechanism is designed to improve safety, especially in complex deployments involving federated users, legacy accounts, or overlapping identity sources (such as Entra ID + local users).
+
+This design does mean that provisioning a user through SCIM who previously existed without the role may cause conflicts or provisioning failures if role assignment isn’t handled correctly. However, this is a deliberate design choice to provide fine-grained control over which users are SCIM-visible.
 
 ## License
 

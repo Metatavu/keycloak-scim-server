@@ -48,8 +48,58 @@ public class OrganizationResourceTypesTestsIT extends AbstractOrganizationScimTe
         assertResourceType(resourceType, "Group", "/Groups", "Group");
     }
 
+    @Test
+    void testResourceTypesOrg3() throws ApiException {
+        // argon2i
+        ScimClient scimClient = getAuthenticatedSharedSecretScimClient(TestConsts.ORGANIZATION_3_ID, "toto");
+        scimClient.getResourceTypes();
+    }
+
+    @Test
+    void testResourceTypesOrg4() throws ApiException {
+        // argon2d
+        ScimClient scimClient = getAuthenticatedSharedSecretScimClient(TestConsts.ORGANIZATION_4_ID, "titi");
+        scimClient.getResourceTypes();
+    }
+
+    @Test
+    void testResourceTypesOrg5() throws ApiException {
+        // argon2d
+        ScimClient scimClient = getAuthenticatedSharedSecretScimClient(TestConsts.ORGANIZATION_5_ID, "password");
+        scimClient.getResourceTypes();
+    }
+
+    @Test
+    void testResourceTypesOrg3WrongToken() {
+        assertErrorAuthOrganization("wrongtoken");
+    }
+
+    @Test
+    void testResourceTypesOrg3EmptyToken() {
+        assertErrorAuthOrganization("");
+    }
+
+    @Test
+    void testResourceTypesOrg3NullToken() {
+        assertErrorAuthOrganization(null);
+    }
+
+    @Test
+    void testResourceTypesOrg3UsingOrg4SharedSecret() {
+        assertErrorAuthOrganization("titi");
+    }
+
+    private void assertErrorAuthOrganization(String wrongToken) {
+        assertThrows(
+            ApiException.class, () -> {
+                ScimClient scimClient = getAuthenticatedSharedSecretScimClient(TestConsts.ORGANIZATION_3_ID, wrongToken);
+                scimClient.getResourceTypes();
+            }
+        );
+    }
+
     /**
-     * Asserts resource type
+     * Asserts a resource type
      *
      * @param resourceType resource type
      * @param id id

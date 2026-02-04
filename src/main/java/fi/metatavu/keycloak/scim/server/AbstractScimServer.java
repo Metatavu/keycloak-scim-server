@@ -1,6 +1,7 @@
 package fi.metatavu.keycloak.scim.server;
 
-import fi.metatavu.keycloak.scim.server.authentication.ExternalTokenVerifier;
+import fi.metatavu.keycloak.scim.server.authentication.Verifier;
+import fi.metatavu.keycloak.scim.server.authentication.VerifierFactory;
 import fi.metatavu.keycloak.scim.server.config.ScimConfig;
 import fi.metatavu.keycloak.scim.server.consts.ScimRoles;
 import fi.metatavu.keycloak.scim.server.groups.GroupsController;
@@ -16,13 +17,14 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
 import org.jboss.logging.Logger;
 import org.keycloak.common.ClientConnection;
-import org.keycloak.jose.jws.JWSInputException;
-import org.keycloak.models.*;
+import org.keycloak.models.ClientModel;
+import org.keycloak.models.KeycloakContext;
+import org.keycloak.models.KeycloakSession;
+import org.keycloak.models.RealmModel;
+import org.keycloak.models.RoleModel;
+import org.keycloak.models.UserModel;
 import org.keycloak.services.managers.AppAuthManager;
 import org.keycloak.services.managers.AuthenticationManager;
-
-import java.io.IOException;
-import java.net.URISyntaxException;
 
 /**
  * Abstract SCIM server implementation
@@ -40,7 +42,7 @@ public abstract class AbstractScimServer <T extends ScimContext> implements Scim
     /**
      * Constructor
      */
-    public AbstractScimServer() {
+    protected AbstractScimServer() {
         metadataController = new MetadataController();
         usersController = new UsersController();
         groupsController = new GroupsController();
@@ -96,61 +98,67 @@ public abstract class AbstractScimServer <T extends ScimContext> implements Scim
         HttpHeaders headers = context.getRequestHeaders();
         String authorization = headers.getHeaderString(HttpHeaders.AUTHORIZATION);
 
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
-            logger.warn("Missing or invalid Authorization header");
-            throw new NotAuthorizedException("Missing or invalid Authorization header");
+        if (authorization == null) {
+            logger.warn("Missing Authorization header");
+            throw new NotAuthorizedException("Missing Authorization header");
         }
 
-        String tokenString = authorization.substring("Bearer ".length()).trim();
-
         if (config.getAuthenticationMode() == ScimConfig.AuthenticationMode.KEYCLOAK) {
-            ClientConnection clientConnection = context.getConnection();
-
-            AuthenticationManager.AuthResult auth = new AppAuthManager.BearerTokenAuthenticator(session)
-                    .setRealm(realm)
-                    .setConnection(clientConnection)
-                    .setHeaders(headers)
-                    .authenticate();
-
-            if (auth == null || auth.getUser() == null || auth.getToken() == null) {
-                logger.warn("Keycloak authentication failed");
-                throw new NotAuthorizedException("Keycloak authentication failed");
-            }
-
-            ClientModel client = auth.getClient();
-            if (client == null) {
-                logger.warn("Client not found");
-                throw new NotAuthorizedException("Client not found");
-            }
-
-            UserModel serviceAccount = session.users().getServiceAccount(client);
-
-            RoleModel roleModel = realm.getRole(ScimRoles.SERVICE_ACCOUNT_ROLE);
-            if (roleModel == null) {
-                logger.warn("Service account role not configured");
-                throw new ForbiddenException("Service account role not configured");
-            }
-
-            if (!hasServiceAccountRole(serviceAccount, roleModel)) {
-                logger.warn("Service account does not have required role");
-                throw new ForbiddenException("Service account does not have required role");
-            }
+            keycloakAuthentication(context, session, realm, headers);
         } else {
-            ExternalTokenVerifier verifier = new ExternalTokenVerifier(
-                    config.getExternalIssuer(),
-                    config.getExternalJwksUri(),
-                    config.getExternalAudience()
-            );
+            externalAuthentication(config, extractToken(authorization), session);
+        }
+    }
 
-            try {
-                if (!verifier.verify(tokenString)) {
-                    logger.warn("External token verification failed");
-                    throw new NotAuthorizedException("External token verification failed");
-                }
-            } catch (URISyntaxException | IOException | InterruptedException | JWSInputException e) {
-                logger.warn("Failed to verify permissions", e);
-                throw new NotAuthorizedException(e);
-            }
+    private void externalAuthentication(ScimConfig config, String tokenString, KeycloakSession session) {
+        Verifier verifier = VerifierFactory.build(config, session);
+
+        if (!verifier.verify(tokenString)) {
+            logger.warn("External token verification failed");
+            throw new NotAuthorizedException("External token verification failed");
+        }
+    }
+
+    private void keycloakAuthentication(KeycloakContext context, KeycloakSession session, RealmModel realm, HttpHeaders headers) {
+        ClientConnection clientConnection = context.getConnection();
+
+        AuthenticationManager.AuthResult auth = new AppAuthManager.BearerTokenAuthenticator(session)
+                .setRealm(realm)
+                .setConnection(clientConnection)
+                .setHeaders(headers)
+                .authenticate();
+
+        if (auth == null || auth.getUser() == null || auth.getToken() == null) {
+            logger.warn("Keycloak authentication failed");
+            throw new NotAuthorizedException("Keycloak authentication failed");
+        }
+
+        ClientModel client = auth.getClient();
+        if (client == null) {
+            logger.warn("Client not found");
+            throw new NotAuthorizedException("Client not found");
+        }
+
+        UserModel serviceAccount = session.users().getServiceAccount(client);
+
+        RoleModel roleModel = realm.getRole(ScimRoles.SERVICE_ACCOUNT_ROLE);
+        if (roleModel == null) {
+            logger.warn("Service account role not configured");
+            throw new ForbiddenException("Service account role not configured");
+        }
+
+        if (!hasServiceAccountRole(serviceAccount, roleModel)) {
+            logger.warn("Service account does not have required role");
+            throw new ForbiddenException("Service account does not have required role");
+        }
+    }
+
+    private String extractToken(String authorization) {
+        if (authorization.startsWith("Bearer ")) {
+            return authorization.substring("Bearer ".length()).trim();
+        } else {
+            logger.warn("Invalid Authorization header");
+            throw new NotAuthorizedException("Invalid Authorization header");
         }
     }
 

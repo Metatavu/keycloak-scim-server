@@ -6,6 +6,7 @@ import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.KeycloakSessionFactory;
 import org.keycloak.services.resource.RealmResourceProvider;
 import org.keycloak.services.resource.RealmResourceProviderFactory;
+import org.jboss.logging.Logger;
 
 /**
  * SCIM realm resource provider factory
@@ -13,6 +14,8 @@ import org.keycloak.services.resource.RealmResourceProviderFactory;
  * This class is responsible for creating SCIM realm resource providers
  */
 public class ScimRealmResourceProviderFactory implements RealmResourceProviderFactory {
+
+    private static final Logger logger = Logger.getLogger(ScimRealmResourceProviderFactory.class);
 
     private String organizationType = "default";
 
@@ -26,6 +29,7 @@ public class ScimRealmResourceProviderFactory implements RealmResourceProviderFa
         // allows overriding the default organization type with a custom implementation (e.g. `phasetwo`)
         String orgTypeConfig = config.get("organizationType");
         if (!Strings.isNullOrEmpty(orgTypeConfig)) organizationType = orgTypeConfig;
+        logger.infof("Initializing SCIM resource with **%s** org type.", organizationType); 
     }
 
     @Override

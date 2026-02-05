@@ -49,22 +49,7 @@ public class KeycloakOrganizationScimServerProvider implements OrganizationScimS
     context.setOrganization(organization);
 
     URI baseUri = session.getContext().getUri().getBaseUri().resolve(String.format("realms/%s/scim/v2/organizations/%s/", realm.getName(), organization.getId()));
-    OrganizationScimConfig config = new OrganizationScimConfig() {
-        @Override
-        public String getAttribute(String attributeName) {
-          Map<String, List<String>> attributes = organization.getAttributes();
-          if (attributes == null) {
-            return null;
-          }
-
-          List<String> values = attributes.get(attributeName);
-          if (values == null || values.isEmpty()) {
-            return null;
-          }
-          
-          return values.getFirst();
-        }
-      };
+    OrganizationScimConfig config = new KeycloakOrganizationScimConfig(organization);
 
     try {
       config.validateConfig();

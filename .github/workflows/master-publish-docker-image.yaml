@@ -1,6 +1,7 @@
 name: Publish master docker image
 
 on:
+  workflow_dispatch: 
   push:
     branches:
       - master

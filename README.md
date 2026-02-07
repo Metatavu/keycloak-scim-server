@@ -67,15 +67,25 @@ PUT `/admin/realms/{realm}`
     "scim.external.jwks.uri": "string",
     "scim.external.audience": "string",
     "scim.external.shared.secret": "string",
-    "scim.external.shared.secret.hash.algorithm": "string"
+    "scim.external.shared.secret.hash.algorithm": "string",
+    "scim.link.idp": "true|false",
+    "scim.identity.provider.alias": "string",
+    "scim.email.as.username": "true|false"
   }
 }
 ```
 
+| Setting                       | Value                                                                                                                                                                                                            |
+|-------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| scim.link.idp                 | Enables support for linking realm identity provider with user. When enabled, users provisioned via SCIM will be automatically linked to the specified identity provider.                                         |
+| scim.identity.provider.alias  | The alias of the identity provider to link users to. Required when `scim.link.idp` is `true`. This should match the alias of an existing identity provider in the realm.                                        |
+| scim.email.as.username        | Forces server to use email as username instead of actual username. When this setting is enabled username will be unaffected by any update operations.                                                            |
+
 ### Configuration on Organization level
 
-Configuration on organization level is done by defining organization attributes in the Keycloak server.
-The following organization attributes are available:
+| SCIM_LINK_IDP                              | Enables support for linking organization identity provider with user. When enabled, users are automatically linked to organization IdPs based on email domain matching with `kc.org.domain` attribute.             |
+| SCIM_IDENTITY_PROVIDER_ALIAS               | (Optional) The alias of a specific identity provider to link users to. When not set, the system will use domain matching via `kc.org.domain` attribute on organization IdPs.                                      |
+| SCIM_EMAIL_AS_USERNAME                     | Forces server to use email as username instead of actual username. When this setting is enabled username will be unaffected by any update operations.                                                              |
 
 | Setting                                    | Value                                                                                                                                                                                                                               |
 |--------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -215,13 +225,26 @@ Next, configure your Entra ID Identity Provider in Keycloak to use the oid claim
 This mapper tells Keycloak to use the Entra oid claim as the Broker ID, ensuring that the login user is matched correctly with the SCIM-provisioned user.
 
 **Step 4: Enable Identity Provider Linking in SCIM**
+.
 
-Finally, instruct your SCIM server to automatically link users to the configured Identity Provider during provisioning:
+**For Organization-level SCIM:**
 
-Add the following attribute to your SCIM configuration (only supported by organization server currently): 
+Add the following attributes to your organization configuration:
 
     SCIM_LINK_IDP=true
 
+Organizations use **email domain matching** - the system automatically finds the organization's identity provider by matching the user's email domain with the `kc.org.domain` attribute configured on the IdP.
+
+**For Realm-level SCIM:**
+
+Add the following attributes to your realm configuration:
+
+    scim.link.idp=true
+    scim.identity.provider.alias=your-idp-alias
+
+Realm-level linking requires you to specify the **exact identity provider alias** to link users to, since realm IdPs don't have the `kc.org.domain` attribute by default.
+
+In both cases, when a user is provisioned via SCIM with an `externalId`, a corresponding Identity Provider link is automatically created using the oid claim
 This will ensure that when a user is provisioned via SCIM, a corresponding Identity Provider link is also created automatically based on the externalId / oid.
 
 ## SCIM-Managed Users

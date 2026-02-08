@@ -247,6 +247,39 @@ Realm-level linking requires you to specify the **exact identity provider alias*
 In both cases, when a user is provisioned via SCIM with an `externalId`, a corresponding Identity Provider link is automatically created using the oid claim
 This will ensure that when a user is provisioned via SCIM, a corresponding Identity Provider link is also created automatically based on the externalId / oid.
 
+## Idempotent User Creation
+
+The SCIM server supports **idempotent user creation**, allowing it to gracefully handle cases where users already exist in Keycloak before SCIM provisioning occurs.
+
+### Common Scenarios
+
+This is particularly useful in the following scenarios:
+
+1. **Identity Provider First Login**: A user logs in through an external Identity Provider (e.g., Azure Entra ID) before SCIM provisioning runs. Keycloak's "first broker login" flow automatically creates the user account.
+2. **Manual User Creation**: An administrator creates a user manually via the Keycloak Admin UI before SCIM provisioning is configured.
+3. **Partial Migration**: Users exist from a previous system or migration, and you want SCIM to adopt them without errors.
+
+### How It Works
+
+When SCIM attempts to create a user that already exists:
+
+1. **Username Match**: The server checks if a user with the same `userName` already exists.
+2. **Email Verification**: If the user exists, the server verifies that the email address matches the one provided in the SCIM request.
+3. **Adoption Success**:
+   - If the email matches, the server adds the `scim-managed` role to the existing user (if not already present)
+   - For organization-level SCIM, the user is also added to the organization (if not already a member)
+   - The server returns HTTP 201 (Created) with the existing user's data, treating the operation as successful
+4. **Conflict Handling**: If the email does not match, the server throws an error to prevent data inconsistency
+
+### Benefits
+
+- **No Duplicate Errors**: SCIM provisioning won't fail when users already exist with matching data
+- **Seamless Integration**: Works alongside Identity Provider first broker login flows
+- **Safe Adoption**: Email verification prevents accidentally linking wrong users
+- **Automatic Role Assignment**: Ensures adopted users get the `scim-managed` role for consistent management
+
+This behavior applies to both **realm-level** and **organization-level** SCIM APIs, ensuring consistent user adoption across all deployment scenarios.
+
 ## SCIM-Managed Users
 
 By default, the SCIM server only exposes users who are explicitly assigned the scim-managed role within the realm. This ensures that only users intended to be managed through SCIM are returned or modifiable via SCIM API operations.

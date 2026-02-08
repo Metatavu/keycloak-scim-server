@@ -32,17 +32,9 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
         RealmScimContext scimContext,
         User createRequest
     ) {
-        RealmModel realm = scimContext.getRealm();
-        KeycloakSession session = scimContext.getSession();
-
         if (isBlank(createRequest.getUserName())) {
             logger.warn("Cannot create user: Missing userName");
             return Response.status(Response.Status.BAD_REQUEST).entity("Missing userName").build();
-        }
-
-        UserModel existing = session.users().getUserByUsername(realm, createRequest.getUserName());
-        if (existing != null) {
-            return Response.status(Response.Status.CONFLICT).entity("User already exists").build();
         }
 
         UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);

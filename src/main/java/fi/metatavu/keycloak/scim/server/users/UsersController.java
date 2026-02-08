@@ -54,6 +54,33 @@ public class UsersController extends AbstractController {
         KeycloakSession session = scimContext.getSession();
         RealmModel realm = scimContext.getRealm();
 
+        // Check if user already exists
+        UserModel existingUser = session.users().getUserByUsername(realm, scimUser.getUserName());
+        if (existingUser != null) {
+            logger.info("User already exists: " + scimUser.getUserName() + ". Checking if it matches SCIM data.");
+            
+            // Verify the existing user matches the SCIM data
+            String scimEmail = scimUser.getEmails() != null && !scimUser.getEmails().isEmpty() 
+                ? scimUser.getEmails().getFirst().getValue() 
+                : null;
+            
+            if (scimEmail != null && !scimEmail.equalsIgnoreCase(existingUser.getEmail())) {
+                logger.warn("Existing user email mismatch. Expected: " + scimEmail + ", Found: " + existingUser.getEmail());
+                throw new IllegalStateException("User already exists with different email");
+            }
+            
+            // User exists and matches - add SCIM_MANAGED role if not present
+            RoleModel scimRole = realm.getRole(ScimRoles.SCIM_MANAGED_ROLE);
+            if (scimRole != null && !existingUser.hasRole(scimRole)) {
+                logger.info("Adding SCIM_MANAGED role to existing user: " + existingUser.getUsername());
+                existingUser.grantRole(scimRole);
+            }
+            
+            // Return existing user as if it was created
+            logger.info("Returning existing user that matches SCIM data: " + existingUser.getUsername());
+            return translateUser(scimContext, userAttributes, existingUser);
+        }
+
         UserModel user = session.users().addUser(realm, scimUser.getUserName());
         user.setEnabled(scimUser.getActive() == null || Boolean.TRUE.equals(scimUser.getActive()));
 

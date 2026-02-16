@@ -53,6 +53,8 @@ The following environment variables are available:
 | SCIM_EXTERNAL_JWKS_URI                     | Audience for the external authentication. This is used to validate the JWT token.                                                                                                                                          |
 | SCIM_EXTERNAL_SHARED_SECRET                | Shared secret value used for request authentication/validation.                                                                                                                                                            |
 | SCIM_EXTERNAL_SHARED_SECRET_HASH_ALGORITHM | PHC String Format representing hash algorithms and its parameters, used for request authentication/validation ([must be on of the following](https://www.keycloak.org/docs/26.1.5/server_admin/index.html#hashalgorithm)). |
+| SCIM_LINK_IDP                              | Enables support for linking realm identity provider with user.                                                                                                                                                             |
+| SCIM_IDENTITY_PROVIDER_ALIAS               | Alias of Identity Provider to be linked to the user.                                                                                                                                                                       |
 
 ### Configuration on Realm level
 
@@ -68,6 +70,8 @@ PUT `/admin/realms/{realm}`
     "scim.external.audience": "string",
     "scim.external.shared.secret": "string",
     "scim.external.shared.secret.hash.algorithm": "string"
+    "scim.link.idp": "true|false",
+    "scim.identity.provider.alias": "string"
   }
 }
 ```
@@ -218,9 +222,13 @@ This mapper tells Keycloak to use the Entra oid claim as the Broker ID, ensuring
 
 Finally, instruct your SCIM server to automatically link users to the configured Identity Provider during provisioning:
 
-Add the following attribute to your SCIM configuration (only supported by organization server currently): 
+Add the following attribute to your SCIM configuration: 
 
     SCIM_LINK_IDP=true
+
+In case you want to link user to a realm level identity provider, also add the following attribute:
+
+    SCIM_IDENTITY_PROVIDER_ALIAS=<your-idp-alias>
 
 This will ensure that when a user is provisioned via SCIM, a corresponding Identity Provider link is also created automatically based on the externalId / oid.
 

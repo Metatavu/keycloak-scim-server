@@ -268,10 +268,10 @@ public class UsersController extends AbstractController {
      * @return patched user
      */
     public fi.metatavu.keycloak.scim.server.model.User patchUser(
-            ScimContext scimContext,
-            UserAttributes userAttributes,
-            UserModel existing,
-            fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
+        ScimContext scimContext,
+        UserAttributes userAttributes,
+        UserModel existing,
+        fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
     ) throws UnsupportedPatchOperation {
         for (var operation : patchRequest.getOperations()) {
             PatchOperation op = PatchOperation.fromString(operation.getOp());

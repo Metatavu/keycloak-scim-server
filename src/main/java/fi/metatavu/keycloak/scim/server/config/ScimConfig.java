@@ -68,4 +68,11 @@ public interface ScimConfig {
      * @return true if email should be used as username
      */
     boolean getEmailAsUsername();
+
+    /**
+     * Returns the identity provider alias
+     *
+     * @return identity provider alias or null if not configured
+     */
+    String getIdentityProviderAlias();
 }

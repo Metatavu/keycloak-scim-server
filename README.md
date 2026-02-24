@@ -52,8 +52,8 @@ The following environment variables are available:
 | SCIM_EXTERNAL_AUDIENCE                     | JWKS URI for the external authentication. This is used to validate the JWT token.                                                                                                                                          |
 | SCIM_EXTERNAL_JWKS_URI                     | Audience for the external authentication. This is used to validate the JWT token.                                                                                                                                          |
 | SCIM_EXTERNAL_SHARED_SECRET                | Shared secret value used for request authentication/validation.                                                                                                                                                            |
-| SCIM_EXTERNAL_SHARED_SECRET_HASH_ALGORITHM | PHC String Format representing hash algorithms and its parameters, used for request authentication/validation ([must be on of the following](https://www.keycloak.org/docs/26.1.5/server_admin/index.html#hashalgorithm)). |
-
+| SCIM_EXTERNAL_SHARED_SECRET_HASH_ALGORITHM | PHC String Format representing hash algorithms and its parameters, used for request authentication/validation ([must be on of the following](https://www.keycloak.org/docs/26.1.5/server_admin/index.html#hashalgorithm)).                                                                        |
+| SCIM_IDENTITY_PROVIDER_ALIAS               | Alias of Identity Provider to be linked to the user.                                                                                                                                                                       |
 ### Configuration on Realm level
 
 The following REST call can be called through the Keycloak Admin API to store the settings under realm attributes. 
@@ -67,7 +67,8 @@ PUT `/admin/realms/{realm}`
     "scim.external.jwks.uri": "string",
     "scim.external.audience": "string",
     "scim.external.shared.secret": "string",
-    "scim.external.shared.secret.hash.algorithm": "string"
+    "scim.external.shared.secret.hash.algorithm": "string",
+    "scim.identity.provider.alias": "string"
   }
 }
 ```
@@ -245,6 +246,137 @@ Users without the scim-managed role will be invisible to SCIM clients — they w
 This filtering mechanism is designed to improve safety, especially in complex deployments involving federated users, legacy accounts, or overlapping identity sources (such as Entra ID + local users).
 
 This design does mean that provisioning a user through SCIM who previously existed without the role may cause conflicts or provisioning failures if role assignment isn’t handled correctly. However, this is a deliberate design choice to provide fine-grained control over which users are SCIM-visible.
+
+
+## User attributes for SCIM provisioning
+
+This section explains how to provision custom user attributes (e.g., `job`, `department`, `employeeId`) from an external
+identity provider (such as Azure Entra ID) into Keycloak via SCIM.
+
+By default, the SCIM server only exposes built-in user attributes (`userName`, `email`, `name.givenName`,
+`name.familyName`, `active`). To provision additional custom attributes, you need to configure Keycloak to accept
+unmanaged attributes and define identity provider mappers that tell the SCIM server which attributes to expose.
+
+### Prerequisites
+
+Before custom attributes can be provisioned, ensure the following conditions are met:
+
+1. **Unmanaged Attribute Policy**: The realm's User Profile must have `UnmanagedAttributePolicy` set to `ENABLED`. This
+   allows Keycloak to store attributes that are not explicitly defined in the User Profile schema.
+
+2. **Identity Provider Alias**: The `SCIM_IDENTITY_PROVIDER_ALIAS` environment variable (or realm/organization
+   attribute) must be configured with the alias of your identity provider.
+
+3. **Identity Provider Mappers**: User attribute mappers must be configured on the identity provider to define which
+   attributes should be provisioned.
+
+### How It Works
+
+When a SCIM provisioning request is received, the SCIM server:
+
+1. Checks if `UnmanagedAttributePolicy` is set to `ENABLED` in the realm
+2. Looks up the identity provider specified by `SCIM_IDENTITY_PROVIDER_ALIAS`
+3. Reads all user attribute mappers configured on that identity provider
+4. Exposes those mapped attributes as valid SCIM attributes that can be provisioned
+
+This means the identity provider mappers serve as the **source of truth** for which custom attributes are available via
+SCIM.
+
+### Step-by-Step Configuration
+
+#### Step 1: Enable Unmanaged Attributes in Keycloak
+
+1. Navigate to **Realm Settings** > **User Profile**
+2. Click **JSON Editor**
+3. Add or update the `unmanagedAttributePolicy` field:
+
+```json
+{
+  "unmanagedAttributePolicy": "ENABLED",
+  "attributes": [
+  ]
+}
+```
+
+4. Click **Save**
+
+#### Step 2: Configure the Identity Provider Alias
+
+Add the following environment variable to your Keycloak server:
+
+```bash
+SCIM_IDENTITY_PROVIDER_ALIAS=<your-idp-alias>
+```
+
+Or set it as a realm attribute via the Admin API:
+
+```json
+{
+  "attributes": {
+    "scim.identity.provider.alias": "<your-idp-alias>"
+  }
+}
+```
+
+The alias must match the alias of your configured identity provider (e.g., `entra-id`, `keycloak-oidc`).
+
+#### Step 3: Create User Attribute Mappers on the Identity Provider
+
+For each custom attribute you want to provision via SCIM:
+
+1. Navigate to **Identity Providers** > select your provider (e.g., Entra ID)
+2. Go to the **Mappers** tab
+3. Click **Add Mapper**
+4. Configure the mapper:
+
+| Field              | Value                                                   |
+|--------------------|---------------------------------------------------------|
+| **Name**           | A descriptive name (e.g., `map-job-attribute`)          |
+| **Sync Mode**      | `INHERIT` or `FORCE`                                    |
+| **Mapper Type**    | `Attribute Importer`                                    |
+| **Claim** (OIDC)   | The claim name from the external IdP (e.g., `jobTitle`) |
+| **User Attribute** | The Keycloak attribute name (e.g., `job`)               |
+
+5. Click **Save**
+6. Repeat for each attribute you want to provision (e.g., `department`, `employeeId`)
+
+#### Step 4: Map Attributes in Your SCIM Client (e.g., Entra ID)
+
+In your SCIM client (e.g., Azure Entra ID Enterprise Application):
+
+1. Navigate to **Provisioning** > **Attribute Mapping (Preview)** > **Provision Microsoft Entra ID Users**
+2. Click **Add New Mapping**
+3. Map the source attribute to the custom SCIM attribute:
+
+| Source Attribute | Target Attribute |
+|------------------|------------------|
+| `jobTitle`       | `job`            |
+| `department`     | `department`     |
+
+4. Click **Save**
+
+The target attribute name must match the `User Attribute` value configured in the Keycloak identity provider mapper.
+
+### Example: Provisioning a "job" Attribute
+
+This example shows how to provision the `jobTitle` attribute from Azure Entra ID to Keycloak as a `job` attribute.
+
+**Keycloak Configuration:**
+
+1. Enable `UnmanagedAttributePolicy` in the realm's User Profile
+2. Set `SCIM_IDENTITY_PROVIDER_ALIAS=entra-id`
+3. Create an identity provider mapper:
+    - **Mapper Type**: Attribute Importer
+    - **Claim**: `jobTitle`
+    - **User Attribute**: `job`
+
+**Azure Entra ID Configuration:**
+
+1. In the Enterprise Application provisioning settings, add a mapping:
+    - **Source attribute**: `jobTitle`
+    - **Target attribute**: `job`
+
+When Entra ID provisions a user, the `job` attribute will be stored in Keycloak and available on the user's attributes.
 
 ## License
 

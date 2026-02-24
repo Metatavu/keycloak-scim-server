@@ -84,6 +84,7 @@ public class KeycloakTestUtils {
                 .withNetwork(network)
                 .withNetworkAliases("scim-keycloak")
                 .withEnv("SCIM_AUTHENTICATION_MODE", "KEYCLOAK")
+                .withEnv("SCIM_IDENTITY_PROVIDER_ALIAS", "keycloak-oidc")
                 .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
                 .withRealmImportFile("kc-test.json")
                 .withEnv("JAVA_OPTS_APPEND", "-javaagent:/jacoco-agent/org.jacoco.agent-runtime.jar=destfile=/tmp/jacoco.exec")

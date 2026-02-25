@@ -64,7 +64,7 @@ public class RealmSchemasTestsIT extends AbstractInternalAuthRealmScimTest {
         assertEquals("User", schema.getName());
         assertNotNull(schema.getDescription());
         assertNotNull(schema.getAttributes());
-        assertEquals(8, schema.getAttributes().size());
+        assertEquals(9, schema.getAttributes().size());
 
         assertUserAttribute(schema.getAttributes(), "userName", SchemaAttribute.TypeEnum.STRING);
         assertUserAttribute(schema.getAttributes(), "email", SchemaAttribute.TypeEnum.STRING);
@@ -74,6 +74,7 @@ public class RealmSchemasTestsIT extends AbstractInternalAuthRealmScimTest {
         assertUserAttribute(schema.getAttributes(), "displayName", SchemaAttribute.TypeEnum.STRING);
         assertUserAttribute(schema.getAttributes(), "externalId", SchemaAttribute.TypeEnum.STRING);
         assertUserAttribute(schema.getAttributes(), "preferredLanguage", SchemaAttribute.TypeEnum.STRING);
+        assertUserAttribute(schema.getAttributes(), "job", SchemaAttribute.TypeEnum.STRING);
     }
 
     /**

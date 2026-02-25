@@ -89,7 +89,7 @@ The following organization attributes are available:
 | SCIM_EXTERNAL_SHARED_SECRET                | Shared secret value used for request authentication/validation.                                                                                                                                                                     |
 | SCIM_EXTERNAL_SHARED_SECRET_HASH_ALGORITHM | PHC String Format representing hash algorithms and its parameters, used for request authentication/validation ([must be on of the following](https://www.keycloak.org/docs/26.1.5/server_admin/index.html#hashalgorithm)). |
 
-### Azure Entra ID SCIM Configuration
+### Microsoft Entra ID SCIM Configuration
 
 This extension is compatible with **Microsoft Entra ID** SCIM provisioning.
 
@@ -117,7 +117,7 @@ When using Entra ID settings will be following:
 
 Replace <your-tenant-id> with your actual Azure tenant ID.
 
-* SCIM_AUTHENTICATION_MODE enables external authentication support for the SCIM server. In this case the external authentication source will be the Azure Entra ID.
+* SCIM_AUTHENTICATION_MODE enables external authentication support for the SCIM server. In this case the external authentication source will be the Microsoft Entra ID.
 * SCIM_EXTERNAL_ISSUER ensures the JWT token was issued by your tenant.
 * SCIM_EXTERNAL_AUDIENCE must be exactly 8adf8e6e-67b2-4cf2-a259-e3dc5476c621 — this is the default audience used by Entra ID for non-gallery applications.
 * SCIM_EXTERNAL_JWKS_URI allows Keycloak to fetch public keys for token validation.
@@ -177,7 +177,7 @@ For more information, refer to the following documents:
 
 https://learn.microsoft.com/en-us/entra/identity/saas-apps/tutorial-list
 
-#### Identity Provider Linking with Azure Entra ID
+#### Identity Provider Linking with Microsoft Entra ID
 
 Identity Provider linking with Entra ID requires a few additional configuration steps on both the Entra and Keycloak sides.
 
@@ -251,7 +251,7 @@ This design does mean that provisioning a user through SCIM who previously exist
 ## User attributes for SCIM provisioning
 
 This section explains how to provision custom user attributes (e.g., `job`, `department`, `employeeId`) from an external
-identity provider (such as Azure Entra ID) into Keycloak via SCIM.
+identity provider (such as Microsoft Entra ID) into Keycloak via SCIM.
 
 By default, the SCIM server only exposes built-in user attributes (`userName`, `email`, `name.givenName`,
 `name.familyName`, `active`). To provision additional custom attributes, you need to configure Keycloak to accept
@@ -342,7 +342,7 @@ For each custom attribute you want to provision via SCIM:
 
 #### Step 4: Map Attributes in Your SCIM Client (e.g., Entra ID)
 
-In your SCIM client (e.g., Azure Entra ID Enterprise Application):
+In your SCIM client (e.g., Microsoft Entra ID Enterprise Application):
 
 1. Navigate to **Provisioning** > **Attribute Mapping (Preview)** > **Provision Microsoft Entra ID Users**
 2. Click **Add New Mapping**
@@ -359,7 +359,7 @@ The target attribute name must match the `User Attribute` value configured in th
 
 ### Example: Provisioning a "job" Attribute
 
-This example shows how to provision the `jobTitle` attribute from Azure Entra ID to Keycloak as a `job` attribute.
+This example shows how to provision the `jobTitle` attribute from Microsoft Entra ID to Keycloak as a `job` attribute.
 
 **Keycloak Configuration:**
 
@@ -370,7 +370,7 @@ This example shows how to provision the `jobTitle` attribute from Azure Entra ID
     - **Claim**: `jobTitle`
     - **User Attribute**: `job`
 
-**Azure Entra ID Configuration:**
+**Microsoft Entra Configuration:**
 
 1. In the Enterprise Application provisioning settings, add a mapping:
     - **Source attribute**: `jobTitle`

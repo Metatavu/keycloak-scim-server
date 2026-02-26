@@ -322,7 +322,7 @@ public class MetadataController extends AbstractController {
                         }
                         if (!builtInAttributeNames.contains(attribute)) {
                             customAttributes.add(new StringUserAttribute(
-                                    UserAttribute.Source.USER_MODEL,
+                                    UserAttribute.Source.IDP_MAPPER,
                                     attribute,
                                     attribute,
                                     attribute,

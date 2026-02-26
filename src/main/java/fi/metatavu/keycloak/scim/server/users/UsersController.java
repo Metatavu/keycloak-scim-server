@@ -569,6 +569,13 @@ public class UsersController extends AbstractController {
                 result.putAdditionalProperty(userAttribute.getScimPath(), value);
             }
         }
+        List<UserAttribute<?>> mapperAttributes = userAttributes.listBySource(UserAttribute.Source.IDP_MAPPER);
+        for (UserAttribute<?> userAttribute : mapperAttributes) {
+            Object value = userAttribute.read(user);
+            if (value != null) {
+                result.putAdditionalProperty(userAttribute.getScimPath(), value);
+            }
+        }
 
         return result;
     }

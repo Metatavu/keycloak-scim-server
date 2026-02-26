@@ -16,6 +16,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.keycloak.events.admin.AdminEvent;
 import org.keycloak.events.admin.OperationType;
 import org.keycloak.events.admin.ResourceType;
+import org.keycloak.representations.idm.FederatedIdentityRepresentation;
 import org.keycloak.representations.idm.MemberRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
@@ -161,6 +162,21 @@ public abstract class AbstractScimTest {
             .roles()
             .getAll()
             .getRealmMappings();
+    }
+
+    /**
+     * Lists user realm role mappings
+     *
+     * @param userId user ID
+     * @return user realm role mappings
+     */
+    protected List<FederatedIdentityRepresentation> getUserFederatedIdentityLink(String realm, String userId) {
+        return getKeycloakContainer().getKeycloakAdminClient()
+                .realms()
+                .realm(realm)
+                .users()
+                .get(userId)
+                .getFederatedIdentity();
     }
 
     /**

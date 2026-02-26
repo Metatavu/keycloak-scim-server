@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.keycloak.events.admin.AdminEvent;
 import org.keycloak.events.admin.OperationType;
 import org.keycloak.events.admin.ResourceType;
+import org.keycloak.representations.idm.FederatedIdentityRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -70,6 +71,12 @@ public class RealmUserCreateTestsIT extends AbstractInternalAuthRealmScimTest {
             .toList();
 
         assertArrayEquals(new String[] { "default-roles-test", "scim-managed" }, userRoles.toArray());
+
+        // Assert that user has correct federated identity link
+        FederatedIdentityRepresentation identityRepresentation = getUserFederatedIdentityLink(TestConsts.TEST_REALM, realmUser.getId()).getFirst();
+        assertEquals(TestConsts.TEST_IDP, identityRepresentation.getIdentityProvider());
+        assertEquals(realmUser.getAttributes().get("externalId").getFirst(), identityRepresentation.getUserId());
+        assertEquals(realmUser.getUsername(), identityRepresentation.getUserName());
 
         // Clean up
         deleteRealmUser(TestConsts.TEST_REALM, realmUser.getId());

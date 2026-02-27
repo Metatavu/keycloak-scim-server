@@ -2151,7 +2151,7 @@
     "clientSessionMaxLifespan" : "0",
     "adminEventsExpiration" : ""
   },
-  "keycloakVersion" : "26.1.2",
+  "keycloakVersion" : "26.3.5",
   "userManagedAccessAllowed" : false,
   "organizationsEnabled" : false,
   "verifiableCredentialsEnabled" : false,

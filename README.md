@@ -9,7 +9,7 @@ This project provides a **SCIM 2.0-compliant extension** for [Keycloak](https://
 
 ## Prerequisites
 
-- **Keycloak**: This extension is developed for Keycloak **26.1.4**. It may work with other versions, but compatibility is not guaranteed.
+- **Keycloak**: This extension is developed for Keycloak **26.3.5**. It may work with other versions, but compatibility is not guaranteed.
 - **Java**: Java **21** is required to build the project.
 
 ## Installation
@@ -62,7 +62,7 @@ PUT `/admin/realms/{realm}`
 ```
 {
   "attributes": {
-    "scim.authentication.mode": "EXTERNAL|INTERNAL",
+    "scim.authentication.mode": "EXTERNAL|KEYCLOAK",
     "scim.external.issuer": "string",
     "scim.external.jwks.uri": "string",
     "scim.external.audience": "string",

@@ -2,6 +2,8 @@ package fi.metatavu.keycloak.scim.server.groups;
 
 import fi.metatavu.keycloak.scim.server.AbstractController;
 import fi.metatavu.keycloak.scim.server.ScimContext;
+import fi.metatavu.keycloak.scim.server.filter.ComparisonFilter;
+import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
 import fi.metatavu.keycloak.scim.server.metadata.GroupAttribute;
 import fi.metatavu.keycloak.scim.server.patch.PatchOperation;
 import fi.metatavu.keycloak.scim.server.consts.Schemas;
@@ -16,6 +18,7 @@ import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -86,24 +89,33 @@ public class GroupsController extends AbstractController {
      */
     public GroupsList listGroups(
             ScimContext scimContext,
+            ScimFilter scimFilter,
             int startIndex,
             int count
     ) {
         KeycloakSession session = scimContext.getSession();
         RealmModel realm = scimContext.getRealm();
+        GroupsList result = new GroupsList();
 
-        List<GroupModel> allGroups = session.groups()
-            .getGroupsStream(realm)
-            .toList();
+        Map<String, String> searchParams = new HashMap<>();
 
-        List<Group> groups = allGroups.stream()
+        // For now only support to filter on display name
+        List<GroupModel> filteredGroups;
+        if(scimFilter instanceof ComparisonFilter(
+                String attribute, ScimFilter.Operator operator, String value
+        ) && operator == ScimFilter.Operator.EQ && attribute.equals(GroupAttribute.DISPLAY_NAME.getScimPath())){
+            filteredGroups = session.groups().searchForGroupByNameStream(realm, value, true, startIndex, count).toList();
+        }else{
+            filteredGroups = session.groups().getGroupsStream(realm).toList();
+        }
+
+        List<Group> groups = filteredGroups.stream()
             .skip(startIndex)
             .limit(count)
             .map(group -> translateGroup(scimContext, group))
             .collect(Collectors.toList());
 
-        GroupsList result = new GroupsList();
-        result.setTotalResults(allGroups.size());
+        result.setTotalResults(filteredGroups.size());
         result.setStartIndex(startIndex);
         result.setItemsPerPage(count);
         result.setResources(groups);

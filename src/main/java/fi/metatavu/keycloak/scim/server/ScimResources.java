@@ -173,14 +173,24 @@ public class ScimResources {
     @SuppressWarnings("unused")
     public Response listRealmGroups(
             @Context KeycloakSession session,
+            @QueryParam("filter") String filter,
             @QueryParam("startIndex") @DefaultValue("0") int startIndex,
             @QueryParam("count") @DefaultValue("100") int count
     ) {
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
         realmScimServer.verifyPermissions(scimContext);
 
+        ScimFilter scimFilter;
+        try {
+            scimFilter = parseFilter(filter);
+        } catch (Exception e) {
+            logger.warn(String.format("Failed to parse filter: '%s'", filter), e);
+            return Response.status(Response.Status.BAD_REQUEST).entity("Invalid filter").build();
+        }
+
         return realmScimServer.listGroups(
                 scimContext,
+                scimFilter,
                 startIndex,
                 count
         );
@@ -487,14 +497,24 @@ public class ScimResources {
     public Response listOrganizationGroups(
             @Context KeycloakSession session,
             @PathParam("organizationId") String organizationId,
+            @QueryParam("filter") String filter,
             @QueryParam("startIndex") @DefaultValue("0") int startIndex,
             @QueryParam("count") @DefaultValue("100") int count
     ) {
         OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
         organizationScimServer.verifyPermissions(scimContext);
 
+        ScimFilter scimFilter;
+        try {
+            scimFilter = parseFilter(filter);
+        } catch (Exception e) {
+            logger.warn(String.format("Failed to parse filter: '%s'", filter), e);
+            return Response.status(Response.Status.BAD_REQUEST).entity("Invalid filter").build();
+        }
+
         return organizationScimServer.listGroups(
             scimContext,
+            scimFilter,
             startIndex,
             count
         );

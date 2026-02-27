@@ -11,6 +11,6 @@ docker run -p 8080:8080 \
   -v ./src/test/resources/kc-organizations.json:/opt/keycloak/data/import/kc-organizations.json \
   -v $SCIM_EXTENSION_JAR:/opt/keycloak/providers/keycloak-scim-server.jar \
   -v $TEST_EVENT_LISTENER_JAR:/opt/keycloak/providers/test-event-listener.jar \
-  quay.io/keycloak/keycloak:26.1.2 start-dev --import-realm
+  quay.io/keycloak/keycloak:26.3.5 start-dev --import-realm
 
 

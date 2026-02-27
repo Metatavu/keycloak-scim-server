@@ -55,7 +55,7 @@ public class OrganizationLinkIdpTestsIT extends AbstractOrganizationSeleniumScim
 
         // Assert that the user is logged in
 
-        waitAndAssertInputValue(webDriver, By.id("username"), "test.user1");
+        waitAndAssertInputValueIsVisible(webDriver, By.id("username"), "test.user1");
         waitAndAssertInputValue(webDriver, By.id("email"), "test.user1@org1.example.com");
 
         // Clean up
@@ -104,7 +104,7 @@ public class OrganizationLinkIdpTestsIT extends AbstractOrganizationSeleniumScim
 
         // Assert that the user is logged in
 
-        waitAndAssertInputValue(webDriver, By.id("username"), "test.user1");
+        waitAndAssertInputValueIsVisible(webDriver, By.id("username"), "test.user1");
         waitAndAssertInputValue(webDriver, By.id("email"), "test.user1@org1.example.com");
 
         // Clean up
@@ -159,7 +159,7 @@ public class OrganizationLinkIdpTestsIT extends AbstractOrganizationSeleniumScim
 
         // Assert that the user is logged in
 
-        waitAndAssertInputValue(webDriver, By.id("username"), "test.user1");
+        waitAndAssertInputValueIsVisible(webDriver, By.id("username"), "test.user1");
         waitAndAssertInputValue(webDriver, By.id("email"), "test.user1@org1.example.com");
 
         // Clean up

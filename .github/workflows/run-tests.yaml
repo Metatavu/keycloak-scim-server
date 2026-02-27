@@ -25,6 +25,7 @@ jobs:
       - name: Run tests
         run: ./gradlew test jacocoIntegrationReport --info
       - name: JaCoCo Code Coverage Report
+        if: github.event.pull_request.head.repo.full_name == github.repository
         id: jacoco_reporter
         uses: PavanMudigonda/jacoco-reporter@v5.0
         with:
@@ -37,6 +38,7 @@ jobs:
           fail_below_threshold: false
           publish_only_summary: false
       - name: Add Jacocoo report to workflow run summary
+        if: github.event.pull_request.head.repo.full_name == github.repository
         run: |
           echo "| Outcome | Value |" >> $GITHUB_STEP_SUMMARY
           echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
@@ -45,6 +47,7 @@ jobs:
           echo "| :x: Number of Lines Missed | ${{ steps.jacoco_reporter.outputs.missed_lines }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Total Number of Lines | ${{ steps.jacoco_reporter.outputs.total_lines }} |" >> $GITHUB_STEP_SUMMARY
       - name: Add coverage to PR comment
+        if: github.event.pull_request.head.repo.full_name == github.repository
         id: jacoco_comment
         uses: madrapps/jacoco-report@v1.7.2
         with:

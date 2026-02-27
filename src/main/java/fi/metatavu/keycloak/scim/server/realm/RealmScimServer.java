@@ -11,11 +11,14 @@ import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriBuilder;
-import org.jboss.logging.Logger;
-import org.keycloak.models.*;
-
 import java.net.URI;
 import java.util.Objects;
+import org.jboss.logging.Logger;
+import org.keycloak.models.GroupModel;
+import org.keycloak.models.KeycloakSession;
+import org.keycloak.models.RealmModel;
+import org.keycloak.models.RoleModel;
+import org.keycloak.models.UserModel;
 
 /**
  * SCIM server implementation for realms
@@ -192,8 +195,8 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
     }
 
     @Override
-    public Response listGroups(RealmScimContext scimContext, int startIndex, int count) {
-        fi.metatavu.keycloak.scim.server.model.GroupsList groupList = groupsController.listGroups(scimContext, startIndex, count);
+    public Response listGroups(RealmScimContext scimContext, ScimFilter filter, int startIndex, int count) {
+        fi.metatavu.keycloak.scim.server.model.GroupsList groupList = groupsController.listGroups(scimContext, filter, startIndex, count);
         return Response.ok(groupList).build();
     }
 

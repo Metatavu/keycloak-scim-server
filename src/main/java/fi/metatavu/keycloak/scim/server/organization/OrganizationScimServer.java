@@ -192,7 +192,7 @@ public class OrganizationScimServer extends AbstractScimServer<OrganizationScimC
 
     @Override
     @ExcludeFromJacocoGeneratedReport
-    public Response listGroups(OrganizationScimContext scimContext, int startIndex, int count) {
+    public Response listGroups(OrganizationScimContext scimContext, ScimFilter filter, int startIndex, int count) {
         // TODO: Organization Groups are not supported yet by the Keycloak
         return Response.status(Response.Status.NOT_IMPLEMENTED).build();
     }

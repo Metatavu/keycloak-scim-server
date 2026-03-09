@@ -214,38 +214,6 @@ public class ScimClient {
     }
 
     /**
-     * Creates a group
-     *
-     * @param group group to create
-     * @return created group
-     * @throws ApiException thrown when API call fails
-     */
-    public Group createGroup(Group group) throws ApiException {
-        return getGroupsApi().createGroup(group);
-    }
-
-    /**
-     * Finds a group
-     *
-     * @param id group ID
-     * @return found group
-     * @throws ApiException thrown when API call fails
-     */
-    public Group findGroup(String id) throws ApiException {
-        return getGroupsApi().getGroup(id);
-    }
-
-    /**
-     * Deletes a group
-     *
-     * @param groupId group ID
-     * @throws ApiException thrown when API call fails
-     */
-    public void deleteGroup(String groupId) throws ApiException {
-        getGroupsApi().deleteGroup(groupId);
-    }
-
-    /**
      * Returns initialized users API
      *
      * @return initialized users API

@@ -76,4 +76,33 @@ public class RealmGroupCreateTestsIT extends AbstractInternalAuthRealmScimTest {
         // Clean up
         deleteRealmGroup(TestConsts.TEST_REALM, group.getId());
     }
+  
+    @Test
+    void testCreateGroupWithoutDisplayNameReturnsBadRequest() {
+        ScimClient scimClient = getAuthenticatedScimClient();
+
+        Group group = new Group();
+        group.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:Group"));
+
+        ApiException exception = assertThrows(ApiException.class, () ->
+            scimClient.createGroup(group)
+        );
+
+        assertEquals(400, exception.getCode());
+    }
+
+    @Test
+    void testCreateGroupWithBlankDisplayNameReturnsBadRequest() {
+        ScimClient scimClient = getAuthenticatedScimClient();
+
+        Group group = new Group();
+        group.setDisplayName("   ");
+        group.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:Group"));
+
+        ApiException exception = assertThrows(ApiException.class, () ->
+            scimClient.createGroup(group)
+        );
+
+        assertEquals(400, exception.getCode());
+    }
 }

@@ -232,6 +232,57 @@ public abstract class AbstractScimTest {
     }
 
     /**
+     * Creates a group with the given parameters
+     *
+     * @param scimClient SCIM client
+     * @param displayName display name
+     * @return created group
+     * @throws ApiException if an error occurs during group creation
+     */
+    protected Group createGroup(
+        ScimClient scimClient,
+        String displayName
+    ) throws ApiException {
+        Group group = new Group();
+        group.setDisplayName(displayName);
+        group.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:Group"));
+        Group created = scimClient.createGroup(group);
+        assertNotNull(created);
+        return created;
+    }
+
+    /**
+     * Finds group from Keycloak
+     *
+     * @param realm realm name
+     * @param groupId group ID
+     * @return group representation
+     */
+    protected GroupRepresentation findRealmGroup(String realm, String groupId) {
+        return getKeycloakContainer().getKeycloakAdminClient()
+            .realms()
+            .realm(realm)
+            .groups()
+            .group(groupId)
+            .toRepresentation();
+    }
+
+    /**
+     * Deletes group from Keycloak
+     *
+     * @param realm realm name
+     * @param groupId group ID
+     */
+    protected void deleteRealmGroup(String realm, String groupId) {
+        getKeycloakContainer().getKeycloakAdminClient()
+            .realms()
+            .realm(realm)
+            .groups()
+            .group(groupId)
+            .remove();
+    }
+
+    /**
      * Asserts that two users are equal
      *
      * @param expected expected user

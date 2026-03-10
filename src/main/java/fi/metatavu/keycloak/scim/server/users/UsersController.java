@@ -2,6 +2,7 @@ package fi.metatavu.keycloak.scim.server.users;
 
 import fi.metatavu.keycloak.scim.server.AbstractController;
 import fi.metatavu.keycloak.scim.server.ScimContext;
+import fi.metatavu.keycloak.scim.server.adminEvents.AdminEventController;
 import fi.metatavu.keycloak.scim.server.consts.Schemas;
 import fi.metatavu.keycloak.scim.server.consts.ScimRoles;
 import fi.metatavu.keycloak.scim.server.filter.ComparisonFilter;
@@ -19,17 +20,12 @@ import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
 import fi.metatavu.keycloak.scim.server.realm.RealmScimContext;
 import jakarta.ws.rs.NotFoundException;
 import org.jboss.logging.Logger;
-import org.keycloak.events.EventListenerProvider;
-import org.keycloak.events.EventListenerProviderFactory;
-import org.keycloak.events.admin.AdminEvent;
 import org.keycloak.events.admin.OperationType;
 import org.keycloak.events.admin.ResourceType;
 import org.keycloak.models.*;
 import org.keycloak.models.utils.ModelToRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
-import org.keycloak.util.JsonSerialization;
 
-import java.io.IOException;
 import java.util.*;
 
 /**
@@ -38,6 +34,7 @@ import java.util.*;
 public class UsersController extends AbstractController {
 
     private static final Logger logger = Logger.getLogger(UsersController.class);
+    private final AdminEventController adminEventController = new AdminEventController();
 
     /**
      * Creates a user
@@ -331,7 +328,7 @@ public class UsersController extends AbstractController {
         RealmModel realm = scimContext.getRealm();
         UserRepresentation userRepresentation = ModelToRepresentation.toRepresentation(session, realm, user);
 
-        sendAdminEvent(
+        adminEventController.sendAdminEvent(
             scimContext,
             OperationType.CREATE,
             ResourceType.USER,
@@ -341,7 +338,7 @@ public class UsersController extends AbstractController {
     }
 
     /**
-     * Dispatches user creation event
+     * Dispatches user deletion event
      *
      * @param scimContext SCIM context
      * @param user user
@@ -350,7 +347,7 @@ public class UsersController extends AbstractController {
         ScimContext scimContext,
         UserModel user
     ) {
-        sendAdminEvent(
+        adminEventController.sendAdminEvent(
             scimContext,
             OperationType.DELETE,
             ResourceType.USER,
@@ -373,87 +370,13 @@ public class UsersController extends AbstractController {
         RealmModel realm = scimContext.getRealm();
         UserRepresentation userRepresentation = ModelToRepresentation.toRepresentation(session, realm, user);
 
-        sendAdminEvent(
+        adminEventController.sendAdminEvent(
             scimContext,
             OperationType.UPDATE,
             ResourceType.USER,
             "users/" + user.getId(),
             userRepresentation
         );
-    }
-
-    /**
-     * Sends an admin event
-     *
-     * @param scimContext SCIM context
-     * @param operationType operation type
-     * @param resourceType resource type
-     * @param resourcePath resource path
-     * @param representation representation
-     */
-    @SuppressWarnings("SameParameterValue")
-    protected void sendAdminEvent(
-        ScimContext scimContext,
-        OperationType operationType,
-        ResourceType resourceType,
-        String resourcePath,
-        Object representation
-    ) {
-        sendAdminEvent(scimContext, operationType, resourceType, resourcePath, representation, null);
-    }
-
-    /**
-     * Sends an admin event with additional details
-     *
-     * @param scimContext SCIM context
-     * @param operationType operation type
-     * @param resourceType resource type
-     * @param resourcePath resource path
-     * @param representation representation
-     * @param details additional details
-     */
-    protected void sendAdminEvent(
-        ScimContext scimContext,
-        OperationType operationType,
-        ResourceType resourceType,
-        String resourcePath,
-        Object representation,
-        Map<String, String> details
-    ) {
-        RealmModel realm = scimContext.getRealm();
-        KeycloakSession session = scimContext.getSession();
-
-        boolean includeRepresentation = realm.isAdminEventsDetailsEnabled();
-
-        AdminEvent event = new AdminEvent();
-        event.setId(UUID.randomUUID().toString());
-        event.setRealmId(realm.getId());
-        event.setRealmName(realm.getName());
-        event.setOperationType(operationType);
-        event.setResourceType(resourceType);
-        event.setResourcePath(resourcePath);
-        event.setTime(System.currentTimeMillis());
-        event.setDetails(details);
-
-        if (representation != null) {
-            try {
-                event.setRepresentation(JsonSerialization.writeValueAsString(representation));
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        List<String> realmListenerIds = realm.getEventsListenersStream().toList();
-
-        session.getKeycloakSessionFactory()
-            .getProviderFactoriesStream(EventListenerProvider.class)
-            .filter(providerFactory -> realmListenerIds.contains(providerFactory.getId()) || ((EventListenerProviderFactory) providerFactory).isGlobal())
-            .map(providerFactory -> providerFactory.create(session))
-            .forEach(provider -> {
-                if (provider instanceof EventListenerProvider eventListenerProvider) {
-                    eventListenerProvider.onEvent(event, includeRepresentation);
-                }
-            });
     }
 
     /**

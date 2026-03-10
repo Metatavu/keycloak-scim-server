@@ -1,5 +1,6 @@
 package fi.metatavu.keycloak.scim.server.organization;
 
+import fi.metatavu.keycloak.scim.server.adminEvents.AdminEventController;
 import fi.metatavu.keycloak.scim.server.config.ScimConfig;
 import fi.metatavu.keycloak.scim.server.consts.ScimRoles;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
@@ -28,6 +29,8 @@ import java.util.Map;
 public class OrganizationUserController extends UsersController  {
 
     private static final Logger logger = Logger.getLogger(OrganizationUserController.class);
+    private final AdminEventController adminEventController = new AdminEventController();
+
 
     /**
      * Creates a user
@@ -490,7 +493,7 @@ public class OrganizationUserController extends UsersController  {
             eventDetails.put(UserModel.EMAIL, member.getEmail());
         }
 
-        sendAdminEvent(
+        adminEventController.sendAdminEvent(
             scimContext,
             OperationType.CREATE,
             ResourceType.ORGANIZATION_MEMBERSHIP,
@@ -521,7 +524,7 @@ public class OrganizationUserController extends UsersController  {
             eventDetails.put(UserModel.EMAIL, member.getEmail());
         }
 
-        sendAdminEvent(
+        adminEventController.sendAdminEvent(
             scimContext,
             OperationType.DELETE,
             ResourceType.ORGANIZATION_MEMBERSHIP,

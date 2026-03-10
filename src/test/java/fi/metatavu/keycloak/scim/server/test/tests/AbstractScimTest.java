@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dasniko.testcontainers.keycloak.KeycloakContainer;
 import fi.metatavu.keycloak.scim.server.test.ScimClient;
 import fi.metatavu.keycloak.scim.server.test.client.ApiException;
+import fi.metatavu.keycloak.scim.server.test.client.model.Group;
 import fi.metatavu.keycloak.scim.server.test.client.model.User;
 import fi.metatavu.keycloak.scim.server.test.client.model.UserEmailsInner;
 import fi.metatavu.keycloak.scim.server.test.client.model.UserName;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.keycloak.events.admin.AdminEvent;
 import org.keycloak.events.admin.OperationType;
 import org.keycloak.events.admin.ResourceType;
+import org.keycloak.representations.idm.GroupRepresentation;
 import org.keycloak.representations.idm.MemberRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
@@ -227,6 +229,57 @@ public abstract class AbstractScimTest {
         for (User user : users) {
             deleteRealmUser(realm, user.getId());
         }
+    }
+
+    /**
+     * Creates a group with the given parameters
+     *
+     * @param scimClient SCIM client
+     * @param displayName display name
+     * @return created group
+     * @throws ApiException if an error occurs during group creation
+     */
+    protected Group createGroup(
+        ScimClient scimClient,
+        String displayName
+    ) throws ApiException {
+        Group group = new Group();
+        group.setDisplayName(displayName);
+        group.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:Group"));
+        Group created = scimClient.createGroup(group);
+        assertNotNull(created);
+        return created;
+    }
+
+    /**
+     * Finds group from Keycloak
+     *
+     * @param realm realm name
+     * @param groupId group ID
+     * @return group representation
+     */
+    protected GroupRepresentation findRealmGroup(String realm, String groupId) {
+        return getKeycloakContainer().getKeycloakAdminClient()
+            .realms()
+            .realm(realm)
+            .groups()
+            .group(groupId)
+            .toRepresentation();
+    }
+
+    /**
+     * Deletes group from Keycloak
+     *
+     * @param realm realm name
+     * @param groupId group ID
+     */
+    protected void deleteRealmGroup(String realm, String groupId) {
+        getKeycloakContainer().getKeycloakAdminClient()
+            .realms()
+            .realm(realm)
+            .groups()
+            .group(groupId)
+            .remove();
     }
 
     /**
@@ -493,6 +546,77 @@ public abstract class AbstractScimTest {
                 });
             }
         }
+    }
+
+    /**
+     * Asserts that the given group admin event matches the expected values
+     *
+     * @param groupEvent the group admin event to assert
+     * @param realmName the name of the realm
+     * @param realmId the ID of the realm
+     * @param groupId the ID of the group
+     * @param operationType the operation type of the event
+     * @throws IOException if there is an error reading the group representation
+     */
+    @SuppressWarnings("SameParameterValue")
+    protected void assertGroupAdminEvent(
+            AdminEvent groupEvent,
+            String realmName,
+            String realmId,
+            String groupId,
+            OperationType operationType
+    ) throws IOException {
+        assertNotNull(groupEvent);
+        assertEquals(realmId, groupEvent.getRealmId());
+        assertEquals(realmName, groupEvent.getRealmName());
+        assertEquals(ResourceType.GROUP, groupEvent.getResourceType());
+        assertEquals(operationType, groupEvent.getOperationType());
+        assertEquals("groups/" + groupId, groupEvent.getResourcePath());
+        assertEquals("GROUP", groupEvent.getResourceTypeAsString());
+
+        if (operationType != OperationType.DELETE) {
+            GroupRepresentation realmGroup = findRealmGroup(realmName, groupId);
+
+            GroupRepresentation eventGroup = JsonSerialization.readValue(groupEvent.getRepresentation(), GroupRepresentation.class);
+            assertNotNull(eventGroup);
+
+            assertEquals(realmGroup.getId(), eventGroup.getId());
+            assertEquals(realmGroup.getName(), eventGroup.getName());
+            assertEquals(realmGroup.getPath(), eventGroup.getPath());
+        }
+    }
+
+    /**
+     * Asserts that the given group membership admin event matches the expected values
+     *
+     * @param membershipEvent the group membership admin event to assert
+     * @param realmName the name of the realm
+     * @param realmId the ID of the realm
+     * @param groupId the ID of the group
+     * @param userId the ID of the user
+     * @param operationType the operation type of the event (CREATE for join, DELETE for leave)
+     * @throws IOException if there is an error reading the event representation
+     */
+    @SuppressWarnings("SameParameterValue")
+    protected void assertGroupMembershipAdminEvent(
+            AdminEvent membershipEvent,
+            String realmName,
+            String realmId,
+            String groupId,
+            String userId,
+            OperationType operationType
+    ) throws IOException {
+        assertNotNull(membershipEvent);
+        assertEquals(realmId, membershipEvent.getRealmId());
+        assertEquals(realmName, membershipEvent.getRealmName());
+        assertEquals(ResourceType.GROUP_MEMBERSHIP, membershipEvent.getResourceType());
+        assertEquals(operationType, membershipEvent.getOperationType());
+        assertEquals("groups/" + groupId + "/members/" + userId, membershipEvent.getResourcePath());
+        assertEquals("GROUP_MEMBERSHIP", membershipEvent.getResourceTypeAsString());
+
+        // Verify the event contains user details
+        assertNotNull(membershipEvent.getDetails());
+        assertTrue(membershipEvent.getDetails().containsKey("username"));
     }
 
     @SuppressWarnings("unused")

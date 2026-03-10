@@ -185,6 +185,11 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
     public Response createGroup(RealmScimContext scimContext, fi.metatavu.keycloak.scim.server.model.Group createRequest) {
         // TODO: conflict check
 
+        if (isBlank(createRequest.getDisplayName())) {
+            logger.warn("Cannot create group: Missing displayName");
+            return Response.status(Response.Status.BAD_REQUEST).entity("Missing displayName").build();
+        }
+
         fi.metatavu.keycloak.scim.server.model.Group created = groupsController.createGroup(scimContext, createRequest);
         URI location = UriBuilder.fromPath("v2/Groups/{id}").build(created.getId());
 

@@ -284,7 +284,7 @@ class RealmGroupListTestsIT extends AbstractInternalAuthRealmScimTest {
      * @return created group
      * @throws ApiException if creation fails
      */
-    private Group createGroup(ScimClient scimClient, String displayName) throws ApiException {
+    protected Group createGroup(ScimClient scimClient, String displayName) throws ApiException {
         Group group = new Group();
         group.setDisplayName(displayName);
         group.setSchemas(Collections.singletonList("urn:ietf:params:scim:schemas:core:2.0:Group"));

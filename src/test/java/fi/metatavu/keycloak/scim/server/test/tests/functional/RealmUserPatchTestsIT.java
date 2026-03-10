@@ -1,12 +1,12 @@
 package fi.metatavu.keycloak.scim.server.test.tests.functional;
 
-import fi.metatavu.keycloak.scim.server.test.tests.AbstractInternalAuthRealmScimTest;
 import fi.metatavu.keycloak.scim.server.test.ScimClient;
 import fi.metatavu.keycloak.scim.server.test.TestConsts;
 import fi.metatavu.keycloak.scim.server.test.client.ApiException;
 import fi.metatavu.keycloak.scim.server.test.client.model.PatchRequest;
 import fi.metatavu.keycloak.scim.server.test.client.model.PatchRequestOperationsInner;
 import fi.metatavu.keycloak.scim.server.test.client.model.User;
+import fi.metatavu.keycloak.scim.server.test.tests.AbstractInternalAuthRealmScimTest;
 import org.junit.jupiter.api.Test;
 import org.keycloak.events.admin.AdminEvent;
 import org.keycloak.events.admin.OperationType;
@@ -16,7 +16,11 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.io.IOException;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for SCIM 2.0 User create endpoint
@@ -97,8 +101,9 @@ public class RealmUserPatchTestsIT extends AbstractInternalAuthRealmScimTest {
         assertNull(created.getAdditionalProperty("externalId"));
         assertNull(created.getAdditionalProperty("displayName"));
         assertNull(created.getAdditionalProperty("preferredLanguage"));
+        assertNull(created.getAdditionalProperty("job"));
 
-        // Patch externalId, displayName, preferredLanguage
+        // Patch externalId, displayName, preferredLanguage from user profile and job from user attribute mapper
         User patched = scimClient.patchUser(created.getId(), new PatchRequest()
             .schemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"))
             .operations(List.of(
@@ -137,13 +142,25 @@ public class RealmUserPatchTestsIT extends AbstractInternalAuthRealmScimTest {
                 new PatchRequestOperationsInner()
                     .op("replace")
                     .path("preferredLanguage")
-                    .value("en_US")
+                    .value("en_US"),
+                new PatchRequestOperationsInner()
+                        .op("replace")
+                        .path("job")
+                        .value("pilot")
             ))
         );
 
         assertEquals("external-5678", patchedAgain.getAdditionalProperty("externalId"));
         assertEquals("Updated Display", patchedAgain.getAdditionalProperty("displayName"));
         assertEquals("en_US", patchedAgain.getAdditionalProperty("preferredLanguage"));
+
+        // Also verify state in Keycloak
+        UserRepresentation realmUser = findRealmUser(TestConsts.TEST_REALM, created.getId());
+        assertNotNull(realmUser);
+        assertEquals("external-5678", realmUser.getAttributes().get("externalId").getFirst());
+        assertEquals("Updated Display", realmUser.getAttributes().get("displayName").getFirst());
+        assertEquals("en_US", realmUser.getAttributes().get("preferredLanguage").getFirst());
+        assertEquals("pilot", realmUser.getAttributes().get("job").getFirst());
 
         // Cleanup
         deleteRealmUser(TestConsts.TEST_REALM, created.getId());

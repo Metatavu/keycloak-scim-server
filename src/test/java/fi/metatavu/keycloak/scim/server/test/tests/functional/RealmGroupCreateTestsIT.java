@@ -6,15 +6,19 @@ import fi.metatavu.keycloak.scim.server.test.TestConsts;
 import fi.metatavu.keycloak.scim.server.test.client.ApiException;
 import fi.metatavu.keycloak.scim.server.test.client.model.Group;
 import org.junit.jupiter.api.Test;
+import org.keycloak.events.admin.AdminEvent;
+import org.keycloak.events.admin.OperationType;
+import org.keycloak.events.admin.ResourceType;
 import org.keycloak.representations.idm.GroupRepresentation;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.io.IOException;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tests for SCIM 2.0 Group create endpoint
+ * Tests for SCIM 2.0 Group create endpoint and admin events
  */
 @Testcontainers
 public class RealmGroupCreateTestsIT extends AbstractInternalAuthRealmScimTest {
@@ -43,6 +47,36 @@ public class RealmGroupCreateTestsIT extends AbstractInternalAuthRealmScimTest {
         deleteRealmGroup(TestConsts.TEST_REALM, realmGroup.getId());
     }
 
+    @Test
+    void testCreateGroupAdminEvents() throws ApiException, IOException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+
+        Group group = new Group();
+        group.setDisplayName("event-test-group");
+        group.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:Group"));
+
+        group = scimClient.createGroup(group);
+
+        List<AdminEvent> adminEvents = getAdminEvents();
+        assertEquals(1, adminEvents.size());
+
+        AdminEvent createGroupEvent = adminEvents.stream()
+            .filter(event -> event.getResourceType() == ResourceType.GROUP)
+            .findFirst()
+            .orElse(null);
+
+        assertGroupAdminEvent(
+            createGroupEvent,
+            TestConsts.TEST_REALM,
+            TestConsts.TEST_REALM_ID,
+            group.getId(),
+            OperationType.CREATE
+        );
+
+        // Clean up
+        deleteRealmGroup(TestConsts.TEST_REALM, group.getId());
+    }
+  
     @Test
     void testCreateGroupWithoutDisplayNameReturnsBadRequest() {
         ScimClient scimClient = getAuthenticatedScimClient();

@@ -548,6 +548,77 @@ public abstract class AbstractScimTest {
         }
     }
 
+    /**
+     * Asserts that the given group admin event matches the expected values
+     *
+     * @param groupEvent the group admin event to assert
+     * @param realmName the name of the realm
+     * @param realmId the ID of the realm
+     * @param groupId the ID of the group
+     * @param operationType the operation type of the event
+     * @throws IOException if there is an error reading the group representation
+     */
+    @SuppressWarnings("SameParameterValue")
+    protected void assertGroupAdminEvent(
+            AdminEvent groupEvent,
+            String realmName,
+            String realmId,
+            String groupId,
+            OperationType operationType
+    ) throws IOException {
+        assertNotNull(groupEvent);
+        assertEquals(realmId, groupEvent.getRealmId());
+        assertEquals(realmName, groupEvent.getRealmName());
+        assertEquals(ResourceType.GROUP, groupEvent.getResourceType());
+        assertEquals(operationType, groupEvent.getOperationType());
+        assertEquals("groups/" + groupId, groupEvent.getResourcePath());
+        assertEquals("GROUP", groupEvent.getResourceTypeAsString());
+
+        if (operationType != OperationType.DELETE) {
+            GroupRepresentation realmGroup = findRealmGroup(realmName, groupId);
+
+            GroupRepresentation eventGroup = JsonSerialization.readValue(groupEvent.getRepresentation(), GroupRepresentation.class);
+            assertNotNull(eventGroup);
+
+            assertEquals(realmGroup.getId(), eventGroup.getId());
+            assertEquals(realmGroup.getName(), eventGroup.getName());
+            assertEquals(realmGroup.getPath(), eventGroup.getPath());
+        }
+    }
+
+    /**
+     * Asserts that the given group membership admin event matches the expected values
+     *
+     * @param membershipEvent the group membership admin event to assert
+     * @param realmName the name of the realm
+     * @param realmId the ID of the realm
+     * @param groupId the ID of the group
+     * @param userId the ID of the user
+     * @param operationType the operation type of the event (CREATE for join, DELETE for leave)
+     * @throws IOException if there is an error reading the event representation
+     */
+    @SuppressWarnings("SameParameterValue")
+    protected void assertGroupMembershipAdminEvent(
+            AdminEvent membershipEvent,
+            String realmName,
+            String realmId,
+            String groupId,
+            String userId,
+            OperationType operationType
+    ) throws IOException {
+        assertNotNull(membershipEvent);
+        assertEquals(realmId, membershipEvent.getRealmId());
+        assertEquals(realmName, membershipEvent.getRealmName());
+        assertEquals(ResourceType.GROUP_MEMBERSHIP, membershipEvent.getResourceType());
+        assertEquals(operationType, membershipEvent.getOperationType());
+        assertEquals("groups/" + groupId + "/members/" + userId, membershipEvent.getResourcePath());
+        assertEquals("GROUP_MEMBERSHIP", membershipEvent.getResourceTypeAsString());
+
+        // Verify the event contains user details
+        assertNotNull(membershipEvent.getDetails());
+        assertTrue(membershipEvent.getDetails().containsKey("username"));
+    }
+
     @SuppressWarnings("unused")
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class ComplianceStatus {

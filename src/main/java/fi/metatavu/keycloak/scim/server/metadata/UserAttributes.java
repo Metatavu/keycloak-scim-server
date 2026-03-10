@@ -22,15 +22,27 @@ public class UserAttributes {
             .collect(Collectors.toMap(UserAttribute::getScimPath, Function.identity()));
     }
 
-    /**
+    /**                                                                                                                                                                                     
      * Finds user attribute by SCIM path
-     *
+     *                                                                                                                                                                                      
      * @param scimPath SCIM path
      * @return user attribute or null if not found
      */
     public UserAttribute<?> findByScimPath(String scimPath) {
-        return attributeMap.get(scimPath);
+        UserAttribute<?> result = attributeMap.get(scimPath);
+        if (result != null) {
+            return result;
+        }
+
+        // Fix: Entra ID sends emails[type eq "work"].value as SCIM path on PATCH
+        // but the plugin registers this attribute as "email"
+        if (scimPath != null && scimPath.startsWith("emails")) {
+            return attributeMap.get("email");
+        }
+
+        return null;
     }
+
 
     /**
      * Lists user attributes by source

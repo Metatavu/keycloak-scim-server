@@ -1,5 +1,5 @@
-import java.util.*
 import org.openapitools.generator.gradle.plugin.tasks.GenerateTask
+import java.util.*
 
 abstract class FixAdditionalPropertyModels : DefaultTask() {
 
@@ -51,9 +51,8 @@ dependencies {
     compileOnly("org.keycloak:keycloak-services:$keycloakVersion")
 
     testImplementation("org.keycloak:keycloak-services:$keycloakVersion")
-    testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.junit.jupiter:junit-jupiter:$junitVersion")
-    testImplementation ("org.mockito:mockito-core:${mockitoVersion}")
+    testImplementation("org.mockito:mockito-core:${mockitoVersion}")
     testImplementation("org.mockito:mockito-junit-jupiter:${mockitoVersion}")
 
     testImplementation("org.testcontainers:testcontainers:$testContainersVersion")
@@ -65,6 +64,7 @@ dependencies {
     testImplementation("org.seleniumhq.selenium:selenium-java:$seleniumVersion")
 
     jacocoRuntime("org.jacoco:org.jacoco.agent:$jacocoVersion:runtime")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 group = "fi.metatavu.keycloak.scim.server"
@@ -115,10 +115,10 @@ val generateModels = tasks.register<FixAdditionalPropertyModels>("generateModels
 }
 
 val scimClientOutputDir = layout.projectDirectory.dir("build/generated/scim-client/src/main/java")
-val generateScimClientCode = tasks.register("generateScimClientCode",GenerateTask::class){
+val generateScimClientCode = tasks.register("generateScimClientCode", GenerateTask::class) {
     setProperty("generatorName", "java")
     setProperty("library", "native")
-    setProperty("inputSpec",  "$rootDir/scim-openapi.yaml")
+    setProperty("inputSpec", "$rootDir/scim-openapi.yaml")
     setProperty("outputDir", "$buildDir/generated/scim-client")
     setProperty("apiPackage", "${project.group}.test.client.api")
     setProperty("modelPackage", "${project.group}.test.client.model")
@@ -147,6 +147,9 @@ tasks.named("compileTestJava") {
 }
 
 tasks.named<Test>("test") {
+    // Ensure test-event-listener is built before running tests
+    dependsOn(":test-event-listener:jar")
+
     val jacocoAgent = configurations["jacocoRuntime"].singleFile
 
     environment("BUILD_DIR", getLayout().buildDirectory.asFile.get().absolutePath)

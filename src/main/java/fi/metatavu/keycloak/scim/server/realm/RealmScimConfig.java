@@ -18,6 +18,9 @@ public class RealmScimConfig implements ScimConfig {
     public static final String SCIM_EXTERNAL_SHARED_SECRET = "scim.external.shared.secret";
     public static final String SCIM_AUTHENTICATION_MODE = "scim.authentication.mode";
     public static final String SCIM_EXTERNAL_ISSUER = "scim.external.issuer";
+    public static final String SCIM_LINK_IDP = "scim.link.idp";
+    public static final String SCIM_IDENTITY_PROVIDER_ALIAS = "scim.identity.provider.alias";
+    public static final String SCIM_EMAIL_AS_USERNAME = "scim.email.as.username";
     private final Config config;
     private final RealmModel realm;
 
@@ -111,7 +114,20 @@ public class RealmScimConfig implements ScimConfig {
      */
     @Override
     public boolean getLinkIdp() {
-        return false;
+        return readRealmAttribute(SCIM_LINK_IDP)
+            .map(Boolean::parseBoolean)
+            .or(() -> config.getOptionalValue(SCIM_LINK_IDP, Boolean.class))
+            .orElse(false);
+    }
+
+    /**
+     * Returns the configured identity provider alias for user linking.
+     */
+    @Override
+    public String getIdentityProviderAlias() {
+        return readRealmAttribute(SCIM_IDENTITY_PROVIDER_ALIAS)
+            .or(() -> config.getOptionalValue(SCIM_IDENTITY_PROVIDER_ALIAS, String.class))
+            .orElse(null);
     }
 
     /**
@@ -119,7 +135,10 @@ public class RealmScimConfig implements ScimConfig {
      */
     @Override
     public boolean getEmailAsUsername() {
-        return false;
+        return readRealmAttribute(SCIM_EMAIL_AS_USERNAME)
+            .map(Boolean::parseBoolean)
+            .or(() -> config.getOptionalValue(SCIM_EMAIL_AS_USERNAME, Boolean.class))
+            .orElse(false);
     }
 
     /**

@@ -18,6 +18,7 @@ public class OrganizationScimConfig implements ScimConfig {
     public static final String SCIM_EXTERNAL_ISSUER = "SCIM_EXTERNAL_ISSUER";
     public static final String SCIM_AUTHENTICATION_MODE = "SCIM_AUTHENTICATION_MODE";
     public static final String SCIM_EMAIL_AS_USERNAME = "SCIM_EMAIL_AS_USERNAME";
+    public static final String SCIM_IDENTITY_PROVIDER_ALIAS = "SCIM_IDENTITY_PROVIDER_ALIAS";
 
     private final OrganizationModel organization;
 
@@ -91,6 +92,11 @@ public class OrganizationScimConfig implements ScimConfig {
     @Override
     public boolean getLinkIdp() {
         return "true".equalsIgnoreCase(getAttribute(SCIM_LINK_IDP));
+    }
+
+    @Override
+    public String getIdentityProviderAlias() {
+        return getAttribute(SCIM_IDENTITY_PROVIDER_ALIAS);
     }
 
     @Override

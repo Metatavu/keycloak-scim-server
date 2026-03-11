@@ -67,15 +67,25 @@ PUT `/admin/realms/{realm}`
     "scim.external.jwks.uri": "string",
     "scim.external.audience": "string",
     "scim.external.shared.secret": "string",
-    "scim.external.shared.secret.hash.algorithm": "string"
+    "scim.external.shared.secret.hash.algorithm": "string",
+    "scim.link.idp": "true|false",
+    "scim.identity.provider.alias": "string",
+    "scim.email.as.username": "true|false"
   }
 }
 ```
 
+| Setting                       | Value                                                                                                                                                                                                            |
+|-------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| scim.link.idp                 | Enables support for linking realm identity provider with user. When enabled, users provisioned via SCIM will be automatically linked to the specified identity provider.                                         |
+| scim.identity.provider.alias  | The alias of the identity provider to link users to. Required when `scim.link.idp` is `true`. This should match the alias of an existing identity provider in the realm.                                        |
+| scim.email.as.username        | Forces server to use email as username instead of actual username. When this setting is enabled username will be unaffected by any update operations.                                                            |
+
 ### Configuration on Organization level
 
-Configuration on organization level is done by defining organization attributes in the Keycloak server.
-The following organization attributes are available:
+| SCIM_LINK_IDP                              | Enables support for linking organization identity provider with user. When enabled, users are automatically linked to organization IdPs based on email domain matching with `kc.org.domain` attribute.             |
+| SCIM_IDENTITY_PROVIDER_ALIAS               | (Optional) The alias of a specific identity provider to link users to. When not set, the system will use domain matching via `kc.org.domain` attribute on organization IdPs.                                      |
+| SCIM_EMAIL_AS_USERNAME                     | Forces server to use email as username instead of actual username. When this setting is enabled username will be unaffected by any update operations.                                                              |
 
 | Setting                                    | Value                                                                                                                                                                                                                               |
 |--------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -215,14 +225,60 @@ Next, configure your Entra ID Identity Provider in Keycloak to use the oid claim
 This mapper tells Keycloak to use the Entra oid claim as the Broker ID, ensuring that the login user is matched correctly with the SCIM-provisioned user.
 
 **Step 4: Enable Identity Provider Linking in SCIM**
+.
 
-Finally, instruct your SCIM server to automatically link users to the configured Identity Provider during provisioning:
+**For Organization-level SCIM:**
 
-Add the following attribute to your SCIM configuration (only supported by organization server currently): 
+Add the following attributes to your organization configuration:
 
     SCIM_LINK_IDP=true
 
+Organizations use **email domain matching** - the system automatically finds the organization's identity provider by matching the user's email domain with the `kc.org.domain` attribute configured on the IdP.
+
+**For Realm-level SCIM:**
+
+Add the following attributes to your realm configuration:
+
+    scim.link.idp=true
+    scim.identity.provider.alias=your-idp-alias
+
+Realm-level linking requires you to specify the **exact identity provider alias** to link users to, since realm IdPs don't have the `kc.org.domain` attribute by default.
+
+In both cases, when a user is provisioned via SCIM with an `externalId`, a corresponding Identity Provider link is automatically created using the oid claim
 This will ensure that when a user is provisioned via SCIM, a corresponding Identity Provider link is also created automatically based on the externalId / oid.
+
+## Idempotent User Creation
+
+The SCIM server supports **idempotent user creation**, allowing it to gracefully handle cases where users already exist in Keycloak before SCIM provisioning occurs.
+
+### Common Scenarios
+
+This is particularly useful in the following scenarios:
+
+1. **Identity Provider First Login**: A user logs in through an external Identity Provider (e.g., Azure Entra ID) before SCIM provisioning runs. Keycloak's "first broker login" flow automatically creates the user account.
+2. **Manual User Creation**: An administrator creates a user manually via the Keycloak Admin UI before SCIM provisioning is configured.
+3. **Partial Migration**: Users exist from a previous system or migration, and you want SCIM to adopt them without errors.
+
+### How It Works
+
+When SCIM attempts to create a user that already exists:
+
+1. **Username Match**: The server checks if a user with the same `userName` already exists.
+2. **Email Verification**: If the user exists, the server verifies that the email address matches the one provided in the SCIM request.
+3. **Adoption Success**:
+   - If the email matches, the server adds the `scim-managed` role to the existing user (if not already present)
+   - For organization-level SCIM, the user is also added to the organization (if not already a member)
+   - The server returns HTTP 201 (Created) with the existing user's data, treating the operation as successful
+4. **Conflict Handling**: If the email does not match, the server throws an error to prevent data inconsistency
+
+### Benefits
+
+- **No Duplicate Errors**: SCIM provisioning won't fail when users already exist with matching data
+- **Seamless Integration**: Works alongside Identity Provider first broker login flows
+- **Safe Adoption**: Email verification prevents accidentally linking wrong users
+- **Automatic Role Assignment**: Ensures adopted users get the `scim-managed` role for consistent management
+
+This behavior applies to both **realm-level** and **organization-level** SCIM APIs, ensuring consistent user adoption across all deployment scenarios.
 
 ## SCIM-Managed Users
 

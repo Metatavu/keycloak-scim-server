@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
-import static fi.metatavu.keycloak.scim.server.test.TestConsts.TEST_IDP;
 
 /**
  * Keycloak test utils

@@ -3,6 +3,7 @@ package fi.metatavu.keycloak.scim.server.organization;
 import fi.metatavu.keycloak.scim.server.AbstractScimServer;
 import fi.metatavu.keycloak.scim.server.config.ConfigurationError;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
+import fi.metatavu.keycloak.scim.server.jacoco.ExcludeFromJacocoGeneratedReport;
 import fi.metatavu.keycloak.scim.server.metadata.UserAttributes;
 import fi.metatavu.keycloak.scim.server.model.Group;
 import fi.metatavu.keycloak.scim.server.model.PatchRequest;
@@ -35,7 +36,7 @@ public class OrganizationScimServer extends AbstractScimServer<OrganizationScimC
     public Response createUser(OrganizationScimContext scimContext, User createRequest) {
         boolean emailAsUsername = scimContext.getConfig().getEmailAsUsername();
 
-        if (createRequest.getUserName().isBlank()) {
+        if (isBlank(createRequest.getUserName())) {
             logger.warn("Cannot create user: Missing userName");
             return Response.status(Response.Status.BAD_REQUEST).entity("Missing userName").build();
         }
@@ -65,8 +66,9 @@ public class OrganizationScimServer extends AbstractScimServer<OrganizationScimC
     public Response updateUser(OrganizationScimContext scimContext, String userId, fi.metatavu.keycloak.scim.server.model.User updateRequest) {
         boolean emailAsUsername = scimContext.getConfig().getEmailAsUsername();
         KeycloakSession session = scimContext.getSession();
+        String username = updateRequest.getUserName();
 
-        if (updateRequest.getUserName().isBlank()) {
+        if (isBlank(username)) {
             logger.warn("Missing userName");
             return Response.status(Response.Status.BAD_REQUEST).entity("Missing userName").build();
         }
@@ -182,36 +184,42 @@ public class OrganizationScimServer extends AbstractScimServer<OrganizationScimC
     }
 
     @Override
+    @ExcludeFromJacocoGeneratedReport
     public Response createGroup(OrganizationScimContext scimContext, Group createRequest) {
         // TODO: Organization Groups are not supported yet by the Keycloak
         return Response.status(Response.Status.NOT_IMPLEMENTED).build();
     }
 
     @Override
-    public Response listGroups(OrganizationScimContext scimContext, int startIndex, int count) {
+    @ExcludeFromJacocoGeneratedReport
+    public Response listGroups(OrganizationScimContext scimContext, ScimFilter filter, int startIndex, int count) {
         // TODO: Organization Groups are not supported yet by the Keycloak
         return Response.status(Response.Status.NOT_IMPLEMENTED).build();
     }
 
     @Override
+    @ExcludeFromJacocoGeneratedReport
     public Response findGroup(OrganizationScimContext scimContext, String id) {
         // TODO: Organization Groups are not supported yet by the Keycloak
         return Response.status(Response.Status.NOT_IMPLEMENTED).build();
     }
 
     @Override
+    @ExcludeFromJacocoGeneratedReport
     public Response updateGroup(OrganizationScimContext scimContext, String id, Group updateRequest) {
         // TODO: Organization Groups are not supported yet by the Keycloak
         return Response.status(Response.Status.NOT_IMPLEMENTED).build();
     }
 
     @Override
+    @ExcludeFromJacocoGeneratedReport
     public Response patchGroup(OrganizationScimContext scimContext, String groupId, PatchRequest patchRequest) {
         // TODO: Organization Groups are not supported yet by the Keycloak
         return Response.status(Response.Status.NOT_IMPLEMENTED).build();
     }
 
     @Override
+    @ExcludeFromJacocoGeneratedReport
     public Response deleteGroup(OrganizationScimContext scimContext, String id) {
         // TODO: Organization Groups are not supported yet by the Keycloak
         return Response.status(Response.Status.NOT_IMPLEMENTED).build();

@@ -2,7 +2,6 @@ package fi.metatavu.keycloak.scim.server;
 
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
 import jakarta.ws.rs.core.Response;
-import org.keycloak.models.KeycloakSession;
 
 /**
  * * SCIM server interface
@@ -90,11 +89,12 @@ public interface ScimServer <T extends ScimContext> {
      * Lists groups
      *
      * @param scimContext SCIM context
+     * @param scimFilter  SCIM filter
      * @param startIndex  start index
      * @param count       count
      * @return response
      */
-    Response listGroups(T scimContext, int startIndex, int count);
+    Response listGroups(T scimContext, ScimFilter scimFilter, int startIndex, int count);
 
     /**
      * Finds a group by ID

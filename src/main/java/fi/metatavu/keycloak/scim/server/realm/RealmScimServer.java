@@ -11,11 +11,14 @@ import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriBuilder;
-import org.jboss.logging.Logger;
-import org.keycloak.models.*;
-
 import java.net.URI;
 import java.util.Objects;
+import org.jboss.logging.Logger;
+import org.keycloak.models.GroupModel;
+import org.keycloak.models.KeycloakSession;
+import org.keycloak.models.RealmModel;
+import org.keycloak.models.RoleModel;
+import org.keycloak.models.UserModel;
 
 /**
  * SCIM server implementation for realms
@@ -32,7 +35,7 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
         RealmModel realm = scimContext.getRealm();
         KeycloakSession session = scimContext.getSession();
 
-        if (createRequest.getUserName().isBlank()) {
+        if (isBlank(createRequest.getUserName())) {
             logger.warn("Cannot create user: Missing userName");
             return Response.status(Response.Status.BAD_REQUEST).entity("Missing userName").build();
         }
@@ -63,7 +66,7 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
         boolean emailAsUsername = scimContext.getConfig().getEmailAsUsername();
         KeycloakSession session = scimContext.getSession();
 
-        if (updateRequest.getUserName().isBlank()) {
+        if (isBlank(updateRequest.getUserName())) {
             logger.warn("Missing userName");
             return Response.status(Response.Status.BAD_REQUEST).entity("Missing userName").build();
         }
@@ -182,6 +185,11 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
     public Response createGroup(RealmScimContext scimContext, fi.metatavu.keycloak.scim.server.model.Group createRequest) {
         // TODO: conflict check
 
+        if (isBlank(createRequest.getDisplayName())) {
+            logger.warn("Cannot create group: Missing displayName");
+            return Response.status(Response.Status.BAD_REQUEST).entity("Missing displayName").build();
+        }
+
         fi.metatavu.keycloak.scim.server.model.Group created = groupsController.createGroup(scimContext, createRequest);
         URI location = UriBuilder.fromPath("v2/Groups/{id}").build(created.getId());
 
@@ -192,8 +200,8 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
     }
 
     @Override
-    public Response listGroups(RealmScimContext scimContext, int startIndex, int count) {
-        fi.metatavu.keycloak.scim.server.model.GroupsList groupList = groupsController.listGroups(scimContext, startIndex, count);
+    public Response listGroups(RealmScimContext scimContext, ScimFilter filter, int startIndex, int count) {
+        fi.metatavu.keycloak.scim.server.model.GroupsList groupList = groupsController.listGroups(scimContext, filter, startIndex, count);
         return Response.ok(groupList).build();
     }
 

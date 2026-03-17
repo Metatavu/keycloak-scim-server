@@ -13,6 +13,14 @@ import java.util.Optional;
  */
 public class RealmScimConfig implements ScimConfig {
 
+    public static final String SCIM_EXTERNAL_JWKS_URI = "scim.external.jwks.uri";
+    public static final String SCIM_EXTERNAL_AUDIENCE = "scim.external.audience";
+    public static final String SCIM_EXTERNAL_SHARED_SECRET = "scim.external.shared.secret";
+    public static final String SCIM_AUTHENTICATION_MODE = "scim.authentication.mode";
+    public static final String SCIM_EXTERNAL_ISSUER = "scim.external.issuer";
+    public static final String SCIM_LINK_IDP = "scim.link.idp";
+    public static final String SCIM_IDENTITY_PROVIDER_ALIAS = "scim.identity.provider.alias";
+    public static final String SCIM_EMAIL_AS_USERNAME = "scim.email.as.username";
     private final Config config;
     private final RealmModel realm;
 
@@ -33,7 +41,9 @@ public class RealmScimConfig implements ScimConfig {
             throw new ConfigurationError("SCIM_AUTHENTICATION_MODE is not set");
         }
 
-        if (mode == AuthenticationMode.EXTERNAL) {
+        boolean isSharedSecretPresent = getSharedSecret() != null && !getSharedSecret().isBlank();
+
+        if (mode == AuthenticationMode.EXTERNAL && !isSharedSecretPresent) {
             if (getExternalIssuer() == null) {
                 throw new ConfigurationError("SCIM_EXTERNAL_ISSUER is not set");
             }
@@ -46,6 +56,10 @@ public class RealmScimConfig implements ScimConfig {
                 throw new ConfigurationError("SCIM_EXTERNAL_AUDIENCE is not set");
             }
         }
+
+        if (getLinkIdp() && getIdentityProviderAlias() == null) {
+            throw new ConfigurationError("SCIM_IDENTITY_PROVIDER_ALIAS must be set when SCIM_LINK_IDP is true");
+        }
     }
 
     /**
@@ -53,10 +67,10 @@ public class RealmScimConfig implements ScimConfig {
      */
     @Override
     public AuthenticationMode getAuthenticationMode() {
-        return readRealmAttribute("scim.authentication.mode")
+        return readRealmAttribute(SCIM_AUTHENTICATION_MODE)
                 .map(String::toUpperCase)
                 .map(AuthenticationMode::valueOf)
-                .or(() -> config.getOptionalValue("scim.authentication.mode", String.class)
+                .or(() -> config.getOptionalValue(SCIM_AUTHENTICATION_MODE, String.class)
                         .map(String::toUpperCase)
                         .map(AuthenticationMode::valueOf))
                 .orElse(null);
@@ -67,8 +81,8 @@ public class RealmScimConfig implements ScimConfig {
      */
     @Override
     public String getExternalIssuer() {
-        return readRealmAttribute("scim.external.issuer")
-                .or(() -> config.getOptionalValue("scim.external.issuer", String.class))
+        return readRealmAttribute(SCIM_EXTERNAL_ISSUER)
+                .or(() -> config.getOptionalValue(SCIM_EXTERNAL_ISSUER, String.class))
                 .orElse(null);
     }
 
@@ -77,8 +91,8 @@ public class RealmScimConfig implements ScimConfig {
      */
     @Override
     public String getExternalJwksUri() {
-        return readRealmAttribute("scim.external.jwks.uri")
-                .or(() -> config.getOptionalValue("scim.external.jwks.uri", String.class))
+        return readRealmAttribute(SCIM_EXTERNAL_JWKS_URI)
+                .or(() -> config.getOptionalValue(SCIM_EXTERNAL_JWKS_URI, String.class))
                 .orElse(null);
     }
 
@@ -87,9 +101,16 @@ public class RealmScimConfig implements ScimConfig {
      */
     @Override
     public String getExternalAudience() {
-        return readRealmAttribute("scim.external.audience")
-                .or(() -> config.getOptionalValue("scim.external.audience", String.class))
+        return readRealmAttribute(SCIM_EXTERNAL_AUDIENCE)
+                .or(() -> config.getOptionalValue(SCIM_EXTERNAL_AUDIENCE, String.class))
                 .orElse(null);
+    }
+
+    @Override
+    public String getSharedSecret() {
+        return readRealmAttribute(SCIM_EXTERNAL_SHARED_SECRET)
+            .or(() -> config.getOptionalValue(SCIM_EXTERNAL_SHARED_SECRET, String.class))
+            .orElse(null);
     }
 
     /**
@@ -97,7 +118,20 @@ public class RealmScimConfig implements ScimConfig {
      */
     @Override
     public boolean getLinkIdp() {
-        return false;
+        return readRealmAttribute(SCIM_LINK_IDP)
+            .map(Boolean::parseBoolean)
+            .or(() -> config.getOptionalValue(SCIM_LINK_IDP, Boolean.class))
+            .orElse(false);
+    }
+
+    /**
+     * Returns the configured identity provider alias for user linking.
+     */
+    @Override
+    public String getIdentityProviderAlias() {
+        return readRealmAttribute(SCIM_IDENTITY_PROVIDER_ALIAS)
+            .or(() -> config.getOptionalValue(SCIM_IDENTITY_PROVIDER_ALIAS, String.class))
+            .orElse(null);
     }
 
     /**
@@ -105,7 +139,10 @@ public class RealmScimConfig implements ScimConfig {
      */
     @Override
     public boolean getEmailAsUsername() {
-        return false;
+        return readRealmAttribute(SCIM_EMAIL_AS_USERNAME)
+            .map(Boolean::parseBoolean)
+            .or(() -> config.getOptionalValue(SCIM_EMAIL_AS_USERNAME, Boolean.class))
+            .orElse(false);
     }
 
     /**

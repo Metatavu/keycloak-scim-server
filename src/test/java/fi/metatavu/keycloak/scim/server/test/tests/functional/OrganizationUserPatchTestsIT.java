@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class OrganizationUserPatchTestsIT extends AbstractOrganizationScimTest {
 
     @Test
-    void testActivateAndDeactivateUser() throws ApiException {
+    void testActivateAndDeactivateUserBoolean() throws ApiException {
         ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
 
         // Create an active user
@@ -69,6 +69,64 @@ public class OrganizationUserPatchTestsIT extends AbstractOrganizationScimTest {
                     .path("active")
                     .value(Boolean.TRUE)
             )));
+
+        assertNotNull(activated);
+        assertNotNull(activated.getActive());
+        assertTrue(activated.getActive());
+
+        UserRepresentation activatedRealmUser = findRealmUser(TestConsts.ORGANIZATIONS_REALM, created.getId());
+        assertNotNull(activatedRealmUser);
+        assertTrue(activatedRealmUser.isEnabled());
+
+        // Cleanup
+        deleteRealmUser(TestConsts.ORGANIZATIONS_REALM, created.getId());
+    }
+
+    @Test
+    void testActivateAndDeactivateUserString() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
+
+        // Create an active user
+        User user = new User();
+        user.setUserName("patch-activation-user");
+        user.setActive(true);
+        user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
+
+        User created = scimClient.createUser(user);
+        assertNotNull(created);
+        assertNotNull(created.getActive());
+        assertTrue(created.getActive());
+
+        UserRepresentation createdRealmUser = findRealmUser(TestConsts.ORGANIZATIONS_REALM, created.getId());
+        assertNotNull(createdRealmUser);
+        assertTrue(createdRealmUser.isEnabled());
+
+        // Deactivate user
+        User deactivated = scimClient.patchUser(created.getId(), new PatchRequest()
+                .schemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"))
+                .operations(List.of(
+                        new PatchRequestOperationsInner()
+                                .op("Replace")
+                                .path("active")
+                                .value("false")
+                )));
+
+        assertNotNull(deactivated);
+        assertNotNull(deactivated.getActive());
+        assertFalse(deactivated.getActive());
+
+        UserRepresentation deactivatedRealmUser = findRealmUser(TestConsts.ORGANIZATIONS_REALM, created.getId());
+        assertNotNull(deactivatedRealmUser);
+        assertFalse(deactivatedRealmUser.isEnabled());
+
+        // Activate user
+        User activated = scimClient.patchUser(created.getId(), new PatchRequest()
+                .schemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"))
+                .operations(List.of(new PatchRequestOperationsInner()
+                        .op("Replace")
+                        .path("active")
+                        .value("true")
+                )));
 
         assertNotNull(activated);
         assertNotNull(activated.getActive());

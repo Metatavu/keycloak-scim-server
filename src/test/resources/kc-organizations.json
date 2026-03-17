@@ -2095,7 +2095,7 @@
     "frontendUrl" : "",
     "acr.loa.map" : "{}"
   },
-  "keycloakVersion" : "26.1.2",
+  "keycloakVersion" : "26.3.5",
   "userManagedAccessAllowed" : false,
   "organizationsEnabled" : true,
   "organizations" : [ {
@@ -2175,6 +2175,48 @@
     },
     "domains" : [ {
       "name" : "org2.example.com",
+      "verified" : false
+    } ]
+  }, {
+    "id" : "f849d141-ebb7-4078-b4aa-52094f043123",
+    "name" : "org3",
+    "alias" : "org3",
+    "enabled" : true,
+    "description" : "Hash value is toto",
+    "attributes" : {
+      "SCIM_EXTERNAL_SHARED_SECRET" : [ "$argon2i$v=19$m=16,t=2,p=1$UUppcFAwQUp0SkQwVGZudQ$A+tVgBxuWUdgcBh4EC0TLQ" ],
+      "SCIM_AUTHENTICATION_MODE" : [ "EXTERNAL" ]
+    },
+    "domains" : [ {
+      "name" : "org3.example.com",
+      "verified" : false
+    } ]
+  }, {
+    "id" : "f849d141-ebb7-4078-b4aa-52094f043124",
+    "name" : "org4",
+    "alias" : "org4",
+    "enabled" : true,
+    "description" : "Hash value is titi",
+    "attributes" : {
+      "SCIM_EXTERNAL_SHARED_SECRET" : [ "$argon2d$v=19$m=16,t=2,p=1$UUppcFAwQUp0SkQwVGZudQ$uVQQUsvzzYJT64DyqEmndw" ],
+      "SCIM_AUTHENTICATION_MODE" : [ "EXTERNAL" ]
+    },
+    "domains" : [ {
+      "name" : "org4.example.com",
+      "verified" : false
+    } ]
+  }, {
+    "id" : "f849d141-ebb7-4078-b4aa-52094f043125",
+    "name" : "org5",
+    "alias" : "org5",
+    "enabled" : true,
+    "description" : "Hash value is password",
+    "attributes" : {
+      "SCIM_EXTERNAL_SHARED_SECRET" : [ "$pbkdf2-sha512$i=10000$O484sW7giRw+nt5WVnp15w$jEUMVZ9adB+63ko/8Dr9oB1jWdndpVVQ65xRlT+tA1GTKcJ7BWlTjdaiILzZAhIPEtgTImKvbgnu8TS/ZrjKgA" ],
+      "SCIM_AUTHENTICATION_MODE" : [ "EXTERNAL" ]
+    },
+    "domains" : [ {
+      "name" : "org5.example.com",
       "verified" : false
     } ]
   } ],

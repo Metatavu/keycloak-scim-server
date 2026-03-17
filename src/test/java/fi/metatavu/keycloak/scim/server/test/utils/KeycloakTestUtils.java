@@ -1,11 +1,17 @@
 package fi.metatavu.keycloak.scim.server.test.utils;
 
 import dasniko.testcontainers.keycloak.KeycloakContainer;
+import fi.metatavu.keycloak.scim.server.test.TestConsts;
 import org.testcontainers.containers.Network;
 import org.testcontainers.utility.MountableFile;
 
 import java.io.File;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
+
 
 /**
  * Keycloak test utils
@@ -84,6 +90,8 @@ public class KeycloakTestUtils {
                 .withNetwork(network)
                 .withNetworkAliases("scim-keycloak")
                 .withEnv("SCIM_AUTHENTICATION_MODE", "KEYCLOAK")
+                .withEnv("SCIM_IDENTITY_PROVIDER_ALIAS", TestConsts.TEST_IDP)
+                .withEnv("SCIM_LINK_IDP", "true")
                 .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
                 .withRealmImportFile("kc-test.json")
                 .withEnv("JAVA_OPTS_APPEND", "-javaagent:/jacoco-agent/org.jacoco.agent-runtime.jar=destfile=/tmp/jacoco.exec")
@@ -103,6 +111,23 @@ public class KeycloakTestUtils {
                 .withEnv("SCIM_EXTERNAL_ISSUER", "*") // Just for testing purposes
                 .withEnv("SCIM_EXTERNAL_AUDIENCE", "account")
                 .withEnv("SCIM_EXTERNAL_JWKS_URI", "http://localhost:8080/realms/external/protocol/openid-connect/certs")
+                .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
+                .withRealmImportFiles("kc-test.json", "kc-external.json")
+                .withEnv("JAVA_OPTS_APPEND", "-javaagent:/jacoco-agent/org.jacoco.agent-runtime.jar=destfile=/tmp/jacoco.exec")
+                .withCopyFileToContainer(
+                        MountableFile.forHostPath(getJacocoAgentPath()),
+                        "/jacoco-agent/org.jacoco.agent-runtime.jar"
+                )
+                .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
+    }
+
+    @SuppressWarnings("resource")
+    public static KeycloakContainer createExternalAuthSharedSecretRealmKeycloakContainer(Network network) {
+        return new KeycloakContainer(KeycloakTestUtils.getKeycloakImage())
+                .withNetwork(network)
+                .withNetworkAliases("scim-keycloak")
+                .withEnv("SCIM_AUTHENTICATION_MODE", "EXTERNAL")
+                .withEnv("SCIM_EXTERNAL_SHARED_SECRET", "$argon2id$v=19$m=16,t=2,p=1$UUppcFAwQUp0SkQwVGZudQ$j5RwfEzt3Gvwpbqp0VDcJg") // tutu with argon2id
                 .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
                 .withRealmImportFiles("kc-test.json", "kc-external.json")
                 .withEnv("JAVA_OPTS_APPEND", "-javaagent:/jacoco-agent/org.jacoco.agent-runtime.jar=destfile=/tmp/jacoco.exec")

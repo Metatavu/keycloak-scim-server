@@ -49,11 +49,25 @@ public interface ScimConfig {
     String getExternalAudience();
 
     /**
+     * Gets the shared secret (if in EXTERNAL mode) using PHC String format
+     *
+     * @return shared secret
+     */
+    String getSharedSecret();
+
+    /**
      * Returns whether identity provider should be automatically linked
      *
      * @return true if identity provider should be automatically linked
      */
     boolean getLinkIdp();
+
+    /**
+     * Returns the identity provider alias to link users to
+     *
+     * @return identity provider alias or null if not configured
+     */
+    String getIdentityProviderAlias();
 
     /**
      * Returns whether email should be used as username instead of username

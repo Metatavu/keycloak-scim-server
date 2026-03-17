@@ -14,7 +14,7 @@ jobs:
     environment: master
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
     steps:
       - name: Resolve docker image name
@@ -43,7 +43,9 @@ jobs:
           settings-path: ${{ github.workspace }}
       - name: Release version
         id: release_version
-        run: ./gradlew nextReleaseVersion
+        run: |
+          ./gradlew nextReleaseVersion
+          echo "VERSION=$(grep '^version=' gradle.properties | cut -d'=' -f2)" >> $GITHUB_OUTPUT
       - name: Build extension
         run: ./gradlew clean build -x test
         env:
@@ -54,6 +56,15 @@ jobs:
         env:
           USERNAME: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create GitHub Release
+        run: |
+          JAR_FILE=$(find build/libs -name "*.jar" ! -name "*-plain.jar" | head -n 1)
+          gh release create "v${{ steps.release_version.outputs.VERSION }}" \
+            --title "v${{ steps.release_version.outputs.VERSION }}" \
+            --generate-notes \
+            "$JAR_FILE#keycloak-scim-server-${{ steps.release_version.outputs.VERSION }}.jar"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:

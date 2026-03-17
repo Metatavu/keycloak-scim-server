@@ -22,7 +22,13 @@ import jakarta.ws.rs.NotFoundException;
 import org.jboss.logging.Logger;
 import org.keycloak.events.admin.OperationType;
 import org.keycloak.events.admin.ResourceType;
-import org.keycloak.models.*;
+import org.keycloak.models.FederatedIdentityModel;
+import org.keycloak.models.IdentityProviderModel;
+import org.keycloak.models.IdentityProviderStorageProvider;
+import org.keycloak.models.KeycloakSession;
+import org.keycloak.models.RealmModel;
+import org.keycloak.models.RoleModel;
+import org.keycloak.models.UserModel;
 import org.keycloak.models.utils.ModelToRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 
@@ -98,6 +104,14 @@ public class UsersController extends AbstractController {
             userAttributes,
             user
         );
+
+        if (scimContext.getConfig().getLinkIdp()) {
+            String scimUsername = createdUser.getUserName();
+            String externalId = getExternalId(createdUser);
+            String idpAlias = scimContext.getConfig().getIdentityProviderAlias();
+            linkUserIdp(session, realm, user, scimUsername, externalId, idpAlias);
+        }
+
 
         dispatchUserCreateEvent(
             scimContext,
@@ -250,9 +264,20 @@ public class UsersController extends AbstractController {
             });
         }
 
+        final User updatedUser = translateUser(scimContext, userAttributes, existing);
+
+        if (scimContext.getConfig().getLinkIdp()) {
+            KeycloakSession session = scimContext.getSession();
+            RealmModel realm = scimContext.getRealm();
+            String scimUsername = updatedUser.getUserName();
+            String externalId = getExternalId(updatedUser);
+            String idpAlias = scimContext.getConfig().getIdentityProviderAlias();
+            linkUserIdp(session, realm, existing, scimUsername, externalId, idpAlias);
+        }
+
         dispatchUserUpdateEvent(scimContext, existing);
 
-        return translateUser(scimContext, userAttributes, existing);
+        return updatedUser;
     }
 
     /**
@@ -311,7 +336,19 @@ public class UsersController extends AbstractController {
 
         dispatchUserUpdateEvent(scimContext, existing);
 
-        return translateUser(scimContext, userAttributes, existing);
+        final User patchedUser = translateUser(scimContext, userAttributes, existing);
+
+        if (scimContext.getConfig().getLinkIdp()) {
+            KeycloakSession session = scimContext.getSession();
+            RealmModel realm = scimContext.getRealm();
+            String scimUsername = patchedUser.getUserName();
+            String externalId = getExternalId(patchedUser);
+            String idpAlias = scimContext.getConfig().getIdentityProviderAlias();
+            linkUserIdp(session, realm, existing, scimUsername, externalId, idpAlias);
+        }
+
+
+        return patchedUser;
     }
 
     /**
@@ -510,6 +547,69 @@ public class UsersController extends AbstractController {
         RealmModel realm = scimContext.getRealm();
         session.users().removeUser(realm, user);
         dispatchUserDeleteEvent(scimContext, user);
+    }
+
+    /**
+     * Gets the external ID from SCIM user
+     *
+     * @param scimUser SCIM user
+     * @return external ID or null if not set
+     */
+    private String getExternalId(User scimUser) {
+        if (scimUser.getAdditionalProperties() == null) {
+            return null;
+        }
+
+        Object externalIdObj = scimUser.getAdditionalProperty("externalId");
+        if (!(externalIdObj instanceof String externalId)) {
+            return null;
+        }
+
+        return externalId;
+    }
+
+    /**
+     * Links user to identity provider
+     *
+     * @param session        Keycloak session
+     * @param realm          Keycloak realm
+     * @param user           Keycloak user
+     * @param scimUserName   SCIM username
+     * @param scimExternalId SCIM user external ID
+     * @param idpAlias       Identity provider alias
+     */
+    private void linkUserIdp(
+            KeycloakSession session,
+            RealmModel realm,
+            UserModel user,
+            String scimUserName,
+            String scimExternalId,
+            String idpAlias
+    ) {
+
+        if (scimExternalId == null) {
+            logger.warn("User externalId is not set. Cannot link user to identity provider");
+            return;
+        }
+        IdentityProviderStorageProvider idpStorageProvider = session.getProvider(IdentityProviderStorageProvider.class);
+
+        IdentityProviderModel identityProvider = idpStorageProvider.getByIdOrAlias(idpAlias);
+        if (identityProvider == null) {
+            logger.warn("Identity provider not found: " + idpAlias + ". Cannot link user to identity provider");
+            return;
+        }
+
+        if (session.users().getFederatedIdentity(realm, user, identityProvider.getAlias()) == null) {
+            logger.info("Linking user to identity provider: " + identityProvider.getAlias());
+
+            FederatedIdentityModel identityModel = new FederatedIdentityModel(
+                    identityProvider.getAlias(),
+                    scimExternalId,
+                    scimUserName
+            );
+
+            session.users().addFederatedIdentity(realm, user, identityModel);
+        }
     }
 
     /**

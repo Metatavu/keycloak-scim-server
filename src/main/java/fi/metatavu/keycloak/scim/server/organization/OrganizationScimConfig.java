@@ -93,6 +93,12 @@ public class OrganizationScimConfig implements ScimConfig {
         return "true".equalsIgnoreCase(getAttribute(SCIM_LINK_IDP));
     }
 
+    // Organization SCIM configuration does not support identity provider alias, so we return empty string
+    @Override
+    public String getIdentityProviderAlias() {
+        return "";
+    }
+
     @Override
     public boolean getEmailAsUsername() {
         return "true".equalsIgnoreCase(getAttribute(SCIM_EMAIL_AS_USERNAME));

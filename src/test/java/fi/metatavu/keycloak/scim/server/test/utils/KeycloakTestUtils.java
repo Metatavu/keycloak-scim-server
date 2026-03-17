@@ -1,11 +1,17 @@
 package fi.metatavu.keycloak.scim.server.test.utils;
 
 import dasniko.testcontainers.keycloak.KeycloakContainer;
+import fi.metatavu.keycloak.scim.server.test.TestConsts;
 import org.testcontainers.containers.Network;
 import org.testcontainers.utility.MountableFile;
 
 import java.io.File;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
+
 
 /**
  * Keycloak test utils
@@ -84,6 +90,8 @@ public class KeycloakTestUtils {
                 .withNetwork(network)
                 .withNetworkAliases("scim-keycloak")
                 .withEnv("SCIM_AUTHENTICATION_MODE", "KEYCLOAK")
+                .withEnv("SCIM_IDENTITY_PROVIDER_ALIAS", TestConsts.TEST_IDP)
+                .withEnv("SCIM_LINK_IDP", "true")
                 .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
                 .withRealmImportFile("kc-test.json")
                 .withEnv("JAVA_OPTS_APPEND", "-javaagent:/jacoco-agent/org.jacoco.agent-runtime.jar=destfile=/tmp/jacoco.exec")

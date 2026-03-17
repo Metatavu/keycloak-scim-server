@@ -9,6 +9,7 @@ public class TestConsts {
     public static final String TEST_REALM_ID = "085598a3-7114-49a0-ba50-c9879660e4ed";
     public static final String TEST_SCIM_CLIENT_ID = "scim-client";
     public static final String TEST_SCIM_CLIENT_SECRET = "uGKGvV4KxzwI5hJKmgaGF7uRcqHdCWjb";
+    public static final String TEST_IDP = "keycloak-oidc";
     public static final String EXTERNAL_REALM = "external";
     public static final String EXTERNAL_CLIENT_ID = "external";
     public static final String EXTERNAL_CLIENT_SECRET = "34FwMjsJdKPxcHjSkim289qsYTrzGIX4";

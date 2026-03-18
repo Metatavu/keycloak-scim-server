@@ -160,6 +160,21 @@ public abstract class AbstractOrganizationSeleniumScimTest extends AbstractOrgan
     }
 
     /**
+     * Waits for an input to have a specific value.
+     * <p>
+     * If the element is not visible within default duration, the method will throw an exception.
+     *
+     * @param driver web driver
+     * @param by element locator
+     * @param text text to type
+     */
+    protected void waitAndAssertInputValueIsVisible(WebDriver driver, By by, String text) {
+        WebDriverWait wait = new WebDriverWait(driver, DEFAULT_DURATION);
+        WebElement element = wait.until(ExpectedConditions.visibilityOfElementLocated(by));
+        assertEquals(text, element.getAttribute("value"));
+    }
+
+    /**
      * Returns a By locator for a data-testid attribute
      *
      * @param dataTestId data-testid value

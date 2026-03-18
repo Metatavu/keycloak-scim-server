@@ -9,14 +9,41 @@ This project provides a **SCIM 2.0-compliant extension** for [Keycloak](https://
 
 ## Prerequisites
 
-- **Keycloak**: This extension is developed for Keycloak **26.1.4**. It may work with other versions, but compatibility is not guaranteed.
+- **Keycloak**: This extension is developed for Keycloak **26.3.5**. It may work with other versions, but compatibility is not guaranteed.
 - **Java**: Java **21** is required to build the project.
 
 ## Installation
 
-### Option 1: Install from GitHub Packages (recommended)
+### Option 1: Include it directly from GitHub Release
+You can reference the JAR file from a GitHub Release directly in your init container or Dockerfile.
 
-Easiest way to use the extension is to download a JAR file from GitHub packages. 
+For example, using a Helm `values.yaml`:
+```yaml
+extraInitContainers: |
+  - name: download-scim-plugin
+    image: alpine:latest
+    command:
+      - sh
+      - -c
+      - >
+        apk add --no-cache curl &&
+        curl -L -o /extensions/keycloak-scim-server-<version>.jar https://github.com/Metatavu/keycloak-scim-server/releases/download/v<version>/keycloak-scim-server-<version>.jar
+    volumeMounts:
+      - name: extensions
+        mountPath: /extensions
+
+extraVolumeMounts: |
+  - name: extensions
+    mountPath: /opt/keycloak/providers
+
+extraVolumes: |
+  - name: extensions
+    emptyDir: {}
+```
+
+### Option 2: Install from GitHub Packages (recommended)
+
+Download the JAR file from GitHub packages. 
 
 1. Download the latest JAR from: [GitHub Packages](https://github.com/Metatavu/keycloak-scim-server/packages/2454996)
 2. Copy it to your Keycloak instance:
@@ -26,7 +53,7 @@ Easiest way to use the extension is to download a JAR file from GitHub packages.
 3. Restart Keycloak.
 
 
-### Option 2: Build from Source
+### Option 3: Build from Source
 
 1. Build the extension:
 ```bash
@@ -53,6 +80,8 @@ The following environment variables are available:
 | SCIM_EXTERNAL_JWKS_URI                     | Audience for the external authentication. This is used to validate the JWT token.                                                                                                                                          |
 | SCIM_EXTERNAL_SHARED_SECRET                | Shared secret value used for request authentication/validation.                                                                                                                                                            |
 | SCIM_EXTERNAL_SHARED_SECRET_HASH_ALGORITHM | PHC String Format representing hash algorithms and its parameters, used for request authentication/validation ([must be on of the following](https://www.keycloak.org/docs/26.1.5/server_admin/index.html#hashalgorithm)). |
+| SCIM_LINK_IDP                              | Enables support for linking realm identity provider with user.                                                                                                                                                             |
+| SCIM_IDENTITY_PROVIDER_ALIAS               | Alias of Identity Provider to be linked to the user.                                                                                                                                                                       |
 
 ### Configuration on Realm level
 
@@ -62,12 +91,14 @@ PUT `/admin/realms/{realm}`
 ```
 {
   "attributes": {
-    "scim.authentication.mode": "EXTERNAL|INTERNAL",
+    "scim.authentication.mode": "EXTERNAL|KEYCLOAK",
     "scim.external.issuer": "string",
     "scim.external.jwks.uri": "string",
     "scim.external.audience": "string",
     "scim.external.shared.secret": "string",
     "scim.external.shared.secret.hash.algorithm": "string"
+    "scim.link.idp": "true|false",
+    "scim.identity.provider.alias": "string"
   }
 }
 ```
@@ -218,9 +249,13 @@ This mapper tells Keycloak to use the Entra oid claim as the Broker ID, ensuring
 
 Finally, instruct your SCIM server to automatically link users to the configured Identity Provider during provisioning:
 
-Add the following attribute to your SCIM configuration (only supported by organization server currently): 
+Add the following attribute to your SCIM configuration: 
 
     SCIM_LINK_IDP=true
+
+In case you want to link user to a realm level identity provider, also add the following attribute:
+
+    SCIM_IDENTITY_PROVIDER_ALIAS=<your-idp-alias>
 
 This will ensure that when a user is provisioned via SCIM, a corresponding Identity Provider link is also created automatically based on the externalId / oid.
 

@@ -2,6 +2,7 @@ package fi.metatavu.keycloak.scim.server.test;
 
 import fi.metatavu.keycloak.scim.server.test.client.ApiClient;
 import fi.metatavu.keycloak.scim.server.test.client.ApiException;
+import fi.metatavu.keycloak.scim.server.test.client.api.GroupsApi;
 import fi.metatavu.keycloak.scim.server.test.client.api.MetadataApi;
 import fi.metatavu.keycloak.scim.server.test.client.api.UsersApi;
 import fi.metatavu.keycloak.scim.server.test.client.model.*;
@@ -97,6 +98,75 @@ public class ScimClient {
     }
 
     /**
+     * Lists groups
+     *
+     * @param filter filter
+     * @param startIndex start index
+     * @param count count
+     * @return groups list
+     * @throws ApiException thrown when API call fails
+     */
+    public GroupsList listGroups(String filter, Integer startIndex, Integer count) throws ApiException {
+        return getGroupsApi().listGroups(filter, startIndex, count);
+    }
+
+    /**
+     * Creates a group
+     *
+     * @param group group to create
+     * @return created group
+     * @throws ApiException thrown when API call fails
+     */
+    public Group createGroup(Group group) throws ApiException {
+        return getGroupsApi().createGroup(group);
+    }
+
+    /**
+     * Finds a group
+     *
+     * @param id group ID
+     * @return found group
+     * @throws ApiException thrown when API call fails
+     */
+    public Group findGroup(String id) throws ApiException {
+        return getGroupsApi().getGroup(id);
+    }
+
+    /**
+     * Updates a group
+     *
+     * @param id group ID
+     * @param group group to update
+     * @return updated group
+     * @throws ApiException thrown when API call fails
+     */
+    public Group updateGroup(String id, Group group) throws ApiException {
+        return getGroupsApi().updateGroup(id, group);
+    }
+
+    /**
+     * Patches a group
+     *
+     * @param id group ID
+     * @param patchRequest patch request
+     * @return patched group
+     * @throws ApiException thrown when API call fails
+     */
+    public Group patchGroup(String id, PatchRequest patchRequest) throws ApiException {
+        return getGroupsApi().patchGroup(id, patchRequest);
+    }
+
+    /**
+     * Deletes a group
+     *
+     * @param groupId group ID
+     * @throws ApiException thrown when API call fails
+     */
+    public void deleteGroup(String groupId) throws ApiException {
+        getGroupsApi().deleteGroup(groupId);
+    }
+
+    /**
      * Lists resource types
      *
      * @return resource types
@@ -150,6 +220,15 @@ public class ScimClient {
      */
     private UsersApi getUsersApi() {
         return new UsersApi(getApiClient());
+    }
+
+    /**
+     * Returns initialized groups API
+     *
+     * @return initialized groups API
+     */
+    private GroupsApi getGroupsApi() {
+        return new GroupsApi(getApiClient());
     }
 
     private MetadataApi getMetadataApi() {

@@ -50,6 +50,52 @@ public interface OrganizationScimConfig extends ScimConfig {
         }
     }
 
+    @Override
+    public AuthenticationMode getAuthenticationMode() {
+        String value = getAttribute(SCIM_AUTHENTICATION_MODE);
+        if (value == null || value.isEmpty()) {
+            return null;
+        }
+
+        return AuthenticationMode.valueOf(value);
+    }
+
+    @Override
+    public String getExternalIssuer() {
+        return getAttribute(SCIM_EXTERNAL_ISSUER);
+    }
+
+    @Override
+    public String getExternalJwksUri() {
+        return getAttribute(SCIM_EXTERNAL_JWKS_URI);
+    }
+
+    @Override
+    public String getExternalAudience() {
+        return getAttribute(SCIM_EXTERNAL_AUDIENCE);
+    }
+
+    @Override
+    public String getSharedSecret() {
+        return getAttribute(SCIM_EXTERNAL_SHARED_SECRET);
+    }
+
+    @Override
+    public boolean getLinkIdp() {
+        return "true".equalsIgnoreCase(getAttribute(SCIM_LINK_IDP));
+    }
+
+    // Organization SCIM configuration does not support identity provider alias, so we return empty string
+    @Override
+    public String getIdentityProviderAlias() {
+        return "";
+    }
+
+    @Override
+    public boolean getEmailAsUsername() {
+        return "true".equalsIgnoreCase(getAttribute(SCIM_EMAIL_AS_USERNAME));
+    }
+
     /**
      * Is the organization enabled for SCIM
      */

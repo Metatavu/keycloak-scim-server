@@ -6,6 +6,7 @@ import fi.metatavu.keycloak.scim.server.filter.ScimFilterParser;
 import fi.metatavu.keycloak.scim.server.model.Group;
 import fi.metatavu.keycloak.scim.server.organization.OrganizationScimContext;
 import fi.metatavu.keycloak.scim.server.organization.OrganizationScimServer;
+import fi.metatavu.keycloak.scim.server.organization.OrganizationScimServerProvider;
 import fi.metatavu.keycloak.scim.server.realm.RealmScimContext;
 import fi.metatavu.keycloak.scim.server.realm.RealmScimServer;
 import jakarta.ws.rs.*;
@@ -23,10 +24,10 @@ public class ScimResources {
     private final RealmScimServer realmScimServer;
     private final OrganizationScimServer organizationScimServer;
 
-    ScimResources() {
+    ScimResources(KeycloakSession session, String organizationType) {
         scimFilterParser = new ScimFilterParser();
         realmScimServer = new RealmScimServer();
-        organizationScimServer = new OrganizationScimServer();
+        organizationScimServer = session.getProvider(OrganizationScimServerProvider.class, organizationType).getScimServer(session);
     }
 
     // Realm Server endpoints

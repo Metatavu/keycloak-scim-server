@@ -4,12 +4,11 @@ import fi.metatavu.keycloak.scim.server.config.ConfigurationError;
 import fi.metatavu.keycloak.scim.server.config.ScimConfig;
 import java.util.List;
 import java.util.Map;
-import org.keycloak.models.OrganizationModel;
 
 /**
  * SCIM configuration for organizations
  */
-public class OrganizationScimConfig implements ScimConfig {
+public interface OrganizationScimConfig extends ScimConfig {
 
     public static final String SCIM_EXTERNAL_SHARED_SECRET = "SCIM_EXTERNAL_SHARED_SECRET";
     public static final String SCIM_EXTERNAL_JWKS_URI = "SCIM_EXTERNAL_JWKS_URI";
@@ -19,14 +18,7 @@ public class OrganizationScimConfig implements ScimConfig {
     public static final String SCIM_AUTHENTICATION_MODE = "SCIM_AUTHENTICATION_MODE";
     public static final String SCIM_EMAIL_AS_USERNAME = "SCIM_EMAIL_AS_USERNAME";
 
-    private final OrganizationModel organization;
-
-    public OrganizationScimConfig(OrganizationModel organization) {
-        this.organization = organization;
-    }
-
-    @Override
-    public void validateConfig() throws ConfigurationError {
+    default void validateConfig() throws ConfigurationError {
         AuthenticationMode mode = getAuthenticationMode();
         if (mode == null) {
             throw new ConfigurationError(SCIM_AUTHENTICATION_MODE + " is not set");
@@ -105,23 +97,8 @@ public class OrganizationScimConfig implements ScimConfig {
     }
 
     /**
-     * Gets the organization attribute
-     *
-     * @return organization attribute value
+     * Is the organization enabled for SCIM
      */
-    private String getAttribute(String attributeName) {
-        Map<String, List<String>> attributes = organization.getAttributes();
-        if (attributes == null) {
-            return null;
-        }
-
-        List<String> values = attributes.get(attributeName);
-        if (values == null || values.isEmpty()) {
-            return null;
-        }
-
-        return values.getFirst();
-    }
-
+    public boolean isEnabled();
 
 }

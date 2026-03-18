@@ -14,9 +14,36 @@ This project provides a **SCIM 2.0-compliant extension** for [Keycloak](https://
 
 ## Installation
 
-### Option 1: Install from GitHub Packages (recommended)
+### Option 1: Include it directly from GitHub Release
+You can reference the JAR file from a GitHub Release directly in your init container or Dockerfile.
 
-Easiest way to use the extension is to download a JAR file from GitHub packages. 
+For example, using a Helm `values.yaml`:
+```yaml
+extraInitContainers: |
+  - name: download-scim-plugin
+    image: alpine:latest
+    command:
+      - sh
+      - -c
+      - >
+        apk add --no-cache curl &&
+        curl -L -o /extensions/keycloak-scim-server-<version>.jar https://github.com/Metatavu/keycloak-scim-server/releases/download/v<version>/keycloak-scim-server-<version>.jar
+    volumeMounts:
+      - name: extensions
+        mountPath: /extensions
+
+extraVolumeMounts: |
+  - name: extensions
+    mountPath: /opt/keycloak/providers
+
+extraVolumes: |
+  - name: extensions
+    emptyDir: {}
+```
+
+### Option 2: Install from GitHub Packages (recommended)
+
+Download the JAR file from GitHub packages. 
 
 1. Download the latest JAR from: [GitHub Packages](https://github.com/Metatavu/keycloak-scim-server/packages/2454996)
 2. Copy it to your Keycloak instance:
@@ -26,7 +53,7 @@ Easiest way to use the extension is to download a JAR file from GitHub packages.
 3. Restart Keycloak.
 
 
-### Option 2: Build from Source
+### Option 3: Build from Source
 
 1. Build the extension:
 ```bash

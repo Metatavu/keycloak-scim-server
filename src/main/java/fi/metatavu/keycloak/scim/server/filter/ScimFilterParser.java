@@ -7,34 +7,39 @@ import java.util.regex.*;
  */
 public class ScimFilterParser {
 
+    private static final Pattern VALUE_PATH_PATTERN = Pattern.compile(
+        "(\\w+(\\.\\w+)*)\\[(.+)]",
+        Pattern.CASE_INSENSITIVE
+    );
+
     private static final Pattern EQ_PATTERN = Pattern.compile(
-            "(\\w+(\\.\\w+)*)\\s+eq\\s+(\"[^\"]+\"|true|false|\\d+)",
-            Pattern.CASE_INSENSITIVE
+        "(\\w+(\\.\\w+)*)\\s+eq\\s+(\"[^\"]+\"|true|false|\\d+)",
+        Pattern.CASE_INSENSITIVE
     );
 
     private static final Pattern CO_PATTERN = Pattern.compile(
-            "(\\w+(\\.\\w+)*)\\s+co\\s+(\"[^\"]+\")",
-            Pattern.CASE_INSENSITIVE
+        "(\\w+(\\.\\w+)*)\\s+co\\s+(\"[^\"]+\")",
+        Pattern.CASE_INSENSITIVE
     );
 
     private static final Pattern SW_PATTERN = Pattern.compile(
-            "(\\w+(\\.\\w+)*)\\s+sw\\s+(\"[^\"]+\")",
-            Pattern.CASE_INSENSITIVE
+        "(\\w+(\\.\\w+)*)\\s+sw\\s+(\"[^\"]+\")",
+        Pattern.CASE_INSENSITIVE
     );
 
     private static final Pattern EW_PATTERN = Pattern.compile(
-            "(\\w+(\\.\\w+)*)\\s+ew\\s+(\"[^\"]+\")",
-            Pattern.CASE_INSENSITIVE
+        "(\\w+(\\.\\w+)*)\\s+ew\\s+(\"[^\"]+\")",
+        Pattern.CASE_INSENSITIVE
     );
 
     private static final Pattern PR_PATTERN = Pattern.compile(
-            "(\\w+(\\.\\w+)*)\\s+pr",
-            Pattern.CASE_INSENSITIVE
+        "(\\w+(\\.\\w+)*)\\s+pr",
+        Pattern.CASE_INSENSITIVE
     );
 
     private static final Pattern LOGICAL_PATTERN = Pattern.compile(
-            "(.+)\\s+(and|or)\\s+(.+)",
-            Pattern.CASE_INSENSITIVE
+        "(.+)\\s+(and|or)\\s+(.+)",
+        Pattern.CASE_INSENSITIVE
     );
 
     /**
@@ -46,15 +51,22 @@ public class ScimFilterParser {
     public ScimFilter parse(String filter) {
         filter = filter.trim();
 
+        Matcher valuePath = VALUE_PATH_PATTERN.matcher(filter);
+        if (valuePath.matches()) {
+            String attrPath = valuePath.group(1).trim();
+            String innerFilter = valuePath.group(3).trim();
+            return new ValuePathFilter(attrPath, parse(innerFilter));
+        }
+
         Matcher logical = LOGICAL_PATTERN.matcher(filter);
         if (logical.matches()) {
             ScimFilter left = parse(logical.group(1).trim());
             ScimFilter right = parse(logical.group(3).trim());
             String op = logical.group(2).toLowerCase();
             return new LogicalFilter(
-                    op.equals("and") ? ScimFilter.Operator.AND : ScimFilter.Operator.OR,
-                    left,
-                    right
+                op.equals("and") ? ScimFilter.Operator.AND : ScimFilter.Operator.OR,
+                left,
+                right
             );
         }
 

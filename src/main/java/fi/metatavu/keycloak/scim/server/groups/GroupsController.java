@@ -109,11 +109,14 @@ public class GroupsController extends AbstractController {
 
         // For now only support to filter on display name
         List<GroupModel> filteredGroups;
-        if(scimFilter instanceof ComparisonFilter(
-                String attribute, ScimFilter.Operator operator, String value
-        ) && operator == ScimFilter.Operator.EQ && attribute.equals(GroupAttribute.DISPLAY_NAME.getScimPath())){
-            filteredGroups = session.groups().searchForGroupByNameStream(realm, value, true, startIndex, count).toList();
-        }else{
+        if (scimFilter instanceof ComparisonFilter comparisonFilter
+                && comparisonFilter.getOperator() == ScimFilter.Operator.EQ
+                && comparisonFilter.getAttr().equals(GroupAttribute.DISPLAY_NAME.getScimPath())) {
+
+            filteredGroups = session.groups()
+                .searchForGroupByNameStream(realm, comparisonFilter.getValue(), true, startIndex, count)
+                .toList();
+        } else {
             filteredGroups = session.groups().getGroupsStream(realm).toList();
         }
 

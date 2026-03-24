@@ -276,7 +276,8 @@ public class MetadataController extends AbstractController {
                 SchemaAttribute.UniquenessEnum.NONE,
                 UserModel::isEnabled,
                 UserModel::setEnabled
-            )
+            ),
+            new EmailsUserAttribute()
         );
 
         List<String> builtInAttributeNames = List.of(

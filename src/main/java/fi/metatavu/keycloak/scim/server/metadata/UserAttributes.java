@@ -32,6 +32,13 @@ public class UserAttributes {
         return attributeMap.get(scimPath);
     }
 
+    public UserAttribute<?> findByScimPathForFilter(String scimPath) {
+        if ("emails".equals(scimPath)) {
+            scimPath = "email";
+        }
+        return attributeMap.get(scimPath);
+    }
+
     /**
      * Lists user attributes by source
      *

@@ -1,9 +1,17 @@
 package fi.metatavu.keycloak.scim.server.test.tests.unit;
 
-import fi.metatavu.keycloak.scim.server.filter.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import fi.metatavu.keycloak.scim.server.filter.ComparisonFilter;
+import fi.metatavu.keycloak.scim.server.filter.LogicalFilter;
+import fi.metatavu.keycloak.scim.server.filter.PresenceFilter;
+import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
+import fi.metatavu.keycloak.scim.server.filter.ScimFilterParser;
+import fi.metatavu.keycloak.scim.server.filter.UnsupportedFilter;
+import fi.metatavu.keycloak.scim.server.filter.ValuePathFilter;
 
 /**
  * Tests for {@link ScimFilterParser}
@@ -17,9 +25,20 @@ public class ScimFilterParserTest {
         ScimFilter result = parser.parse("userName eq \"alice@example.com\"");
         assertInstanceOf(ComparisonFilter.class, result);
         ComparisonFilter filter = (ComparisonFilter) result;
-        assertEquals("userName", filter.attribute());
-        assertEquals(ScimFilter.Operator.EQ, filter.operator());
-        assertEquals("alice@example.com", filter.value());
+        assertEquals("userName", filter.getAttr());
+        assertEquals(ScimFilter.Operator.EQ, filter.getOperator());
+        assertEquals("alice@example.com", filter.getValue());
+    }
+    @Test
+    public void testValuePathEqFilter() {
+        ScimFilter result = parser.parse("emails[value eq \"alice@example.com\"]");
+        assertInstanceOf(ValuePathFilter.class, result);
+        ValuePathFilter filter = (ValuePathFilter) result;
+        assertEquals("emails", filter.getAttrPath());
+        assertInstanceOf(ComparisonFilter.class, filter.getInnerFilter());
+        ComparisonFilter filter1 = (ComparisonFilter) filter.getInnerFilter();
+        assertEquals(ScimFilter.Operator.EQ, filter1.getOperator());
+        assertEquals("alice@example.com", filter1.getValue());
     }
 
     @Test
@@ -27,7 +46,7 @@ public class ScimFilterParserTest {
         ScimFilter result = parser.parse("userName pr");
         assertInstanceOf(PresenceFilter.class, result);
         PresenceFilter filter = (PresenceFilter) result;
-        assertEquals("userName", filter.attribute());
+        assertEquals("userName", filter.getAttr());
     }
 
     @Test
@@ -36,18 +55,18 @@ public class ScimFilterParserTest {
         assertInstanceOf(LogicalFilter.class, result);
 
         LogicalFilter logical = (LogicalFilter) result;
-        assertEquals(ScimFilter.Operator.AND, logical.operator());
+        assertEquals(ScimFilter.Operator.AND, logical.getOperator());
 
-        assertInstanceOf(ComparisonFilter.class, logical.left());
-        assertInstanceOf(ComparisonFilter.class, logical.right());
+        assertInstanceOf(ComparisonFilter.class, logical.getLeft());
+        assertInstanceOf(ComparisonFilter.class, logical.getRight());
 
-        ComparisonFilter left = (ComparisonFilter) logical.left();
-        assertEquals("userName", left.attribute());
-        assertEquals("bob@example.com", left.value());
+        ComparisonFilter left = (ComparisonFilter) logical.getLeft();
+        assertEquals("userName", left.getAttr());
+        assertEquals("bob@example.com", left.getValue());
 
-        ComparisonFilter right = (ComparisonFilter) logical.right();
-        assertEquals("active", right.attribute());
-        assertEquals("true", right.value());
+        ComparisonFilter right = (ComparisonFilter) logical.getRight();
+        assertEquals("active", right.getAttr());
+        assertEquals("true", right.getValue());
     }
 
     @Test
@@ -56,16 +75,16 @@ public class ScimFilterParserTest {
         assertInstanceOf(LogicalFilter.class, result);
 
         LogicalFilter logical = (LogicalFilter) result;
-        assertEquals(ScimFilter.Operator.OR, logical.operator());
+        assertEquals(ScimFilter.Operator.OR, logical.getOperator());
 
-        ComparisonFilter left = (ComparisonFilter) logical.left();
-        ComparisonFilter right = (ComparisonFilter) logical.right();
+        ComparisonFilter left = (ComparisonFilter) logical.getLeft();
+        ComparisonFilter right = (ComparisonFilter) logical.getRight();
 
-        assertEquals("active", left.attribute());
-        assertEquals("false", left.value());
+        assertEquals("active", left.getAttr());
+        assertEquals("false", left.getValue());
 
-        assertEquals("userName", right.attribute());
-        assertEquals("test@example.com", right.value());
+        assertEquals("userName", right.getAttr());
+        assertEquals("test@example.com", right.getValue());
     }
 
     @Test
@@ -73,8 +92,8 @@ public class ScimFilterParserTest {
         ScimFilter result = parser.parse("  userName   EQ  \"test\"  ");
         assertInstanceOf(ComparisonFilter.class, result);
         ComparisonFilter filter = (ComparisonFilter) result;
-        assertEquals("userName", filter.attribute());
-        assertEquals("test", filter.value());
+        assertEquals("userName", filter.getAttr());
+        assertEquals("test", filter.getValue());
     }
 
     @Test
@@ -82,9 +101,9 @@ public class ScimFilterParserTest {
         ScimFilter result = parser.parse("name.familyName co \"Stark\"");
         assertInstanceOf(ComparisonFilter.class, result);
         ComparisonFilter filter = (ComparisonFilter) result;
-        assertEquals("name.familyName", filter.attribute());
-        assertEquals(ScimFilter.Operator.CO, filter.operator());
-        assertEquals("Stark", filter.value());
+        assertEquals("name.familyName", filter.getAttr());
+        assertEquals(ScimFilter.Operator.CO, filter.getOperator());
+        assertEquals("Stark", filter.getValue());
     }
 
     @Test
@@ -92,9 +111,9 @@ public class ScimFilterParserTest {
         ScimFilter result = parser.parse("userName sw \"test\"");
         assertInstanceOf(ComparisonFilter.class, result);
         ComparisonFilter filter = (ComparisonFilter) result;
-        assertEquals("userName", filter.attribute());
-        assertEquals(ScimFilter.Operator.SW, filter.operator());
-        assertEquals("test", filter.value());
+        assertEquals("userName", filter.getAttr());
+        assertEquals(ScimFilter.Operator.SW, filter.getOperator());
+        assertEquals("test", filter.getValue());
     }
 
     @Test
@@ -102,9 +121,9 @@ public class ScimFilterParserTest {
         ScimFilter result = parser.parse("email ew \"@example.com\"");
         assertInstanceOf(ComparisonFilter.class, result);
         ComparisonFilter filter = (ComparisonFilter) result;
-        assertEquals("email", filter.attribute());
-        assertEquals(ScimFilter.Operator.EW, filter.operator());
-        assertEquals("@example.com", filter.value());
+        assertEquals("email", filter.getAttr());
+        assertEquals(ScimFilter.Operator.EW, filter.getOperator());
+        assertEquals("@example.com", filter.getValue());
     }
 
     @Test

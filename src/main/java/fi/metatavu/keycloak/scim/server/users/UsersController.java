@@ -6,8 +6,6 @@ import fi.metatavu.keycloak.scim.server.adminEvents.AdminEventController;
 import fi.metatavu.keycloak.scim.server.consts.Schemas;
 import fi.metatavu.keycloak.scim.server.consts.ScimRoles;
 import fi.metatavu.keycloak.scim.server.filter.ComparisonFilter;
-import fi.metatavu.keycloak.scim.server.filter.LogicalFilter;
-import fi.metatavu.keycloak.scim.server.filter.PresenceFilter;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
 import fi.metatavu.keycloak.scim.server.metadata.BooleanUserAttribute;
 import fi.metatavu.keycloak.scim.server.metadata.StringUserAttribute;
@@ -19,6 +17,7 @@ import fi.metatavu.keycloak.scim.server.patch.PatchOperation;
 import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
 import fi.metatavu.keycloak.scim.server.realm.RealmScimContext;
 import jakarta.ws.rs.NotFoundException;
+
 import org.jboss.logging.Logger;
 import org.keycloak.events.admin.OperationType;
 import org.keycloak.events.admin.ResourceType;
@@ -33,6 +32,8 @@ import org.keycloak.models.utils.ModelToRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 
 import java.util.*;
+
+import fi.metatavu.keycloak.scim.server.attribute.UserAttributeAccessor;
 
 /**
  * Users controller
@@ -172,13 +173,13 @@ public class UsersController extends AbstractController {
         Map<String, String> searchParams = new HashMap<>();
 
         if (scimFilter instanceof ComparisonFilter cmp) {
-            if (cmp.operator() == ScimFilter.Operator.EQ) {
-                UserAttribute<?> userAttribute = userAttributes.findByScimPath(cmp.attribute());
+            if (cmp.getOperator() == ScimFilter.Operator.EQ) {
+                UserAttribute<?> userAttribute = userAttributes.findByScimPathForFilter(cmp.getAttr());
                 if (userAttribute == null) {
-                    throw new UnsupportedUserPath("Unsupported attribute: " + cmp.attribute());
+                    throw new UnsupportedUserPath("Unsupported attribute: " + cmp.getAttr());
                 }
 
-                String value = cmp.value();
+                String value = cmp.getValue();
 
                 if (userAttribute.getSource() == UserAttribute.Source.USER_MODEL || userAttribute.getSource() == UserAttribute.Source.USER_PROFILE) {
                     searchParams.put(userAttribute.getSourceId(), value);
@@ -324,6 +325,13 @@ public class UsersController extends AbstractController {
                         case Boolean b when userAttribute instanceof BooleanUserAttribute:
                             ((BooleanUserAttribute) userAttribute).write(existing, b);
                             break;
+                        case List<?> list when userAttribute.getScimPath().equals("emails"):
+                            @SuppressWarnings("unchecked")
+                            UserAttribute<List<Map<String, Object>>> attr =
+                                (UserAttribute<List<Map<String, Object>>>) userAttribute;
+
+                            attr.write(existing, (List<Map<String, Object>>) list);
+                            break;
                         default:
                             logger.warn("Unsupported value type for patch operation: " + value.getClass() + " for SCIM path " + userAttribute.getScimPath());
                             break;
@@ -429,65 +437,7 @@ public class UsersController extends AbstractController {
             UserAttributes userAttributes,
             ScimFilter filter
     ) {
-        switch (filter) {
-            case null -> {
-                return true;
-            }
-            case ComparisonFilter cmp -> {
-                UserAttribute<?> userAttribute = userAttributes.findByScimPath(cmp.attribute());
-                if (userAttribute == null) {
-                    throw new UnsupportedUserPath("Unsupported attribute: " + cmp.attribute());
-                }
-
-                String value = cmp.value();
-                Object actual = userAttribute.read(user);
-                if (actual == null) return false;
-
-                String actualString;
-                if (actual instanceof String) {
-                    actualString = (String) actual;
-                } else if (actual instanceof Boolean) {
-                    actualString = Boolean.toString((Boolean) actual);
-                } else {
-                    throw new UnsupportedUserPath("Unsupported attribute type: " + actual.getClass());
-                }
-
-                return switch (cmp.operator()) {
-                    case EQ -> actualString.equalsIgnoreCase(value);
-                    case CO -> actualString.toLowerCase().contains(value.toLowerCase());
-                    case SW -> actualString.toLowerCase().startsWith(value.toLowerCase());
-                    case EW -> actualString.toLowerCase().endsWith(value.toLowerCase());
-                    default -> false;
-                };
-            }
-            case LogicalFilter logical -> {
-                boolean left = matchScimFilter(user, userAttributes, logical.left());
-                boolean right = matchScimFilter(user, userAttributes, logical.right());
-
-                return switch (logical.operator()) {
-                    case AND -> left && right;
-                    case OR -> left || right;
-                    default -> false;
-                };
-            }
-            case PresenceFilter presence -> {
-                UserAttribute<?> presenceAttribute = userAttributes.findByScimPath(presence.attribute());
-                if (presenceAttribute == null) {
-                    throw new UnsupportedUserPath("Unsupported attribute: " + presence.attribute());
-                }
-
-                Object value = presenceAttribute.read(user);
-                if (value instanceof Boolean) {
-                    return (Boolean) value;
-                }
-
-                return value != null;
-            }
-            default -> {
-            }
-        }
-
-        return false;
+        return filter == null || filter.matches(new UserAttributeAccessor(user, userAttributes));
     }
 
     /**

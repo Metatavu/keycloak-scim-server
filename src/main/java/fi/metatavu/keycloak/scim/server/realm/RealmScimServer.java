@@ -6,7 +6,9 @@ import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
 import fi.metatavu.keycloak.scim.server.groups.UnsupportedGroupPath;
 import fi.metatavu.keycloak.scim.server.metadata.UserAttributes;
 import fi.metatavu.keycloak.scim.server.model.User;
+import fi.metatavu.keycloak.scim.server.model.ErrorResponse;
 import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
+import fi.metatavu.keycloak.scim.server.util.ScimResponseUtil;
 import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
@@ -36,13 +38,14 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
         KeycloakSession session = scimContext.getSession();
 
         if (isBlank(createRequest.getUserName())) {
-            logger.warn("Cannot create user: Missing userName");
-            return Response.status(Response.Status.BAD_REQUEST).entity("Missing userName").build();
+            String message = "Cannot create user: Missing userName";
+            logger.warn(message);
+            return ScimResponseUtil.scimError(Response.Status.CONFLICT, message);
         }
 
         UserModel existing = session.users().getUserByUsername(realm, createRequest.getUserName());
         if (existing != null) {
-            return Response.status(Response.Status.CONFLICT).entity("User already exists").build();
+            return ScimResponseUtil.scimError(Response.Status.CONFLICT, "User already exists");
         }
 
         UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
@@ -67,13 +70,15 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
         KeycloakSession session = scimContext.getSession();
 
         if (isBlank(updateRequest.getUserName())) {
-            logger.warn("Missing userName");
-            return Response.status(Response.Status.BAD_REQUEST).entity("Missing userName").build();
+            String message = "Missing userName";
+            logger.warn(message);
+            return ScimResponseUtil.scimError(Response.Status.BAD_REQUEST, message);
         }
 
         if (emailAsUsername && !isValidEmail(updateRequest.getUserName())) {
-            logger.warn("Cannot update user: Invalid email format for userName");
-            return Response.status(Response.Status.BAD_REQUEST).entity("Invalid email format for userName").build();
+            String message = "Invalid email format for userName";
+            logger.warnf("Cannot update user: {}", message);
+            return ScimResponseUtil.scimError(Response.Status.BAD_REQUEST, message);
         }
 
         if (emailAsUsername && updateRequest.getEmails() != null) {
@@ -152,8 +157,9 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
         UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
         User user = usersController.findUser(scimContext, userAttributes, userId);
         if (user == null) {
-            logger.warn(String.format("User not found: %s", userId));
-            return Response.status(Response.Status.NOT_FOUND).build();
+            String message = String.format("User not found: %s", userId);
+            logger.warn(message);
+            return ScimResponseUtil.scimError(Response.Status.NOT_FOUND, message);
         }
 
         return Response.ok(user).build();
@@ -166,7 +172,8 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
 
         UserModel user = session.users().getUserById(realm, userId);
         if (user == null) {
-            logger.warn(String.format("User not found: %s", userId));
+            String message = String.format("User not found: %s", userId);
+            logger.warn(message);
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 

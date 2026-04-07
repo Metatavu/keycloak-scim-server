@@ -105,7 +105,24 @@ PUT `/admin/realms/{realm}`
 
 ### Configuration on Organization level
 
-Configuration on organization level is done by defining organization attributes in the Keycloak server.
+There are two ways to configure SCIM for organizations: via the **Keycloak Admin UI** (recommended) or via **organization attributes**.
+
+#### Option 1: Admin UI (User Federation)
+
+This extension registers an **"Organization SCIM"** User Federation provider. This allows you to configure SCIM settings per organization through the Keycloak admin console with a form-based GUI.
+
+1. Navigate to **User Federation** in the Keycloak admin console.
+2. Select **Organization SCIM** from the provider list.
+3. Fill in the **Organization ID** and the desired SCIM settings (authentication mode, issuer, JWKS URI, etc.).
+4. Click **Save**.
+
+The component ID is automatically set to match the organization ID, ensuring a one-to-one relationship. Each organization can have at most one SCIM configuration component.
+
+When a SCIM request arrives for an organization, the server checks for a User Federation component first. If one exists and is enabled, it is used. If no component is found or it is disabled, the server falls back to organization attributes (Option 2).
+
+#### Option 2: Organization Attributes
+
+Configuration via organization attributes is done by defining attributes directly on the organization in Keycloak.
 The following organization attributes are available:
 
 | Setting                                    | Value                                                                                                                                                                                                                               |

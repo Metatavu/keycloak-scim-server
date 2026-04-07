@@ -20,6 +20,7 @@ public class TestConsts {
     public static final String ORGANIZATION_3_ID = "f849d141-ebb7-4078-b4aa-52094f043123";
     public static final String ORGANIZATION_4_ID = "f849d141-ebb7-4078-b4aa-52094f043124";
     public static final String ORGANIZATION_5_ID = "f849d141-ebb7-4078-b4aa-52094f043125";
+    public static final String ORGANIZATION_6_COMPONENT_CONFIG_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
     public static final String ORGANIZATION_EMAIL_AS_USERNAME_ID = "75528102-90E8-4075-A520-2E0829B2CAC3";
     public static final String ORGANIZATION_EMAIL_AS_USERNAME_EXISTING_USER_ID = "013cd8c2-e367-4b6c-a72d-c225bb75bc18";
     public static final String EXTERNAL_USER_1_USERNAME = "test.user1@org1.example.com";

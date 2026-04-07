@@ -75,4 +75,13 @@ public interface ScimConfig {
      * @return true if email should be used as username
      */
     boolean getEmailAsUsername();
+
+    /**
+     * Returns whether this configuration is enabled
+     *
+     * @return true if the configuration is enabled
+     */
+    default boolean isEnabled() {
+        return true;
+    }
 }

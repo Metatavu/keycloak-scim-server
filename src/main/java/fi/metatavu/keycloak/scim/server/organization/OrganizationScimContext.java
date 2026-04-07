@@ -1,6 +1,7 @@
 package fi.metatavu.keycloak.scim.server.organization;
 
 import fi.metatavu.keycloak.scim.server.ScimContext;
+import fi.metatavu.keycloak.scim.server.config.ScimConfig;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.OrganizationModel;
 import org.keycloak.models.RealmModel;
@@ -21,8 +22,9 @@ public class OrganizationScimContext extends ScimContext {
      * @param session keycloak session
      * @param realm realm
      * @param organization organization
+     * @param config SCIM configuration
      */
-    public OrganizationScimContext(URI baseUri, KeycloakSession session, RealmModel realm, OrganizationModel organization, OrganizationScimConfig config) {
+    public OrganizationScimContext(URI baseUri, KeycloakSession session, RealmModel realm, OrganizationModel organization, ScimConfig config) {
         super(baseUri, session, realm, config);
         this.organization = organization;
     }

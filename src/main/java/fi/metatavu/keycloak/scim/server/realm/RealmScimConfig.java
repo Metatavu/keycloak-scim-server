@@ -24,6 +24,8 @@ public class RealmScimConfig implements ScimConfig {
     public static final String SCIM_LINK_IDP = "scim.link.idp";
     public static final String SCIM_IDENTITY_PROVIDER_ALIAS = "scim.identity.provider.alias";
     public static final String SCIM_EMAIL_AS_USERNAME = "scim.email.as.username";
+    public static final String SCIM_BASIC_AUTH_USERNAME = "scim.basic.auth.username";
+    public static final String SCIM_BASIC_AUTH_PASSWORD = "scim.basic.auth.password";
     private final Config config;
     private final RealmModel realm;
 
@@ -48,21 +50,34 @@ public class RealmScimConfig implements ScimConfig {
         logger.debugf("Realm SCIM authentication mode: %s", mode);
 
         boolean isSharedSecretPresent = getSharedSecret() != null && !getSharedSecret().isBlank();
+        boolean isBasicAuthUsernamePresent = getBasicAuthUsername() != null && !getBasicAuthUsername().isBlank();
+        boolean isBasicAuthPasswordPresent = getBasicAuthPassword() != null && !getBasicAuthPassword().isBlank();
 
-        if (mode == AuthenticationMode.EXTERNAL && !isSharedSecretPresent) {
-            if (getExternalIssuer() == null) {
-                logger.warn("Realm SCIM config invalid: SCIM_EXTERNAL_ISSUER is not set");
-                throw new ConfigurationError("SCIM_EXTERNAL_ISSUER is not set");
-            }
+        if (mode == AuthenticationMode.EXTERNAL) {
+            if (isBasicAuthUsernamePresent || isBasicAuthPasswordPresent) {
+                if (!isBasicAuthUsernamePresent) {
+                    logger.warn("Realm SCIM config invalid: SCIM_BASIC_AUTH_USERNAME is not set");
+                    throw new ConfigurationError("SCIM_BASIC_AUTH_USERNAME must be set when SCIM_BASIC_AUTH_PASSWORD is set");
+                }
+                if (!isBasicAuthPasswordPresent) {
+                    logger.warn("Realm SCIM config invalid: SCIM_BASIC_AUTH_PASSWORD is not set");
+                    throw new ConfigurationError("SCIM_BASIC_AUTH_PASSWORD must be set when SCIM_BASIC_AUTH_USERNAME is set");
+                }
+            } else if (!isSharedSecretPresent) {
+                if (getExternalIssuer() == null) {
+                    logger.warn("Realm SCIM config invalid: SCIM_EXTERNAL_ISSUER is not set");
+                    throw new ConfigurationError("SCIM_EXTERNAL_ISSUER is not set");
+                }
 
-            if (getExternalJwksUri() == null) {
-                logger.warn("Realm SCIM config invalid: SCIM_EXTERNAL_JWKS_URI is not set");
-                throw new ConfigurationError("SCIM_EXTERNAL_JWKS_URI is not set");
-            }
+                if (getExternalJwksUri() == null) {
+                    logger.warn("Realm SCIM config invalid: SCIM_EXTERNAL_JWKS_URI is not set");
+                    throw new ConfigurationError("SCIM_EXTERNAL_JWKS_URI is not set");
+                }
 
-            if (getExternalAudience() == null) {
-                logger.warn("Realm SCIM config invalid: SCIM_EXTERNAL_AUDIENCE is not set");
-                throw new ConfigurationError("SCIM_EXTERNAL_AUDIENCE is not set");
+                if (getExternalAudience() == null) {
+                    logger.warn("Realm SCIM config invalid: SCIM_EXTERNAL_AUDIENCE is not set");
+                    throw new ConfigurationError("SCIM_EXTERNAL_AUDIENCE is not set");
+                }
             }
         }
 
@@ -152,6 +167,20 @@ public class RealmScimConfig implements ScimConfig {
             .map(Boolean::parseBoolean)
             .or(() -> config.getOptionalValue(SCIM_EMAIL_AS_USERNAME, Boolean.class))
             .orElse(false);
+    }
+
+    @Override
+    public String getBasicAuthUsername() {
+        return readRealmAttribute(SCIM_BASIC_AUTH_USERNAME)
+                .or(() -> config.getOptionalValue(SCIM_BASIC_AUTH_USERNAME, String.class))
+                .orElse(null);
+    }
+
+    @Override
+    public String getBasicAuthPassword() {
+        return readRealmAttribute(SCIM_BASIC_AUTH_PASSWORD)
+                .or(() -> config.getOptionalValue(SCIM_BASIC_AUTH_PASSWORD, String.class))
+                .orElse(null);
     }
 
     /**

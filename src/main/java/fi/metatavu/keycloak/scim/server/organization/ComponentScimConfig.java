@@ -79,6 +79,20 @@ public class ComponentScimConfig implements ScimConfig {
             "Forces server to use email as username instead of actual username.",
             BOOLEAN_TYPE,
             "false"
+        ),
+        new ProviderConfigProperty(
+            OrganizationScimConfig.SCIM_BASIC_AUTH_USERNAME,
+            "Basic Auth Username",
+            "Username for HTTP Basic authentication.",
+            STRING_TYPE,
+            null
+        ),
+        new ProviderConfigProperty(
+            OrganizationScimConfig.SCIM_BASIC_AUTH_PASSWORD,
+            "Basic Auth Password",
+            "Password hash in PHC String Format for HTTP Basic authentication.",
+            STRING_TYPE,
+            null
         )
     );
 
@@ -138,8 +152,17 @@ public class ComponentScimConfig implements ScimConfig {
 
         if (mode == AuthenticationMode.EXTERNAL) {
             boolean isSharedSecretPresent = getSharedSecret() != null && !getSharedSecret().isBlank();
+            boolean isBasicAuthUsernamePresent = getBasicAuthUsername() != null && !getBasicAuthUsername().isBlank();
+            boolean isBasicAuthPasswordPresent = getBasicAuthPassword() != null && !getBasicAuthPassword().isBlank();
 
-            if (!isSharedSecretPresent) {
+            if (isBasicAuthUsernamePresent || isBasicAuthPasswordPresent) {
+                if (!isBasicAuthUsernamePresent) {
+                    throw new ConfigurationError(OrganizationScimConfig.SCIM_BASIC_AUTH_USERNAME + " must be set when " + OrganizationScimConfig.SCIM_BASIC_AUTH_PASSWORD + " is set");
+                }
+                if (!isBasicAuthPasswordPresent) {
+                    throw new ConfigurationError(OrganizationScimConfig.SCIM_BASIC_AUTH_PASSWORD + " must be set when " + OrganizationScimConfig.SCIM_BASIC_AUTH_USERNAME + " is set");
+                }
+            } else if (!isSharedSecretPresent) {
                 if (getExternalIssuer() == null) {
                     throw new ConfigurationError(OrganizationScimConfig.SCIM_EXTERNAL_ISSUER + " is not set");
                 }
@@ -202,5 +225,15 @@ public class ComponentScimConfig implements ScimConfig {
     @Override
     public boolean getEmailAsUsername() {
         return model.get(OrganizationScimConfig.SCIM_EMAIL_AS_USERNAME, false);
+    }
+
+    @Override
+    public String getBasicAuthUsername() {
+        return model.get(OrganizationScimConfig.SCIM_BASIC_AUTH_USERNAME);
+    }
+
+    @Override
+    public String getBasicAuthPassword() {
+        return model.get(OrganizationScimConfig.SCIM_BASIC_AUTH_PASSWORD);
     }
 }

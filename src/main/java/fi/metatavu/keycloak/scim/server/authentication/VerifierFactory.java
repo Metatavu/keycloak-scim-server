@@ -15,7 +15,7 @@ public class VerifierFactory {
     private VerifierFactory() {}
 
     /**
-     * Builds the verifier based on the ScimConfig
+     * Builds a verifier for Bearer token authentication based on the ScimConfig
      */
     public static Verifier build(ScimConfig config, KeycloakSession session) {
         if (config.getAuthenticationMode() != AuthenticationMode.EXTERNAL) {
@@ -30,5 +30,15 @@ public class VerifierFactory {
         } else {
             return new ExternalSharedSecretVerifier(session, sharedSecret);
         }
+    }
+
+    /**
+     * Builds a verifier for Basic Auth authentication based on the ScimConfig
+     */
+    public static Verifier buildBasicAuth(ScimConfig config, KeycloakSession session) {
+        if (config.getAuthenticationMode() != AuthenticationMode.EXTERNAL) {
+            throw new IllegalArgumentException("Authentication mode must be EXTERNAL");
+        }
+        return new BasicAuthVerifier(session, config.getBasicAuthUsername(), config.getBasicAuthPassword());
     }
 }

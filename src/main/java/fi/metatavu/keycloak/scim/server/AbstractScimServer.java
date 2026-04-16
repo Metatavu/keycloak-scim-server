@@ -7,6 +7,7 @@ import fi.metatavu.keycloak.scim.server.consts.ScimRoles;
 import fi.metatavu.keycloak.scim.server.groups.GroupsController;
 import fi.metatavu.keycloak.scim.server.metadata.MetadataController;
 import fi.metatavu.keycloak.scim.server.users.UsersController;
+import java.util.Base64;
 import jakarta.mail.internet.AddressException;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.ws.rs.ForbiddenException;
@@ -105,8 +106,36 @@ public abstract class AbstractScimServer <T extends ScimContext> implements Scim
 
         if (config.getAuthenticationMode() == ScimConfig.AuthenticationMode.KEYCLOAK) {
             keycloakAuthentication(context, session, realm, headers);
+        } else if (authorization.startsWith("Basic ")) {
+            basicAuthentication(config, authorization, session);
         } else {
-            externalAuthentication(config, extractToken(authorization), session);
+            externalAuthentication(config, extractBearerToken(authorization), session);
+        }
+    }
+
+    private void basicAuthentication(ScimConfig config, String authorization, KeycloakSession session) {
+        String basicAuthUsername = config.getBasicAuthUsername();
+        String basicAuthPassword = config.getBasicAuthPassword();
+
+        if (basicAuthUsername == null || basicAuthUsername.isBlank() || basicAuthPassword == null || basicAuthPassword.isBlank()) {
+            logger.warn("Basic auth credentials received but Basic auth is not configured");
+            throw new NotAuthorizedException("Basic auth is not configured");
+        }
+
+        String encoded = authorization.substring("Basic ".length()).trim();
+        String decoded;
+        try {
+            decoded = new String(Base64.getDecoder().decode(encoded));
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid Base64 in Basic auth header");
+            throw new NotAuthorizedException("Invalid Basic auth header");
+        }
+
+        Verifier verifier = VerifierFactory.buildBasicAuth(config, session);
+
+        if (!verifier.verify(decoded)) {
+            logger.warn("Basic auth verification failed");
+            throw new NotAuthorizedException("Basic auth verification failed");
         }
     }
 
@@ -153,7 +182,7 @@ public abstract class AbstractScimServer <T extends ScimContext> implements Scim
         }
     }
 
-    private String extractToken(String authorization) {
+    private String extractBearerToken(String authorization) {
         if (authorization.startsWith("Bearer ")) {
             return authorization.substring("Bearer ".length()).trim();
         } else {

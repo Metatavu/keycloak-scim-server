@@ -1,11 +1,15 @@
 package fi.metatavu.keycloak.scim.server.filter;
 
+import org.jboss.logging.Logger;
+
 import java.util.regex.*;
 
 /**
  * SCIM filter parser
  */
 public class ScimFilterParser {
+
+    private static final Logger logger = Logger.getLogger(ScimFilterParser.class.getName());
 
     private static final Pattern EQ_PATTERN = Pattern.compile(
             "(\\w+(\\.\\w+)*)\\s+eq\\s+(\"[^\"]+\"|true|false|\\d+)",
@@ -83,6 +87,7 @@ public class ScimFilterParser {
             return parseComparison(ew, ScimFilter.Operator.EW);
         }
 
+        logger.warnf("Unsupported SCIM filter expression: %s", filter);
         throw new UnsupportedFilter(filter);
     }
 

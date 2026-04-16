@@ -13,12 +13,16 @@ import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.util.JsonSerialization;
 
+import org.jboss.logging.Logger;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 public class AdminEventController extends AbstractController {
+
+    private static final Logger logger = Logger.getLogger(AdminEventController.class.getName());
     /**
      * Sends an admin event
      *
@@ -82,6 +86,7 @@ public class AdminEventController extends AbstractController {
             try {
                 event.setRepresentation(JsonSerialization.writeValueAsString(representation));
             } catch (IOException e) {
+                logger.errorf(e, "Failed to serialize representation for admin event: %s %s %s", operationType, resourceType, resourcePath);
                 throw new RuntimeException(e);
             }
         }
@@ -92,6 +97,8 @@ public class AdminEventController extends AbstractController {
             EventStoreProvider store = session.getProvider(EventStoreProvider.class);
             if (store != null) {
                 store.onEvent(event, includeRepresentation);
+            } else {
+                logger.warn("Admin events enabled but no EventStoreProvider found — event not persisted");
             }
         }
 
@@ -101,6 +108,7 @@ public class AdminEventController extends AbstractController {
                 .map(providerFactory -> providerFactory.create(session))
                 .forEach(provider -> {
                     if (provider instanceof EventListenerProvider eventListenerProvider) {
+                        logger.debugf("Sending admin event: %s %s %s", operationType, resourceType, resourcePath);
                         eventListenerProvider.onEvent(event, includeRepresentation);
                     }
                 });

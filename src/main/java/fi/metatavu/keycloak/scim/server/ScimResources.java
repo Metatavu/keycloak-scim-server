@@ -41,6 +41,7 @@ public class ScimResources {
         @Context KeycloakSession session,
         fi.metatavu.keycloak.scim.server.model.User createRequest
     ) {
+        logger.debug("POST /v2/Users");
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
         realmScimServer.verifyPermissions(scimContext);
 
@@ -60,6 +61,7 @@ public class ScimResources {
         @QueryParam("startIndex") @DefaultValue("0") Integer startIndex,
         @QueryParam("count") @DefaultValue("100") Integer count
     ) {
+        logger.debugf("GET /v2/Users filter=%s startIndex=%d count=%d", filter, startIndex, count);
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
         realmScimServer.verifyPermissions(scimContext);
 
@@ -87,6 +89,7 @@ public class ScimResources {
             @Context KeycloakSession session,
             @PathParam("id") String userId
     ) {
+        logger.debugf("GET /v2/Users/%s", userId);
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
         realmScimServer.verifyPermissions(scimContext);
 
@@ -106,6 +109,7 @@ public class ScimResources {
         @PathParam("id") String userId,
         fi.metatavu.keycloak.scim.server.model.User updateRequest
     ) {
+        logger.debugf("PUT /v2/Users/%s", userId);
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
         realmScimServer.verifyPermissions(scimContext);
 
@@ -126,6 +130,7 @@ public class ScimResources {
         @PathParam("id") String userId,
         fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
     ) {
+        logger.debugf("PATCH /v2/Users/%s", userId);
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
         realmScimServer.verifyPermissions(scimContext);
 
@@ -144,6 +149,7 @@ public class ScimResources {
         @Context KeycloakSession session,
         @PathParam("id") String userId
     ) {
+        logger.debugf("DELETE /v2/Users/%s", userId);
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
         realmScimServer.verifyPermissions(scimContext);
 
@@ -159,6 +165,7 @@ public class ScimResources {
         @Context KeycloakSession session,
         fi.metatavu.keycloak.scim.server.model.Group createRequest
     ) {
+        logger.debug("POST /v2/Groups");
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
         realmScimServer.verifyPermissions(scimContext);
 
@@ -178,6 +185,7 @@ public class ScimResources {
             @QueryParam("startIndex") @DefaultValue("0") int startIndex,
             @QueryParam("count") @DefaultValue("100") int count
     ) {
+        logger.debugf("GET /v2/Groups filter=%s startIndex=%d count=%d", filter, startIndex, count);
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
         realmScimServer.verifyPermissions(scimContext);
 
@@ -205,6 +213,7 @@ public class ScimResources {
             @Context KeycloakSession session,
             @PathParam("id") String id
     ) {
+        logger.debugf("GET /v2/Groups/%s", id);
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
         realmScimServer.verifyPermissions(scimContext);
 
@@ -224,6 +233,7 @@ public class ScimResources {
             @Context KeycloakSession session,
             Group updateRequest
     ) {
+        logger.debugf("PUT /v2/Groups/%s", id);
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
         realmScimServer.verifyPermissions(scimContext);
 
@@ -244,6 +254,7 @@ public class ScimResources {
             @PathParam("id") String groupId,
             fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
     ) {
+        logger.debugf("PATCH /v2/Groups/%s", groupId);
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
         realmScimServer.verifyPermissions(scimContext);
 
@@ -261,6 +272,7 @@ public class ScimResources {
             @Context KeycloakSession session,
             @PathParam("id") String id
     ) {
+        logger.debugf("DELETE /v2/Groups/%s", id);
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
         realmScimServer.verifyPermissions(scimContext);
 
@@ -278,6 +290,7 @@ public class ScimResources {
         @Context KeycloakSession session,
         @Context UriInfo uriInfo
     ) {
+        logger.debug("GET /v2/ResourceTypes");
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
         realmScimServer.verifyPermissions(scimContext);
 
@@ -292,6 +305,7 @@ public class ScimResources {
         @Context KeycloakSession session,
         @PathParam("id") String id
     ) {
+        logger.debugf("GET /v2/ResourceTypes/%s", id);
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
         realmScimServer.verifyPermissions(scimContext);
 
@@ -309,6 +323,7 @@ public class ScimResources {
         @Context KeycloakSession session,
         @Context UriInfo uriInfo
     ) {
+        logger.debug("GET /v2/Schemas");
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
         realmScimServer.verifyPermissions(scimContext);
 
@@ -323,6 +338,7 @@ public class ScimResources {
         @Context KeycloakSession session,
         @PathParam("id") String id
     ) {
+        logger.debugf("GET /v2/Schemas/%s", id);
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
         realmScimServer.verifyPermissions(scimContext);
 
@@ -340,6 +356,7 @@ public class ScimResources {
         @Context KeycloakSession session,
         @Context UriInfo uriInfo
     ) {
+        logger.debug("GET /v2/ServiceProviderConfig");
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
         realmScimServer.verifyPermissions(scimContext);
 
@@ -358,6 +375,7 @@ public class ScimResources {
             @PathParam("organizationId") String organizationId,
             fi.metatavu.keycloak.scim.server.model.User createRequest
     ) {
+        logger.debugf("POST /v2/organizations/%s/Users", organizationId);
         OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
         organizationScimServer.verifyPermissions(scimContext);
 
@@ -378,6 +396,7 @@ public class ScimResources {
             @QueryParam("startIndex") @DefaultValue("0") Integer startIndex,
             @QueryParam("count") @DefaultValue("100") Integer count
     ) {
+        logger.debugf("GET /v2/organizations/%s/Users filter=%s startIndex=%d count=%d", organizationId, filter, startIndex, count);
         OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
         organizationScimServer.verifyPermissions(scimContext);
 
@@ -406,6 +425,7 @@ public class ScimResources {
             @PathParam("id") String userId,
             @PathParam("organizationId") String organizationId
     ) {
+        logger.debugf("GET /v2/organizations/%s/Users/%s", organizationId, userId);
         OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
         organizationScimServer.verifyPermissions(scimContext);
 
@@ -426,6 +446,7 @@ public class ScimResources {
             @PathParam("organizationId") String organizationId,
             fi.metatavu.keycloak.scim.server.model.User updateRequest
     ) {
+        logger.debugf("PUT /v2/organizations/%s/Users/%s", organizationId, userId);
         OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
         organizationScimServer.verifyPermissions(scimContext);
 
@@ -447,6 +468,7 @@ public class ScimResources {
             @PathParam("organizationId") String organizationId,
             fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
     ) {
+        logger.debugf("PATCH /v2/organizations/%s/Users/%s", organizationId, userId);
         OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
         organizationScimServer.verifyPermissions(scimContext);
 
@@ -466,6 +488,7 @@ public class ScimResources {
         @PathParam("organizationId") String organizationId,
         @PathParam("id") String userId
     ) {
+        logger.debugf("DELETE /v2/organizations/%s/Users/%s", organizationId, userId);
         OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
         organizationScimServer.verifyPermissions(scimContext);
 
@@ -482,6 +505,7 @@ public class ScimResources {
         @PathParam("organizationId") String organizationId,
         fi.metatavu.keycloak.scim.server.model.Group createRequest
     ) {
+        logger.debugf("POST /v2/organizations/%s/Groups", organizationId);
         OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
         organizationScimServer.verifyPermissions(scimContext);
 
@@ -502,6 +526,7 @@ public class ScimResources {
             @QueryParam("startIndex") @DefaultValue("0") int startIndex,
             @QueryParam("count") @DefaultValue("100") int count
     ) {
+        logger.debugf("GET /v2/organizations/%s/Groups filter=%s startIndex=%d count=%d", organizationId, filter, startIndex, count);
         OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
         organizationScimServer.verifyPermissions(scimContext);
 
@@ -530,6 +555,7 @@ public class ScimResources {
             @PathParam("organizationId") String organizationId,
             @PathParam("id") String id
     ) {
+        logger.debugf("GET /v2/organizations/%s/Groups/%s", organizationId, id);
         OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
         organizationScimServer.verifyPermissions(scimContext);
 
@@ -550,6 +576,7 @@ public class ScimResources {
             @PathParam("organizationId") String organizationId,
             Group updateRequest
     ) {
+        logger.debugf("PUT /v2/organizations/%s/Groups/%s", organizationId, id);
         OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
         organizationScimServer.verifyPermissions(scimContext);
 
@@ -571,6 +598,7 @@ public class ScimResources {
             @PathParam("organizationId") String organizationId,
             fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
     ) {
+        logger.debugf("PATCH /v2/organizations/%s/Groups/%s", organizationId, groupId);
         OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
         organizationScimServer.verifyPermissions(scimContext);
 
@@ -589,6 +617,7 @@ public class ScimResources {
             @PathParam("organizationId") String organizationId,
             @PathParam("id") String id
     ) {
+        logger.debugf("DELETE /v2/organizations/%s/Groups/%s", organizationId, id);
         OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
         organizationScimServer.verifyPermissions(scimContext);
 
@@ -607,6 +636,7 @@ public class ScimResources {
         @Context UriInfo uriInfo,
         @PathParam("organizationId") String organizationId
     ) {
+        logger.debugf("GET /v2/organizations/%s/ResourceTypes", organizationId);
         OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
         organizationScimServer.verifyPermissions(scimContext);
 
@@ -624,6 +654,7 @@ public class ScimResources {
         @PathParam("organizationId") String organizationId,
         @PathParam("id") String id
     ) {
+        logger.debugf("GET /v2/organizations/%s/ResourceTypes/%s", organizationId, id);
         OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
         organizationScimServer.verifyPermissions(scimContext);
 
@@ -642,6 +673,7 @@ public class ScimResources {
         @PathParam("organizationId") String organizationId,
         @Context UriInfo uriInfo
     ) {
+        logger.debugf("GET /v2/organizations/%s/Schemas", organizationId);
         OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
         organizationScimServer.verifyPermissions(scimContext);
 
@@ -659,6 +691,7 @@ public class ScimResources {
         @PathParam("organizationId") String organizationId,
         @PathParam("id") String id
     ) {
+        logger.debugf("GET /v2/organizations/%s/Schemas/%s", organizationId, id);
         OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
         organizationScimServer.verifyPermissions(scimContext);
 
@@ -677,6 +710,7 @@ public class ScimResources {
         @PathParam("organizationId") String organizationId,
         @Context UriInfo uriInfo
     ) {
+        logger.debugf("GET /v2/organizations/%s/ServiceProviderConfig", organizationId);
         OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
         organizationScimServer.verifyPermissions(scimContext);
         return organizationScimServer.getServiceProviderConfig(scimContext);

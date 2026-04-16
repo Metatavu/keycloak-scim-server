@@ -1,5 +1,7 @@
 package fi.metatavu.keycloak.scim.server.authentication;
 
+import org.jboss.logging.Logger;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -8,6 +10,8 @@ import org.keycloak.common.util.Base64;
 import org.keycloak.models.credential.PasswordCredentialModel;
 
 public class PhcStringUtils {
+
+    private static final Logger logger = Logger.getLogger(PhcStringUtils.class.getName());
 
     public static final String ARGON_2_PREFIX = "argon2";
     public static final String PBKDF2_PREFIX = "pbkdf2";
@@ -33,11 +37,14 @@ public class PhcStringUtils {
 
         String algId = parts[1];
 
+        logger.debugf("Parsing PHC string with algorithm: %s", algId);
+
         if (algId.startsWith(ARGON_2_PREFIX)) {
             return parseArgon2(parts);
         } else if (algId.startsWith(PBKDF2_PREFIX)) {
             return parsePbkdf2(parts);
         } else {
+            logger.warnf("Unknown algorithm in PHC string: %s", algId);
             throw new IllegalArgumentException("Unknown algorithm in PHC string: " + algId);
         }
     }

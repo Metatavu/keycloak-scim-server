@@ -67,6 +67,15 @@ public class KeycloakOrganizationScimConfig implements OrganizationScimConfig {
         return "true".equalsIgnoreCase(getAttribute(SCIM_EMAIL_AS_USERNAME));
     }
 
+    @Override
+    public String getBasicAuthUsername() {
+        return getAttribute(SCIM_BASIC_AUTH_USERNAME);
+    }
+
+    @Override
+    public String getBasicAuthPassword() {
+        return getAttribute(SCIM_BASIC_AUTH_PASSWORD);
+    }
 
     private String getAttribute(String attributeName) {
       Map<String, List<String>> attributes = organization.getAttributes();

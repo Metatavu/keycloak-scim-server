@@ -8,6 +8,7 @@ import fi.metatavu.keycloak.scim.server.test.client.api.UsersApi;
 import fi.metatavu.keycloak.scim.server.test.client.model.*;
 
 import java.net.URI;
+import java.util.Base64;
 
 /**
  * SCIM client
@@ -15,10 +16,10 @@ import java.net.URI;
 public class ScimClient {
 
     private final URI scimUri;
-    private final String accessToken;
+    private final String authorizationHeader;
 
     /**
-     * Constructor
+     * Constructor for Bearer token authentication
      *
      * @param scimUri SCIM URI
      * @param accessToken access token
@@ -28,7 +29,23 @@ public class ScimClient {
         String accessToken
     ) {
         this.scimUri = scimUri;
-        this.accessToken = accessToken;
+        this.authorizationHeader = "Bearer " + accessToken;
+    }
+
+    /**
+     * Constructor for Basic authentication
+     *
+     * @param scimUri SCIM URI
+     * @param username username
+     * @param password password
+     */
+    public ScimClient(
+        URI scimUri,
+        String username,
+        String password
+    ) {
+        this.scimUri = scimUri;
+        this.authorizationHeader = "Basic " + Base64.getEncoder().encodeToString((username + ":" + password).getBytes());
     }
 
     /**
@@ -246,7 +263,7 @@ public class ScimClient {
         result.setHost(scimUri.getHost());
         result.setScheme(scimUri.getScheme());
         result.setPort(scimUri.getPort());
-        result.setRequestInterceptor(builder -> builder.header("Authorization", "Bearer " + accessToken));
+        result.setRequestInterceptor(builder -> builder.header("Authorization", authorizationHeader));
         return result;
     }
 }

@@ -75,4 +75,18 @@ public interface ScimConfig {
      * @return true if email should be used as username
      */
     boolean getEmailAsUsername();
+
+    /**
+     * Gets the basic auth username (if using EXTERNAL mode with Basic auth)
+     *
+     * @return basic auth username or null if not configured
+     */
+    String getBasicAuthUsername();
+
+    /**
+     * Gets the basic auth password in PHC String format (if using EXTERNAL mode with Basic auth)
+     *
+     * @return basic auth password hash or null if not configured
+     */
+    String getBasicAuthPassword();
 }

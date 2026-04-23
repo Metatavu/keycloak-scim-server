@@ -16,7 +16,7 @@ public class KeycloakOrganizationScimServerProviderFactory implements Organizati
 
   @Override
   public OrganizationScimServerProvider create(KeycloakSession session) {
-    return new KeycloakOrganizationScimServerProvider(session);
+    return new KeycloakOrganizationScimServerProvider();
   }
 
   @Override

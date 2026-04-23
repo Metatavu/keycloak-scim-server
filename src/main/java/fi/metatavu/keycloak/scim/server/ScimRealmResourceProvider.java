@@ -9,16 +9,14 @@ import org.keycloak.models.KeycloakSession;
 public class ScimRealmResourceProvider implements RealmResourceProvider {
 
   private final KeycloakSession session;
-  private final String organizationType;
-  
-  public ScimRealmResourceProvider(KeycloakSession session, String organizationType) {
+
+  public ScimRealmResourceProvider(KeycloakSession session) {
     this.session = session;
-    this.organizationType = organizationType;
   }
-  
+
   @Override
   public Object getResource() {
-    return new ScimResources(session, organizationType);
+    return new ScimResources(session);
   }
 
   @Override

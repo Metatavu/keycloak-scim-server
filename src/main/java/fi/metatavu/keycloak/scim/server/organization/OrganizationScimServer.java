@@ -25,10 +25,8 @@ public abstract class OrganizationScimServer extends AbstractScimServer<Organiza
 
     private static final Logger logger = Logger.getLogger(OrganizationScimServer.class);
     private final OrganizationUserController organizationUserController;
-    protected final KeycloakSession session;
-  
-    public OrganizationScimServer(KeycloakSession session) {
-        this.session = session;
+
+    public OrganizationScimServer() {
         this.organizationUserController = new OrganizationUserController();
     }
 

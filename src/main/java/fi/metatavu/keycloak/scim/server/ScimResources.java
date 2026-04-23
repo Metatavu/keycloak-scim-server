@@ -22,12 +22,31 @@ public class ScimResources {
     private static final Logger logger = Logger.getLogger(ScimResources.class.getName());
     private final ScimFilterParser scimFilterParser;
     private final RealmScimServer realmScimServer;
-    private final OrganizationScimServer organizationScimServer;
+    private final KeycloakSession session;
+    private OrganizationScimServer organizationScimServer;
 
-    ScimResources(KeycloakSession session, String organizationType) {
+    ScimResources(KeycloakSession session) {
+        this.session = session;
         scimFilterParser = new ScimFilterParser();
         realmScimServer = new RealmScimServer();
-        organizationScimServer = session.getProvider(OrganizationScimServerProvider.class, organizationType).getScimServer(session);
+    }
+
+    private OrganizationScimServer getOrganizationScimServer() {
+        if (organizationScimServer == null) {
+            try {
+                OrganizationScimServerProvider provider = session.getProvider(OrganizationScimServerProvider.class);
+                if (provider == null) {
+                    throw new NotFoundException("No OrganizationScimServerProvider is registered. Organization SCIM endpoints are not available.");
+                }
+                organizationScimServer = provider.getScimServer(session);
+            } catch (NotFoundException e) {
+                throw e;
+            } catch (Exception e) {
+                logger.warn("Failed to load OrganizationScimServerProvider. Organization SCIM endpoints will not be available.", e);
+                throw new NotFoundException("Organization SCIM endpoints are not available.");
+            }
+        }
+        return organizationScimServer;
     }
 
     // Realm Server endpoints
@@ -376,10 +395,10 @@ public class ScimResources {
             fi.metatavu.keycloak.scim.server.model.User createRequest
     ) {
         logger.debugf("POST /v2/organizations/%s/Users", organizationId);
-        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
-        organizationScimServer.verifyPermissions(scimContext);
+        OrganizationScimContext scimContext = getOrganizationScimServer().getScimContext(session, organizationId);
+        getOrganizationScimServer().verifyPermissions(scimContext);
 
-        return organizationScimServer.createUser(
+        return getOrganizationScimServer().createUser(
             scimContext,
             createRequest
         );
@@ -397,8 +416,8 @@ public class ScimResources {
             @QueryParam("count") @DefaultValue("100") Integer count
     ) {
         logger.debugf("GET /v2/organizations/%s/Users filter=%s startIndex=%d count=%d", organizationId, filter, startIndex, count);
-        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
-        organizationScimServer.verifyPermissions(scimContext);
+        OrganizationScimContext scimContext = getOrganizationScimServer().getScimContext(session, organizationId);
+        getOrganizationScimServer().verifyPermissions(scimContext);
 
         ScimFilter scimFilter;
         try {
@@ -408,7 +427,7 @@ public class ScimResources {
             return Response.status(Response.Status.BAD_REQUEST).entity("Invalid filter").build();
         }
 
-        return organizationScimServer.listUsers(
+        return getOrganizationScimServer().listUsers(
             scimContext,
             scimFilter,
             startIndex,
@@ -426,10 +445,10 @@ public class ScimResources {
             @PathParam("organizationId") String organizationId
     ) {
         logger.debugf("GET /v2/organizations/%s/Users/%s", organizationId, userId);
-        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
-        organizationScimServer.verifyPermissions(scimContext);
+        OrganizationScimContext scimContext = getOrganizationScimServer().getScimContext(session, organizationId);
+        getOrganizationScimServer().verifyPermissions(scimContext);
 
-        return organizationScimServer.findUser(
+        return getOrganizationScimServer().findUser(
             scimContext,
             userId
         );
@@ -447,10 +466,10 @@ public class ScimResources {
             fi.metatavu.keycloak.scim.server.model.User updateRequest
     ) {
         logger.debugf("PUT /v2/organizations/%s/Users/%s", organizationId, userId);
-        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
-        organizationScimServer.verifyPermissions(scimContext);
+        OrganizationScimContext scimContext = getOrganizationScimServer().getScimContext(session, organizationId);
+        getOrganizationScimServer().verifyPermissions(scimContext);
 
-        return organizationScimServer.updateUser(
+        return getOrganizationScimServer().updateUser(
             scimContext,
             userId,
             updateRequest
@@ -469,10 +488,10 @@ public class ScimResources {
             fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
     ) {
         logger.debugf("PATCH /v2/organizations/%s/Users/%s", organizationId, userId);
-        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
-        organizationScimServer.verifyPermissions(scimContext);
+        OrganizationScimContext scimContext = getOrganizationScimServer().getScimContext(session, organizationId);
+        getOrganizationScimServer().verifyPermissions(scimContext);
 
-        return organizationScimServer.patchUser(
+        return getOrganizationScimServer().patchUser(
                 scimContext,
                 userId,
                 patchRequest
@@ -489,10 +508,10 @@ public class ScimResources {
         @PathParam("id") String userId
     ) {
         logger.debugf("DELETE /v2/organizations/%s/Users/%s", organizationId, userId);
-        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
-        organizationScimServer.verifyPermissions(scimContext);
+        OrganizationScimContext scimContext = getOrganizationScimServer().getScimContext(session, organizationId);
+        getOrganizationScimServer().verifyPermissions(scimContext);
 
-        return organizationScimServer.deleteUser(scimContext, userId);
+        return getOrganizationScimServer().deleteUser(scimContext, userId);
     }
 
     @POST
@@ -506,10 +525,10 @@ public class ScimResources {
         fi.metatavu.keycloak.scim.server.model.Group createRequest
     ) {
         logger.debugf("POST /v2/organizations/%s/Groups", organizationId);
-        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
-        organizationScimServer.verifyPermissions(scimContext);
+        OrganizationScimContext scimContext = getOrganizationScimServer().getScimContext(session, organizationId);
+        getOrganizationScimServer().verifyPermissions(scimContext);
 
-        return organizationScimServer.createGroup(
+        return getOrganizationScimServer().createGroup(
             scimContext,
             createRequest
         );
@@ -527,8 +546,8 @@ public class ScimResources {
             @QueryParam("count") @DefaultValue("100") int count
     ) {
         logger.debugf("GET /v2/organizations/%s/Groups filter=%s startIndex=%d count=%d", organizationId, filter, startIndex, count);
-        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
-        organizationScimServer.verifyPermissions(scimContext);
+        OrganizationScimContext scimContext = getOrganizationScimServer().getScimContext(session, organizationId);
+        getOrganizationScimServer().verifyPermissions(scimContext);
 
         ScimFilter scimFilter;
         try {
@@ -538,7 +557,7 @@ public class ScimResources {
             return Response.status(Response.Status.BAD_REQUEST).entity("Invalid filter").build();
         }
 
-        return organizationScimServer.listGroups(
+        return getOrganizationScimServer().listGroups(
             scimContext,
             scimFilter,
             startIndex,
@@ -556,10 +575,10 @@ public class ScimResources {
             @PathParam("id") String id
     ) {
         logger.debugf("GET /v2/organizations/%s/Groups/%s", organizationId, id);
-        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
-        organizationScimServer.verifyPermissions(scimContext);
+        OrganizationScimContext scimContext = getOrganizationScimServer().getScimContext(session, organizationId);
+        getOrganizationScimServer().verifyPermissions(scimContext);
 
-        return organizationScimServer.findGroup(
+        return getOrganizationScimServer().findGroup(
             scimContext,
             id
         );
@@ -577,10 +596,10 @@ public class ScimResources {
             Group updateRequest
     ) {
         logger.debugf("PUT /v2/organizations/%s/Groups/%s", organizationId, id);
-        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
-        organizationScimServer.verifyPermissions(scimContext);
+        OrganizationScimContext scimContext = getOrganizationScimServer().getScimContext(session, organizationId);
+        getOrganizationScimServer().verifyPermissions(scimContext);
 
-        return organizationScimServer.updateGroup(
+        return getOrganizationScimServer().updateGroup(
             scimContext,
             id,
             updateRequest
@@ -599,10 +618,10 @@ public class ScimResources {
             fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
     ) {
         logger.debugf("PATCH /v2/organizations/%s/Groups/%s", organizationId, groupId);
-        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
-        organizationScimServer.verifyPermissions(scimContext);
+        OrganizationScimContext scimContext = getOrganizationScimServer().getScimContext(session, organizationId);
+        getOrganizationScimServer().verifyPermissions(scimContext);
 
-        return organizationScimServer.patchGroup(
+        return getOrganizationScimServer().patchGroup(
                 scimContext,
                 groupId,
                 patchRequest
@@ -618,10 +637,10 @@ public class ScimResources {
             @PathParam("id") String id
     ) {
         logger.debugf("DELETE /v2/organizations/%s/Groups/%s", organizationId, id);
-        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
-        organizationScimServer.verifyPermissions(scimContext);
+        OrganizationScimContext scimContext = getOrganizationScimServer().getScimContext(session, organizationId);
+        getOrganizationScimServer().verifyPermissions(scimContext);
 
-        return organizationScimServer.deleteGroup(
+        return getOrganizationScimServer().deleteGroup(
             scimContext,
             id
         );
@@ -637,10 +656,10 @@ public class ScimResources {
         @PathParam("organizationId") String organizationId
     ) {
         logger.debugf("GET /v2/organizations/%s/ResourceTypes", organizationId);
-        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
-        organizationScimServer.verifyPermissions(scimContext);
+        OrganizationScimContext scimContext = getOrganizationScimServer().getScimContext(session, organizationId);
+        getOrganizationScimServer().verifyPermissions(scimContext);
 
-        return organizationScimServer.listResourceTypes(
+        return getOrganizationScimServer().listResourceTypes(
             scimContext
         );
     }
@@ -655,10 +674,10 @@ public class ScimResources {
         @PathParam("id") String id
     ) {
         logger.debugf("GET /v2/organizations/%s/ResourceTypes/%s", organizationId, id);
-        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
-        organizationScimServer.verifyPermissions(scimContext);
+        OrganizationScimContext scimContext = getOrganizationScimServer().getScimContext(session, organizationId);
+        getOrganizationScimServer().verifyPermissions(scimContext);
 
-        return organizationScimServer.findResourceType(
+        return getOrganizationScimServer().findResourceType(
             scimContext,
             id
         );
@@ -674,10 +693,10 @@ public class ScimResources {
         @Context UriInfo uriInfo
     ) {
         logger.debugf("GET /v2/organizations/%s/Schemas", organizationId);
-        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
-        organizationScimServer.verifyPermissions(scimContext);
+        OrganizationScimContext scimContext = getOrganizationScimServer().getScimContext(session, organizationId);
+        getOrganizationScimServer().verifyPermissions(scimContext);
 
-        return organizationScimServer.listSchemas(
+        return getOrganizationScimServer().listSchemas(
             scimContext
         );
     }
@@ -692,10 +711,10 @@ public class ScimResources {
         @PathParam("id") String id
     ) {
         logger.debugf("GET /v2/organizations/%s/Schemas/%s", organizationId, id);
-        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
-        organizationScimServer.verifyPermissions(scimContext);
+        OrganizationScimContext scimContext = getOrganizationScimServer().getScimContext(session, organizationId);
+        getOrganizationScimServer().verifyPermissions(scimContext);
 
-        return organizationScimServer.findSchema(
+        return getOrganizationScimServer().findSchema(
             scimContext,
             id
         );
@@ -711,9 +730,9 @@ public class ScimResources {
         @Context UriInfo uriInfo
     ) {
         logger.debugf("GET /v2/organizations/%s/ServiceProviderConfig", organizationId);
-        OrganizationScimContext scimContext = organizationScimServer.getScimContext(session, organizationId);
-        organizationScimServer.verifyPermissions(scimContext);
-        return organizationScimServer.getServiceProviderConfig(scimContext);
+        OrganizationScimContext scimContext = getOrganizationScimServer().getScimContext(session, organizationId);
+        getOrganizationScimServer().verifyPermissions(scimContext);
+        return getOrganizationScimServer().getServiceProviderConfig(scimContext);
     }
 
     /**

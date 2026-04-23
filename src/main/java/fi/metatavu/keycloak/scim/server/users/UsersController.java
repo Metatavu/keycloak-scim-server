@@ -618,7 +618,7 @@ public class UsersController extends AbstractController {
      * @param email email address
      * @return email domain
      */
-    protected String getEmailDomain(String email) {
+    public static String getEmailDomain(String email) {
         if (email != null && email.contains("@")) {
             return email.substring(email.indexOf('@') + 1);
         }

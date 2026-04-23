@@ -23,14 +23,12 @@ import java.util.Objects;
 /**
  * SCIM server implementation for organizations
  */
-public class OrganizationScimServer extends AbstractScimServer<OrganizationScimContext> {
+public abstract class OrganizationScimServer extends AbstractScimServer<OrganizationScimContext> {
 
     private static final Logger logger = Logger.getLogger(OrganizationScimServer.class);
-    private final OrganizationController organizationController;
     private final OrganizationUserController organizationUserController;
 
     public OrganizationScimServer() {
-        this.organizationController = new OrganizationController();
         this.organizationUserController = new OrganizationUserController();
     }
 
@@ -227,6 +225,8 @@ public class OrganizationScimServer extends AbstractScimServer<OrganizationScimC
         return Response.status(Response.Status.NOT_IMPLEMENTED).build();
     }
 
+    public abstract OrganizationScimContext getScimContext(KeycloakSession session, String organizationId);
+
     /**
      * Loads SCIM configuration from a ComponentModel if one exists for the given organization.
      * Returns null if no component is found or if the component is disabled.
@@ -235,7 +235,7 @@ public class OrganizationScimServer extends AbstractScimServer<OrganizationScimC
      * @param organizationId the organization ID
      * @return ComponentScimConfig or null
      */
-    private ScimConfig loadComponentConfig(RealmModel realm, String organizationId) {
+    public static ComponentScimConfig loadComponentConfig(RealmModel realm, String organizationId) {
         ComponentModel component = realm.getComponent(organizationId);
         if (component == null) {
             return null;
@@ -243,57 +243,10 @@ public class OrganizationScimServer extends AbstractScimServer<OrganizationScimC
 
         ComponentScimConfig componentConfig = new ComponentScimConfig(component);
         if (!componentConfig.isEnabled()) {
-            logger.debugf("ComponentModel for organization %s is disabled, falling back to organization attributes", organizationId);
             return null;
         }
 
-        logger.debugf("Using ComponentModel configuration for organization %s", organizationId);
         return componentConfig;
-    }
-
-    /**
-     * Returns SCIM context
-     *
-     * @param session Keycloak session
-     * @return SCIM context
-     */
-    public OrganizationScimContext getScimContext(KeycloakSession session, String organizationId) {
-        RealmModel realm = session.getContext().getRealm();
-        if (realm == null) {
-            throw new NotFoundException("Realm not found");
-        }
-
-        OrganizationModel organization = organizationController.findOrganizationById(
-            session,
-            organizationId
-        );
-
-        if (organization == null) {
-            throw new NotFoundException("Organization not found");
-        }
-
-        KeycloakContext context = session.getContext();
-        context.setOrganization(organization);
-
-        URI baseUri = session.getContext().getUri().getBaseUri().resolve(String.format("realms/%s/scim/v2/organizations/%s/", realm.getName(), organization.getId()));
-        ScimConfig config = loadComponentConfig(realm, organizationId);
-        if (config == null) {
-            config = new OrganizationScimConfig(organization);
-        }
-
-        try {
-            config.validateConfig();
-        } catch (ConfigurationError e) {
-            throw new InternalServerErrorException("Invalid SCIM configuration", e);
-        }
-
-        return new OrganizationScimContext(
-            baseUri,
-            session,
-            realm,
-            organization,
-            config
-        );
     }
 
 }

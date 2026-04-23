@@ -1,8 +1,5 @@
 package fi.metatavu.keycloak.scim.server.organization;
 
-import fi.metatavu.keycloak.scim.server.config.ConfigurationError;
-import fi.metatavu.keycloak.scim.server.config.ScimConfig;
-import org.jboss.logging.Logger;
 import org.keycloak.component.ComponentModel;
 import org.keycloak.provider.ProviderConfigProperty;
 
@@ -14,9 +11,7 @@ import static org.keycloak.provider.ProviderConfigProperty.*;
  * SCIM configuration backed by a Keycloak ComponentModel.
  * Used when SCIM config is managed through the User Federation GUI.
  */
-public class ComponentScimConfig implements ScimConfig {
-
-    private static final Logger logger = Logger.getLogger(ComponentScimConfig.class.getName());
+public class ComponentScimConfig implements OrganizationScimConfig {
 
     public static final String ENABLED_PROPERTY = "ENABLED";
     public static final String ORGANIZATION_ID = "ORGANIZATION_ID";
@@ -144,46 +139,6 @@ public class ComponentScimConfig implements ScimConfig {
     }
 
     @Override
-    public void validateConfig() throws ConfigurationError {
-        AuthenticationMode mode = getAuthenticationMode();
-        if (mode == null) {
-            throw new ConfigurationError(OrganizationScimConfig.SCIM_AUTHENTICATION_MODE + " is not set");
-        }
-
-        if (mode == AuthenticationMode.EXTERNAL) {
-            boolean isSharedSecretPresent = getSharedSecret() != null && !getSharedSecret().isBlank();
-            boolean isBasicAuthUsernamePresent = getBasicAuthUsername() != null && !getBasicAuthUsername().isBlank();
-            boolean isBasicAuthPasswordPresent = getBasicAuthPassword() != null && !getBasicAuthPassword().isBlank();
-
-            if (isBasicAuthUsernamePresent || isBasicAuthPasswordPresent) {
-                if (!isBasicAuthUsernamePresent) {
-                    throw new ConfigurationError(OrganizationScimConfig.SCIM_BASIC_AUTH_USERNAME + " must be set when " + OrganizationScimConfig.SCIM_BASIC_AUTH_PASSWORD + " is set");
-                }
-                if (!isBasicAuthPasswordPresent) {
-                    throw new ConfigurationError(OrganizationScimConfig.SCIM_BASIC_AUTH_PASSWORD + " must be set when " + OrganizationScimConfig.SCIM_BASIC_AUTH_USERNAME + " is set");
-                }
-            } else if (!isSharedSecretPresent) {
-                if (getExternalIssuer() == null) {
-                    throw new ConfigurationError(OrganizationScimConfig.SCIM_EXTERNAL_ISSUER + " is not set");
-                }
-                if (getExternalJwksUri() == null) {
-                    throw new ConfigurationError(OrganizationScimConfig.SCIM_EXTERNAL_JWKS_URI + " is not set");
-                }
-                if (getExternalAudience() == null) {
-                    throw new ConfigurationError(OrganizationScimConfig.SCIM_EXTERNAL_AUDIENCE + " is not set");
-                }
-            }
-        } else {
-            throw new ConfigurationError(
-                String.format(
-                    OrganizationScimConfig.SCIM_AUTHENTICATION_MODE + " %s AuthenticationMode not supported in organization mode",
-                    mode
-                )
-            );
-        }
-    }
-
-    @Override
     public AuthenticationMode getAuthenticationMode() {
         String value = model.get(OrganizationScimConfig.SCIM_AUTHENTICATION_MODE);
         if (value == null || value.isEmpty()) {
@@ -235,5 +190,14 @@ public class ComponentScimConfig implements ScimConfig {
     @Override
     public String getBasicAuthPassword() {
         return model.get(OrganizationScimConfig.SCIM_BASIC_AUTH_PASSWORD);
+    }
+
+    /**
+     * Returns the underlying ComponentModel
+     *
+     * @return component model
+     */
+    public ComponentModel getModel() {
+        return model;
     }
 }

@@ -15,6 +15,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -184,6 +185,59 @@ public class RealmUserPatchTestsIT extends AbstractInternalAuthRealmScimTest {
             created.getId(),
             OperationType.UPDATE
         );
+
+        // Cleanup
+        deleteRealmUser(TestConsts.TEST_REALM, created.getId());
+    }
+
+    /**
+     * Okta's Deactivate User action emits a PATCH without a top-level "path",
+     * carrying the attribute change inside a map-valued "value" (RFC 7644
+     * §3.5.2). This test covers that shape; the other tests only cover the
+     * with-path form.
+     */
+    @Test
+    void testDeactivateUserPathLessPatchOp() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+
+        // Create an active user
+        User user = new User();
+        user.setUserName("patch-pathless-user");
+        user.setActive(true);
+        user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
+
+        User created = scimClient.createUser(user);
+        assertNotNull(created);
+        assertTrue(created.getActive());
+
+        // Okta shape: no "path", value is a map {"active": false}
+        User deactivated = scimClient.patchUser(created.getId(), new PatchRequest()
+            .schemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"))
+            .operations(List.of(
+                new PatchRequestOperationsInner()
+                    .op("replace")
+                    .value(Map.of("active", Boolean.FALSE))
+            )));
+
+        assertNotNull(deactivated);
+        assertNotNull(deactivated.getActive());
+        assertFalse(deactivated.getActive());
+
+        UserRepresentation deactivatedRealmUser = findRealmUser(TestConsts.TEST_REALM, created.getId());
+        assertNotNull(deactivatedRealmUser);
+        assertFalse(deactivatedRealmUser.isEnabled());
+
+        // Re-activate via the same shape to confirm the code path is symmetric
+        User activated = scimClient.patchUser(created.getId(), new PatchRequest()
+            .schemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"))
+            .operations(List.of(
+                new PatchRequestOperationsInner()
+                    .op("replace")
+                    .value(Map.of("active", Boolean.TRUE))
+            )));
+
+        assertNotNull(activated);
+        assertTrue(activated.getActive());
 
         // Cleanup
         deleteRealmUser(TestConsts.TEST_REALM, created.getId());

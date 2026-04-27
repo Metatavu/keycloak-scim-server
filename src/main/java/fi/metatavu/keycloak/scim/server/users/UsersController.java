@@ -302,36 +302,32 @@ public class UsersController extends AbstractController {
                 throw new UnsupportedPatchOperation("Unsupported patch operation: " + operation.getOp());
             }
 
-            UserAttribute<?> userAttribute = userAttributes.findByScimPath(operation.getPath());
+            String path = operation.getPath();
             Object value = operation.getValue();
 
-            if (userAttribute == null) {
-                throw new UnsupportedUserPath("Unsupported attribute: " + operation.getPath());
-            }
-
-            switch (op) {
-                case REPLACE, ADD -> {
-                    switch (value) {
-                        case null:
-                            logger.warn("Value is null for patch operation: " + op);
-                            break;
-                        case String s when userAttribute instanceof StringUserAttribute:
-                            ((StringUserAttribute) userAttribute).write(existing, s);
-                            break;
-                        case String s when userAttribute instanceof BooleanUserAttribute:
-                            ((BooleanUserAttribute) userAttribute).write(existing, Boolean.parseBoolean(s));
-                            break;
-                        case Boolean b when userAttribute instanceof BooleanUserAttribute:
-                            ((BooleanUserAttribute) userAttribute).write(existing, b);
-                            break;
-                        default:
-                            logger.warn("Unsupported value type for patch operation: " + value.getClass() + " for SCIM path " + userAttribute.getScimPath());
-                            break;
-                    }
-
+            // RFC 7644 §3.5.2: when "path" is omitted, "value" carries a map of
+            // attribute -> value to apply to the resource. Okta's Deactivate User
+            // emits this shape: {"op":"replace","value":{"active":false}}.
+            if (path == null) {
+                if (!(value instanceof Map<?, ?> valueMap)) {
+                    throw new UnsupportedUserPath("PatchOp without 'path' requires a map-valued 'value'");
                 }
-                case REMOVE -> userAttribute.write(existing, null);
+                for (Map.Entry<?, ?> entry : valueMap.entrySet()) {
+                    String attrPath = String.valueOf(entry.getKey());
+                    UserAttribute<?> ua = userAttributes.findByScimPath(attrPath);
+                    if (ua == null) {
+                        throw new UnsupportedUserPath("Unsupported attribute: " + attrPath);
+                    }
+                    applyPatchValue(op, ua, existing, entry.getValue());
+                }
+                continue;
             }
+
+            UserAttribute<?> userAttribute = userAttributes.findByScimPath(path);
+            if (userAttribute == null) {
+                throw new UnsupportedUserPath("Unsupported attribute: " + path);
+            }
+            applyPatchValue(op, userAttribute, existing, value);
         }
 
         dispatchUserUpdateEvent(scimContext, existing);
@@ -349,6 +345,47 @@ public class UsersController extends AbstractController {
 
 
         return patchedUser;
+    }
+
+    /**
+     * Apply a single PATCH operation (REPLACE/ADD/REMOVE) against one
+     * resolved user attribute. Extracted so the path-less PatchOp shape
+     * (RFC 7644 §3.5.2, map-valued "value") and the with-path shape share
+     * the same write semantics.
+     *
+     * @param op       patch operation kind
+     * @param attr     resolved user attribute target
+     * @param existing user being patched
+     * @param value    raw operation value
+     */
+    private void applyPatchValue(
+        PatchOperation op,
+        UserAttribute<?> attr,
+        UserModel existing,
+        Object value
+    ) {
+        switch (op) {
+            case REPLACE, ADD -> {
+                switch (value) {
+                    case null:
+                        logger.warn("Value is null for patch operation: " + op);
+                        break;
+                    case String s when attr instanceof StringUserAttribute:
+                        ((StringUserAttribute) attr).write(existing, s);
+                        break;
+                    case String s when attr instanceof BooleanUserAttribute:
+                        ((BooleanUserAttribute) attr).write(existing, Boolean.parseBoolean(s));
+                        break;
+                    case Boolean b when attr instanceof BooleanUserAttribute:
+                        ((BooleanUserAttribute) attr).write(existing, b);
+                        break;
+                    default:
+                        logger.warn("Unsupported value type for patch operation: " + value.getClass() + " for SCIM path " + attr.getScimPath());
+                        break;
+                }
+            }
+            case REMOVE -> attr.write(existing, null);
+        }
     }
 
     /**

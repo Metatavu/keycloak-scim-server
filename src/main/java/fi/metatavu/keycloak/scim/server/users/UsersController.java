@@ -314,12 +314,22 @@ public class UsersController extends AbstractController {
                 }
                 for (Map.Entry<?, ?> entry : valueMap.entrySet()) {
                     String attrPath = String.valueOf(entry.getKey());
+                    if (isReadOnlyOrStructural(attrPath)) {
+                        // RFC 7644 §3.5.2 / §7.5: ignore read-only and
+                        // structural attributes (id, meta, schemas)
+                        // on PATCH. Clients (Okta) echo them back from a prior GET.
+                        continue;
+                    }
                     UserAttribute<?> ua = userAttributes.findByScimPath(attrPath);
                     if (ua == null) {
                         throw new UnsupportedUserPath("Unsupported attribute: " + attrPath);
                     }
                     applyPatchValue(op, ua, existing, entry.getValue());
                 }
+                continue;
+            }
+
+            if (isReadOnlyOrStructural(path)) {
                 continue;
             }
 

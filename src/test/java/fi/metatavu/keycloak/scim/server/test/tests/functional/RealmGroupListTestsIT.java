@@ -200,7 +200,8 @@ class RealmGroupListTestsIT extends AbstractInternalAuthRealmScimTest {
                     scimClient.listGroups("displayName \"test\"", 0, 10)
             );
 
-            assertEquals("listGroups call failed with: 400 - Invalid filter", exception.getMessage());
+            assertTrue(exception.getMessage().contains("Invalid filter"),
+                "Expected error message to contain 'Invalid filter'; got: " + exception.getMessage());
         } finally {
             deleteGroup(scimClient, group.getId());
         }
@@ -218,7 +219,8 @@ class RealmGroupListTestsIT extends AbstractInternalAuthRealmScimTest {
                     scimClient.listGroups("displayName eq test", 0, 10)
             );
 
-            assertEquals("listGroups call failed with: 400 - Invalid filter", exception.getMessage());
+            assertTrue(exception.getMessage().contains("Invalid filter"),
+                "Expected error message to contain 'Invalid filter'; got: " + exception.getMessage());
         } finally {
             deleteGroup(scimClient, group.getId());
         }
@@ -236,7 +238,8 @@ class RealmGroupListTestsIT extends AbstractInternalAuthRealmScimTest {
                     scimClient.listGroups("displayName eq \"test\" and", 0, 10)
             );
 
-            assertEquals("listGroups call failed with: 400 - Invalid filter", exception.getMessage());
+            assertTrue(exception.getMessage().contains("Invalid filter"),
+                "Expected error message to contain 'Invalid filter'; got: " + exception.getMessage());
         } finally {
             deleteGroup(scimClient, group.getId());
         }

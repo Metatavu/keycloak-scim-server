@@ -171,10 +171,42 @@ public class GroupsController extends AbstractController {
                 throw new UnsupportedPatchOperation("Unsupported patch operation: " + operation.getOp());
             }
 
+            // RFC 7644 §3.5.2: when "path" is omitted, "value" carries a map of
+            // attribute -> value to apply to the resource. Okta's Group Push
+            // (add/remove members) emits this shape:
+            //   {"op":"replace","value":{"members":[{"value":"<user-id>"}]}}
+            // Without this branch the code below would call findByScimPath(null),
+            // get null, and throw UnsupportedGroupPath, breaking Okta group pushes.
+            if (path == null) {
+                if (!(value instanceof Map<?, ?> valueMap)) {
+                    throw new UnsupportedGroupPath("PatchOp without 'path' requires a map-valued 'value'");
+                }
+                for (Map.Entry<?, ?> entry : valueMap.entrySet()) {
+                    String attrPath = String.valueOf(entry.getKey());
+                    if (isReadOnlyOrStructural(attrPath)) {
+                        // RFC 7644 §3.5.2 / §7.5: ignore read-only and
+                        // structural attributes (id, meta, schemas)
+                        // on PATCH. Okta echoes the resource id back inside
+                        // 'value' on Group Push.
+                        continue;
+                    }
+                    GroupAttribute attr = GroupAttribute.findByScimPath(attrPath);
+                    if (attr == null) {
+                        throw new UnsupportedGroupPath("Unsupported attribute: " + attrPath);
+                    }
+                    applyGroupPatch(scimContext, op, attr, attrPath, entry.getValue(), existing);
+                }
+                continue;
+            }
+
             // Extract base attribute path (e.g., "members" from "members[value eq \"id\"]")
             String attributePath = path != null && path.contains("[")
                 ? path.substring(0, path.indexOf("["))
                 : path;
+
+            if (isReadOnlyOrStructural(attributePath)) {
+                continue;
+            }
 
             GroupAttribute groupAttribute = GroupAttribute.findByScimPath(attributePath);
             if (groupAttribute == null) {
@@ -256,6 +288,79 @@ public class GroupsController extends AbstractController {
         }
 
         return translateGroup(scimContext, existing);
+    }
+
+    /**
+     * Apply a single attribute patch to the given group.
+     *
+     * Used by the path-less PatchOp branch of {@link #patchGroup} to expand
+     * each entry of the map-valued 'value' into one logical operation.
+     */
+    private void applyGroupPatch(
+            ScimContext scimContext,
+            PatchOperation op,
+            GroupAttribute attr,
+            String attrPath,
+            Object value,
+            GroupModel existing
+    ) {
+        KeycloakSession session = scimContext.getSession();
+        RealmModel realm = scimContext.getRealm();
+
+        switch (op) {
+            case REPLACE, ADD -> {
+                switch (attr) {
+                    case DISPLAY_NAME -> {
+                        if (value instanceof String s) {
+                            existing.setName(s);
+                        }
+                    }
+                    case MEMBERS -> {
+                        if (op == PatchOperation.REPLACE) {
+                            session.users().getGroupMembersStream(realm, existing)
+                                    .forEach(user -> user.leaveGroup(existing));
+                        }
+                        if (value instanceof List<?> list) {
+                            for (Object obj : list) {
+                                if (!(obj instanceof Map<?, ?> memberMap)) {
+                                    continue;
+                                }
+                                String memberId = (String) memberMap.get("value");
+                                if (memberId == null) {
+                                    continue;
+                                }
+                                UserModel user = session.users().getUserById(realm, memberId);
+                                if (user != null) {
+                                    user.joinGroup(existing);
+                                    dispatchGroupMembershipJoinEvent(scimContext, existing, user);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            case REMOVE -> {
+                switch (attr) {
+                    case DISPLAY_NAME -> existing.setName(null);
+                    case MEMBERS -> {
+                        if (value instanceof List<?> list) {
+                            for (Object obj : list) {
+                                if (obj instanceof Map<?, ?> memberMap) {
+                                    String memberId = (String) memberMap.get("value");
+                                    if (memberId != null) {
+                                        UserModel user = session.users().getUserById(realm, memberId);
+                                        if (user != null) {
+                                            user.leaveGroup(existing);
+                                            dispatchGroupMembershipLeaveEvent(scimContext, existing, user);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /**

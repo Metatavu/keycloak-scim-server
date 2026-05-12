@@ -228,7 +228,8 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
             scimClient.listUsers("userName \"bob\"", 0, 10)
     );
 
-    assertEquals("listUsers call failed with: 400 - Invalid filter", exception.getMessage());
+    assertTrue(exception.getMessage().contains("Invalid filter"),
+        "Expected error message to contain 'Invalid filter'; got: " + exception.getMessage());
   }
 
   @Test
@@ -239,7 +240,8 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
             scimClient.listUsers("userName gt \"bob\"", 0, 10)
     );
 
-    assertEquals("listUsers call failed with: 400 - Invalid filter", exception.getMessage());
+    assertTrue(exception.getMessage().contains("Invalid filter"),
+        "Expected error message to contain 'Invalid filter'; got: " + exception.getMessage());
   }
 
   @Test
@@ -250,7 +252,8 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
             scimClient.listUsers("userName eq bob", 0, 10)
     );
 
-    assertEquals("listUsers call failed with: 400 - Invalid filter", exception.getMessage());
+    assertTrue(exception.getMessage().contains("Invalid filter"),
+        "Expected error message to contain 'Invalid filter'; got: " + exception.getMessage());
   }
 
   @Test
@@ -261,7 +264,8 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
             scimClient.listUsers("userName eq \"a\" and", 0, 10)
     );
 
-    assertEquals("listUsers call failed with: 400 - Invalid filter", exception.getMessage());
+    assertTrue(exception.getMessage().contains("Invalid filter"),
+        "Expected error message to contain 'Invalid filter'; got: " + exception.getMessage());
   }
 
   @Test

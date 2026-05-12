@@ -214,36 +214,44 @@ public class OrganizationUserController extends UsersController  {
                 throw new UnsupportedPatchOperation("Unsupported patch operation: " + operation.getOp());
             }
 
-            UserAttribute<?> userAttribute = userAttributes.findByScimPath(operation.getPath());
+            String path = operation.getPath();
             Object value = operation.getValue();
 
-            if (userAttribute == null) {
-                throw new UnsupportedUserPath("Unsupported attribute: " + operation.getPath());
-            }
-
-            switch (op) {
-                case REPLACE, ADD -> {
-                    switch (value) {
-                        case null:
-                            logger.warn("Value is null for patch operation: " + op);
-                            break;
-                        case String s when userAttribute instanceof StringUserAttribute:
-                            ((StringUserAttribute) userAttribute).write(existing, s);
-                            break;
-                        case String s when userAttribute instanceof BooleanUserAttribute:
-                            ((BooleanUserAttribute) userAttribute).write(existing, Boolean.parseBoolean(s));
-                            break;
-                        case Boolean b when userAttribute instanceof BooleanUserAttribute:
-                            ((BooleanUserAttribute) userAttribute).write(existing, b);
-                            break;
-                        default:
-                            logger.warn("Unsupported value type for patch operation: " + value.getClass());
-                            break;
-                    }
-
+            // RFC 7644 §3.5.2: when "path" is omitted, "value" carries a map of
+            // attribute -> value to apply to the resource. Same shape Okta uses
+            // for Deactivate User on the realm scope; mirror the realm-scope
+            // handling here so org-scope users do not throw UnsupportedUserPath.
+            if (path == null) {
+                if (!(value instanceof java.util.Map<?, ?> valueMap)) {
+                    throw new UnsupportedUserPath("PatchOp without 'path' requires a map-valued 'value'");
                 }
-                case REMOVE -> userAttribute.write(existing, null);
+                for (java.util.Map.Entry<?, ?> entry : valueMap.entrySet()) {
+                    String attrPath = String.valueOf(entry.getKey());
+                    if (isReadOnlyOrStructural(attrPath)) {
+                        // RFC 7644 §3.5.2 / §7.5: ignore read-only and
+                        // structural attributes (id, meta, schemas).
+                        continue;
+                    }
+                    UserAttribute<?> ua = userAttributes.findByScimPath(attrPath);
+                    if (ua == null) {
+                        throw new UnsupportedUserPath("Unsupported attribute: " + attrPath);
+                    }
+                    applyOrgPatchValue(op, ua, existing, entry.getValue());
+                }
+                continue;
             }
+
+            if (isReadOnlyOrStructural(path)) {
+                continue;
+            }
+
+            UserAttribute<?> userAttribute = userAttributes.findByScimPath(path);
+
+            if (userAttribute == null) {
+                throw new UnsupportedUserPath("Unsupported attribute: " + path);
+            }
+
+            applyOrgPatchValue(op, userAttribute, existing, value);
         }
 
         fi.metatavu.keycloak.scim.server.model.User patchedUser = translateUser(
@@ -262,6 +270,35 @@ public class OrganizationUserController extends UsersController  {
         dispatchUserUpdateEvent(scimContext, existing);
 
         return patchedUser;
+    }
+
+    /**
+     * Apply a single attribute patch to the given org-scope user.
+     * Used by both the path-based and path-less branches of patchOrganizationUser.
+     */
+    private void applyOrgPatchValue(PatchOperation op, UserAttribute<?> ua, UserModel existing, Object value) {
+        switch (op) {
+            case REPLACE, ADD -> {
+                switch (value) {
+                    case null:
+                        logger.warn("Value is null for patch operation: " + op);
+                        break;
+                    case String s when ua instanceof StringUserAttribute:
+                        ((StringUserAttribute) ua).write(existing, s);
+                        break;
+                    case String s when ua instanceof BooleanUserAttribute:
+                        ((BooleanUserAttribute) ua).write(existing, Boolean.parseBoolean(s));
+                        break;
+                    case Boolean b when ua instanceof BooleanUserAttribute:
+                        ((BooleanUserAttribute) ua).write(existing, b);
+                        break;
+                    default:
+                        logger.warn("Unsupported value type for patch operation: " + value.getClass());
+                        break;
+                }
+            }
+            case REMOVE -> ua.write(existing, null);
+        }
     }
 
     /**

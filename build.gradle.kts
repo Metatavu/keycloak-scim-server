@@ -1,4 +1,7 @@
 import java.util.*
+import com.vanniktech.maven.publish.JavaLibrary
+import com.vanniktech.maven.publish.JavadocJar
+import com.vanniktech.maven.publish.SonatypeHost
 import org.openapitools.generator.gradle.plugin.tasks.GenerateTask
 
 abstract class FixAdditionalPropertyModels : DefaultTask() {
@@ -24,9 +27,11 @@ abstract class FixAdditionalPropertyModels : DefaultTask() {
 plugins {
     `java-library`
     `maven-publish`
+    signing
     jacoco
     id("org.openapi.generator") version "7.2.0"
     id("org.sonarqube") version "6.2.0.5505"
+    id("com.vanniktech.maven.publish") version "0.30.0"
 }
 
 repositories {
@@ -248,6 +253,43 @@ tasks.register("nextSnapshotVersion") {
     }
 }
 
+mavenPublishing {
+    configure(JavaLibrary(javadocJar = JavadocJar.Javadoc(), sourcesJar = true))
+
+    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL, automaticRelease = true)
+
+    coordinates(project.group.toString(), "keycloak-scim-server", project.version.toString())
+
+    pom {
+        name.set("Keycloak SCIM Server")
+        description.set("SCIM 2.0 server extension for Keycloak")
+        inceptionYear.set("2024")
+        url.set("https://github.com/Metatavu/keycloak-scim-server")
+
+        licenses {
+            license {
+                name.set("The Apache License, Version 2.0")
+                url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
+                distribution.set("repo")
+            }
+        }
+
+        developers {
+            developer {
+                id.set("Metatavu")
+                name.set("Metatavu Oy")
+                url.set("https://github.com/Metatavu/")
+            }
+        }
+
+        scm {
+            url.set("https://github.com/Metatavu/keycloak-scim-server")
+            connection.set("scm:git:git://github.com/Metatavu/keycloak-scim-server.git")
+            developerConnection.set("scm:git:ssh://git@github.com/Metatavu/keycloak-scim-server.git")
+        }
+    }
+}
+
 publishing {
     repositories {
         maven {
@@ -259,10 +301,16 @@ publishing {
             }
         }
     }
-    publications {
-        register<MavenPublication>("gpr") {
-            artifact(tasks["jar"])
-        }
+}
+
+signing {
+    val signingKey: String? = providers.environmentVariable("ORG_GRADLE_PROJECT_signingInMemoryKey")
+        .orElse(providers.gradleProperty("signingInMemoryKey")).orNull
+    val signingPassword: String? = providers.environmentVariable("ORG_GRADLE_PROJECT_signingInMemoryKeyPassword")
+        .orElse(providers.gradleProperty("signingInMemoryKeyPassword")).orNull
+    if (signingKey != null && signingPassword != null) {
+        useInMemoryPgpKeys(signingKey, signingPassword)
+        sign(publishing.publications)
     }
 }
 

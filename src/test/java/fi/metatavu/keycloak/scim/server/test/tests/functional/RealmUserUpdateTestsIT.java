@@ -5,6 +5,7 @@ import fi.metatavu.keycloak.scim.server.test.ScimClient;
 import fi.metatavu.keycloak.scim.server.test.TestConsts;
 import fi.metatavu.keycloak.scim.server.test.client.ApiException;
 import fi.metatavu.keycloak.scim.server.test.client.model.User;
+import fi.metatavu.keycloak.scim.server.test.client.model.UserName;
 import org.junit.jupiter.api.Test;
 import org.keycloak.events.admin.AdminEvent;
 import org.keycloak.events.admin.OperationType;
@@ -182,5 +183,47 @@ public class RealmUserUpdateTestsIT extends AbstractInternalAuthRealmScimTest {
 
         // Cleanup
         deleteRealmUser(TestConsts.TEST_REALM, created.getId());
+    }
+
+    /**
+     * Regression: omitted "name.familyName" in a PUT body must retain the existing value.
+     * Previously the request unconditionally wrote null when the parent "name" object was
+     * present, clearing the existing family name. RFC 7644 §3.5.1 says omitted readWrite
+     * attributes MAY be assumed to be unchanged — applies to subattributes too.
+     */
+    @Test
+    void testReplaceUserRetainsOmittedNameSubattributes() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+
+        User user = new User();
+        user.setUserName("omitted-name-sub");
+        user.setActive(true);
+        user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
+        user.setName(getName("Original", "Lastname"));
+        user.setEmails(getEmails("omitted.name.sub@example.com"));
+
+        User created = scimClient.createUser(user);
+        String userId = created.getId();
+
+        // PUT with only givenName under name; familyName omitted
+        User replacement = new User();
+        replacement.setUserName(user.getUserName());
+        replacement.setActive(true);
+        replacement.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
+        UserName partialName = new UserName();
+        partialName.setGivenName("NewGiven");
+        replacement.setName(partialName);
+
+        User updated = scimClient.updateUser(userId, replacement);
+
+        assertNotNull(updated.getName());
+        assertEquals("NewGiven", updated.getName().getGivenName());
+        assertEquals("Lastname", updated.getName().getFamilyName(), "familyName must be retained when omitted in PUT");
+
+        UserRepresentation realmUser = findRealmUser(TestConsts.TEST_REALM, userId);
+        assertEquals("NewGiven", realmUser.getFirstName());
+        assertEquals("Lastname", realmUser.getLastName());
+
+        deleteRealmUser(TestConsts.TEST_REALM, userId);
     }
 }

@@ -232,8 +232,12 @@ public class UsersController extends AbstractController {
         ((BooleanUserAttribute) userAttributes.findByScimPath("active")).write(existing, scimUser.getActive() == null || Boolean.TRUE.equals(scimUser.getActive()));
 
         if (scimUser.getName() != null) {
-            ((StringUserAttribute) userAttributes.findByScimPath("name.givenName")).write(existing, scimUser.getName().getGivenName());
-            ((StringUserAttribute) userAttributes.findByScimPath("name.familyName")).write(existing, scimUser.getName().getFamilyName());
+            if (scimUser.getName().getGivenName() != null) {
+                ((StringUserAttribute) userAttributes.findByScimPath("name.givenName")).write(existing, scimUser.getName().getGivenName());
+            }
+            if (scimUser.getName().getFamilyName() != null) {
+                ((StringUserAttribute) userAttributes.findByScimPath("name.familyName")).write(existing, scimUser.getName().getFamilyName());
+            }
         }
 
         if (scimUser.getEmails() != null && !scimUser.getEmails().isEmpty()) {

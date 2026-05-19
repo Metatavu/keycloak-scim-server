@@ -42,7 +42,20 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
 
         UserModel existing = session.users().getUserByUsername(realm, createRequest.getUserName());
         if (existing != null) {
-            return Response.status(Response.Status.CONFLICT).entity("User already exists").build();
+            return Response.status(Response.Status.CONFLICT)
+                .entity(String.format("User already exists with username: %s", createRequest.getUserName()))
+                .build();
+        }
+
+        String requestedEmail = createRequest.getEmails() != null && !createRequest.getEmails().isEmpty()
+            ? createRequest.getEmails().getFirst().getValue()
+            : null;
+        if (requestedEmail != null
+            && !realm.isDuplicateEmailsAllowed()
+            && session.users().getUserByEmail(realm, requestedEmail) != null) {
+            return Response.status(Response.Status.CONFLICT)
+                .entity(String.format("User already exists with email: %s", requestedEmail))
+                .build();
         }
 
         UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);

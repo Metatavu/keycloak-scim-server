@@ -19,6 +19,7 @@ import org.keycloak.models.GroupModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
+import org.keycloak.models.cache.UserCache;
 import org.keycloak.models.utils.ModelToRepresentation;
 import org.keycloak.representations.idm.GroupRepresentation;
 
@@ -26,6 +27,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -141,7 +144,59 @@ public class GroupsController extends AbstractController {
      * @return updated group
      */
     public Group updateGroup(ScimContext scimContext, GroupModel existing, fi.metatavu.keycloak.scim.server.model.Group group) {
-        existing.setName(group.getDisplayName());
+        KeycloakSession session = scimContext.getSession();
+        RealmModel realm = scimContext.getRealm();
+
+        if (group.getDisplayName() != null) {
+            existing.setName(group.getDisplayName());
+        }
+
+        // SCIM PUT is a full replace of the resource — reconcile members against the request.
+        // Okta's Group Push uses PUT (not PATCH) with the desired final member list.
+        List<GroupMembersInner> requestedMembers = group.getMembers();
+        if (requestedMembers != null) {
+            Set<String> desiredIds = requestedMembers.stream()
+                    .map(GroupMembersInner::getValue)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+
+            List<UserModel> currentMembers = session.users()
+                    .getGroupMembersStream(realm, existing)
+                    .collect(Collectors.toList());
+
+            Set<String> currentIds = currentMembers.stream()
+                    .map(UserModel::getId)
+                    .collect(Collectors.toSet());
+
+            UserCache userCache = session.getProvider(UserCache.class);
+
+            // Remove members no longer in the desired set
+            for (UserModel user : currentMembers) {
+                if (!desiredIds.contains(user.getId())) {
+                    user.leaveGroup(existing);
+                    if (userCache != null) {
+                        userCache.evict(realm, user);
+                    }
+                    dispatchGroupMembershipLeaveEvent(scimContext, existing, user);
+                }
+            }
+
+            // Add members that are new
+            for (String id : desiredIds) {
+                if (currentIds.contains(id)) {
+                    continue;
+                }
+                UserModel user = session.users().getUserById(realm, id);
+                if (user != null) {
+                    user.joinGroup(existing);
+                    if (userCache != null) {
+                        userCache.evict(realm, user);
+                    }
+                    dispatchGroupMembershipJoinEvent(scimContext, existing, user);
+                }
+            }
+        }
+
         return translateGroup(scimContext, existing);
     }
 

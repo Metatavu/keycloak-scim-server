@@ -14,7 +14,9 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -254,6 +256,83 @@ public class RealmGroupPatchTestsIT extends AbstractInternalAuthRealmScimTest {
         assertTrue(patched.getMembers() == null || patched.getMembers().isEmpty());
 
         deleteRealmUser(TestConsts.TEST_REALM, user.getId());
+        deleteRealmGroup(TestConsts.TEST_REALM, group.getId());
+    }
+
+    /**
+     * Regression test for path-less PATCH on Groups per RFC 7644 §3.5.2.
+     *
+     * Okta's SCIM client refreshes group metadata after each push by sending
+     * a PATCH where the Operation omits "path" and supplies a partial
+     * resource as "value":
+     *
+     *   {"op":"replace","value":{"id":"...","displayName":"..."}}
+     *
+     * Before this fix, GroupsController#patchGroup rejected such Operations
+     * with `UnsupportedGroupPath`, which Okta interpreted as a group-push
+     * failure and stopped pushing memberships. The fix mirrors the
+     * path-less branch already present in UsersController#patchUser:
+     * iterate the value map, apply each known attribute, and ignore
+     * unknown / read-only keys (id, schemas, meta, externalId) without
+     * failing.
+     */
+    @Test
+    void testPatchGroupWithoutPathReplacesDisplayName() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+        Group group = createGroup(scimClient, "pathless-original-name");
+
+        PatchRequest patchRequest = new PatchRequest();
+        patchRequest.setSchemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"));
+
+        PatchRequestOperationsInner operation = new PatchRequestOperationsInner();
+        operation.setOp("replace");
+        // path intentionally omitted to exercise the path-less branch.
+
+        Map<String, Object> partialResource = new HashMap<>();
+        partialResource.put("id", group.getId());                   // read-only, must be ignored
+        partialResource.put("displayName", "pathless-updated-name"); // must be applied
+        operation.setValue(partialResource);
+
+        patchRequest.setOperations(List.of(operation));
+
+        Group patched = scimClient.patchGroup(group.getId(), patchRequest);
+
+        assertEquals("pathless-updated-name", patched.getDisplayName());
+
+        deleteRealmGroup(TestConsts.TEST_REALM, group.getId());
+    }
+
+    /**
+     * Path-less PATCH where the value map contains only attributes the
+     * server treats as read-only / unknown (id, schemas) must succeed
+     * silently — applying nothing — rather than throwing
+     * UnsupportedGroupPath. This mirrors Okta's idempotent metadata
+     * reconciliation calls where the server returns the same data Okta
+     * just pushed.
+     */
+    @Test
+    void testPatchGroupWithoutPathIgnoresReadOnlyAttributes() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+        Group group = createGroup(scimClient, "pathless-readonly-name");
+        String originalDisplayName = group.getDisplayName();
+
+        PatchRequest patchRequest = new PatchRequest();
+        patchRequest.setSchemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"));
+
+        PatchRequestOperationsInner operation = new PatchRequestOperationsInner();
+        operation.setOp("replace");
+
+        Map<String, Object> partialResource = new HashMap<>();
+        partialResource.put("id", group.getId());
+        partialResource.put("schemas", List.of("urn:ietf:params:scim:schemas:core:2.0:Group"));
+        operation.setValue(partialResource);
+
+        patchRequest.setOperations(List.of(operation));
+
+        Group patched = scimClient.patchGroup(group.getId(), patchRequest);
+
+        assertEquals(originalDisplayName, patched.getDisplayName());
+
         deleteRealmGroup(TestConsts.TEST_REALM, group.getId());
     }
 }

@@ -426,4 +426,47 @@ public class RealmGroupPatchTestsIT extends AbstractInternalAuthRealmScimTest {
             deleteRealmGroup(TestConsts.TEST_REALM, group.getId());
         }
     }
+
+    /**
+     * Okta Group Push wire shape: path-less PatchOp where members are nested under the value map.
+     * Example body: {"op":"replace","value":{"members":[{"value":"<user-id>"}]}}
+     */
+    @Test
+    void testAddMemberPathLessPatchOp() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+
+        User user = createUser(scimClient, "pathless-add-1", "Pathless", "Add");
+        Group group = createGroup(scimClient, "pathless-add-group");
+
+        try {
+            // Okta Group Push wire shape: no "path", members nested under the value map.
+            PatchRequest patchRequest = new PatchRequest();
+            patchRequest.setSchemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"));
+
+            PatchRequestOperationsInner op = new PatchRequestOperationsInner();
+            // Okta's Group Push uses op=replace (not add) for the path-less wire shape,
+            // even when populating an empty group for the first time. The members list
+            // inside `value` is the new authoritative set.
+            op.setOp("replace");
+            op.setValue(Map.of("members", List.of(Map.of("value", user.getId()))));
+
+            patchRequest.setOperations(List.of(op));
+
+            Group patched = scimClient.patchGroup(group.getId(), patchRequest);
+
+            assertNotNull(patched);
+            assertNotNull(patched.getMembers());
+            assertEquals(1, patched.getMembers().size());
+            assertEquals(user.getId(), patched.getMembers().get(0).getValue());
+
+            // Verify via a fresh GET as well.
+            Group after = scimClient.findGroup(group.getId());
+            assertNotNull(after.getMembers());
+            assertEquals(1, after.getMembers().size());
+            assertEquals(user.getId(), after.getMembers().get(0).getValue());
+        } finally {
+            deleteRealmUser(TestConsts.TEST_REALM, user.getId());
+            deleteRealmGroup(TestConsts.TEST_REALM, group.getId());
+        }
+    }
 }

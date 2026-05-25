@@ -295,6 +295,41 @@ public class UsersController extends AbstractController {
         UserModel existing,
         fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
     ) throws UnsupportedPatchOperation {
+        applyPatchOperations(userAttributes, existing, patchRequest);
+
+        dispatchUserUpdateEvent(scimContext, existing);
+
+        final User patchedUser = translateUser(scimContext, userAttributes, existing);
+
+        if (scimContext.getConfig().getLinkIdp()) {
+            KeycloakSession session = scimContext.getSession();
+            RealmModel realm = scimContext.getRealm();
+            String scimUsername = patchedUser.getUserName();
+            String externalId = getExternalId(patchedUser);
+            String idpAlias = scimContext.getConfig().getIdentityProviderAlias();
+            linkUserIdp(session, realm, existing, scimUsername, externalId, idpAlias);
+        }
+
+
+        return patchedUser;
+    }
+
+    /**
+     * Walk a PatchRequest's operations and apply each one to {@code existing}.
+     * Shared between {@link #patchUser} and
+     * {@link fi.metatavu.keycloak.scim.server.organization.OrganizationUserController#patchOrganizationUser}
+     * so the realm-scope and org-scope SCIM PATCH endpoints handle path-less /
+     * path-based shapes and read-only / structural attributes identically.
+     *
+     * @param userAttributes user attributes metadata
+     * @param existing       user being patched
+     * @param patchRequest   SCIM patch request
+     */
+    protected void applyPatchOperations(
+        UserAttributes userAttributes,
+        UserModel existing,
+        fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
+    ) throws UnsupportedPatchOperation {
         for (var operation : patchRequest.getOperations()) {
             PatchOperation op = PatchOperation.fromString(operation.getOp());
             if (op == null) {
@@ -339,22 +374,6 @@ public class UsersController extends AbstractController {
             }
             applyPatchValue(op, userAttribute, existing, value);
         }
-
-        dispatchUserUpdateEvent(scimContext, existing);
-
-        final User patchedUser = translateUser(scimContext, userAttributes, existing);
-
-        if (scimContext.getConfig().getLinkIdp()) {
-            KeycloakSession session = scimContext.getSession();
-            RealmModel realm = scimContext.getRealm();
-            String scimUsername = patchedUser.getUserName();
-            String externalId = getExternalId(patchedUser);
-            String idpAlias = scimContext.getConfig().getIdentityProviderAlias();
-            linkUserIdp(session, realm, existing, scimUsername, externalId, idpAlias);
-        }
-
-
-        return patchedUser;
     }
 
     /**

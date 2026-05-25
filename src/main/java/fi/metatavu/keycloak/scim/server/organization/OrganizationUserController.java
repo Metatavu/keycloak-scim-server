@@ -207,52 +207,7 @@ public class OrganizationUserController extends UsersController  {
         RealmModel realm = scimContext.getRealm();
         ScimConfig config = scimContext.getConfig();
 
-        for (var operation : patchRequest.getOperations()) {
-            PatchOperation op = PatchOperation.fromString(operation.getOp());
-            if (op == null) {
-                logger.warn("Invalid patch operation: " + operation.getOp());
-                throw new UnsupportedPatchOperation("Unsupported patch operation: " + operation.getOp());
-            }
-
-            String path = operation.getPath();
-            Object value = operation.getValue();
-
-            // RFC 7644 §3.5.2: when "path" is omitted, "value" carries a map of
-            // attribute -> value to apply to the resource. Same shape Okta uses
-            // for Deactivate User on the realm scope; mirror the realm-scope
-            // handling here so org-scope users do not throw UnsupportedUserPath.
-            if (path == null) {
-                if (!(value instanceof java.util.Map<?, ?> valueMap)) {
-                    throw new UnsupportedUserPath("PatchOp without 'path' requires a map-valued 'value'");
-                }
-                for (java.util.Map.Entry<?, ?> entry : valueMap.entrySet()) {
-                    String attrPath = String.valueOf(entry.getKey());
-                    if (isReadOnlyOrStructural(attrPath)) {
-                        // RFC 7644 §3.5.2 / §7.5: ignore read-only and
-                        // structural attributes (id, meta, schemas).
-                        continue;
-                    }
-                    UserAttribute<?> ua = userAttributes.findByScimPath(attrPath);
-                    if (ua == null) {
-                        throw new UnsupportedUserPath("Unsupported attribute: " + attrPath);
-                    }
-                    applyPatchValue(op, ua, existing, entry.getValue());
-                }
-                continue;
-            }
-
-            if (isReadOnlyOrStructural(path)) {
-                continue;
-            }
-
-            UserAttribute<?> userAttribute = userAttributes.findByScimPath(path);
-
-            if (userAttribute == null) {
-                throw new UnsupportedUserPath("Unsupported attribute: " + path);
-            }
-
-            applyPatchValue(op, userAttribute, existing, value);
-        }
+        applyPatchOperations(userAttributes, existing, patchRequest);
 
         fi.metatavu.keycloak.scim.server.model.User patchedUser = translateUser(
             scimContext,

@@ -1,5 +1,8 @@
 package fi.metatavu.keycloak.scim.server;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import jakarta.ws.rs.core.Response;
 
 /**
@@ -10,8 +13,17 @@ import jakarta.ws.rs.core.Response;
  * as JSON (Okta, Entra ID). All error responses go through this helper now and
  * return a valid SCIM Error JSON document with the application/scim+json media
  * type.
+ *
+ * The body is built via Jackson so any control character or quote that arrives
+ * in {@code detail} (typically from a user-supplied attribute path interpolated
+ * into an error message) is escaped correctly. A hand-rolled escape used to
+ * cover only `\\` and `"` and reintroduced the JSON parse failure on the client
+ * side as soon as a `\\n` or `\\t` reached `detail`.
  */
 public final class ScimErrors {
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final String ERROR_SCHEMA = "urn:ietf:params:scim:api:messages:2.0:Error";
 
     private ScimErrors() {
         // utility class
@@ -21,16 +33,23 @@ public final class ScimErrors {
      * Build a SCIM 2.0 Error response.
      *
      * @param status HTTP status (e.g. BAD_REQUEST)
-     * @param detail human-readable error detail
+     * @param detail human-readable error detail; null is rendered as the empty string
      * @return Response carrying a SCIM Error JSON body and application/scim+json type
      */
     public static Response error(Response.Status status, String detail) {
-        String safeDetail = detail == null
-                ? ""
-                : detail.replace("\\", "\\\\").replace("\"", "\\\"");
-        String body = "{\"schemas\":[\"urn:ietf:params:scim:api:messages:2.0:Error\"]"
-                + ",\"status\":\"" + status.getStatusCode() + "\""
-                + ",\"detail\":\"" + safeDetail + "\"}";
+        ObjectNode node = MAPPER.createObjectNode();
+        node.putArray("schemas").add(ERROR_SCHEMA);
+        node.put("status", Integer.toString(status.getStatusCode()));
+        node.put("detail", detail == null ? "" : detail);
+        String body;
+        try {
+            body = MAPPER.writeValueAsString(node);
+        } catch (JsonProcessingException e) {
+            // ObjectNode is always serializable; fall back to a static body if Jackson
+            // somehow fails so we still return SCIM-shaped JSON.
+            body = "{\"schemas\":[\"" + ERROR_SCHEMA + "\"],\"status\":\""
+                    + status.getStatusCode() + "\",\"detail\":\"\"}";
+        }
         return Response.status(status).type("application/scim+json").entity(body).build();
     }
 

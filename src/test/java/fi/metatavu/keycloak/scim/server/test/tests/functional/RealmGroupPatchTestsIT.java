@@ -14,6 +14,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -207,5 +208,222 @@ public class RealmGroupPatchTestsIT extends AbstractInternalAuthRealmScimTest {
         // Clean up
         deleteRealmUser(TestConsts.TEST_REALM, user.getId());
         deleteRealmGroup(TestConsts.TEST_REALM, group.getId());
+    }
+
+    /**
+     * A REPLACE operation that includes one valid and one unknown member ID must
+     * be rejected atomically: HTTP 400 with an error body naming the bad ID, and
+     * the group's original membership must be unchanged.
+     */
+    @Test
+    void testReplaceMembersRejectsUnknownIdWithoutMutation() throws ApiException, IOException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+
+        User user = createUser(scimClient, "atomic-1", "Atomic", "One");
+        Group group = createGroup(scimClient, "atomic-group");
+
+        try {
+            // Seed with a known member
+            GroupMembersInner known = new GroupMembersInner();
+            known.setValue(user.getId());
+            PatchRequest seed = new PatchRequest();
+            seed.setSchemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"));
+            PatchRequestOperationsInner addOp = new PatchRequestOperationsInner();
+            addOp.setOp("add");
+            addOp.setPath("members");
+            addOp.setValue(List.of(known));
+            seed.setOperations(List.of(addOp));
+            scimClient.patchGroup(group.getId(), seed);
+
+            // REPLACE with [known, unknown] -- must fail atomically with HTTP 400.
+            GroupMembersInner unknown = new GroupMembersInner();
+            unknown.setValue("00000000-0000-0000-0000-000000000000");
+            PatchRequest replace = new PatchRequest();
+            replace.setSchemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"));
+            PatchRequestOperationsInner replaceOp = new PatchRequestOperationsInner();
+            replaceOp.setOp("replace");
+            replaceOp.setPath("members");
+            replaceOp.setValue(List.of(known, unknown));
+            replace.setOperations(List.of(replaceOp));
+
+            ApiException ex = assertThrows(ApiException.class,
+                    () -> scimClient.patchGroup(group.getId(), replace));
+            assertEquals(400, ex.getCode());
+
+            com.fasterxml.jackson.databind.JsonNode body =
+                    new com.fasterxml.jackson.databind.ObjectMapper().readTree(ex.getResponseBody());
+            assertEquals("400", body.get("status").asText());
+            assertTrue(body.get("detail").asText().contains("00000000-0000-0000-0000-000000000000"),
+                    "detail should name the unknown member id; got: " + body.get("detail").asText());
+
+            // Group state must be unchanged: original known member still present.
+            Group after = scimClient.findGroup(group.getId());
+            assertNotNull(after.getMembers());
+            assertEquals(1, after.getMembers().size());
+            assertEquals(user.getId(), after.getMembers().get(0).getValue());
+        } finally {
+            deleteRealmUser(TestConsts.TEST_REALM, user.getId());
+            deleteRealmGroup(TestConsts.TEST_REALM, group.getId());
+        }
+    }
+
+    /**
+     * Same atomicity guarantee for the path-less PatchOp shape (Okta Group Push):
+     * {"op":"replace","value":{"members":[...]}}. An unknown member ID must yield
+     * HTTP 400 without mutating the group.
+     */
+    @Test
+    void testReplaceMembersPathLessRejectsUnknownIdWithoutMutation() throws ApiException, IOException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+
+        User user = createUser(scimClient, "atomic-pathless-1", "Atomic", "Pathless");
+        Group group = createGroup(scimClient, "atomic-pathless-group");
+
+        try {
+            // Seed with a known member via path-based ADD
+            GroupMembersInner known = new GroupMembersInner();
+            known.setValue(user.getId());
+            PatchRequest seed = new PatchRequest();
+            seed.setSchemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"));
+            PatchRequestOperationsInner addOp = new PatchRequestOperationsInner();
+            addOp.setOp("add");
+            addOp.setPath("members");
+            addOp.setValue(List.of(known));
+            seed.setOperations(List.of(addOp));
+            scimClient.patchGroup(group.getId(), seed);
+
+            // Path-less REPLACE with one known + one unknown member.
+            // Shape: {"op":"replace","value":{"members":[{"value":"<known>"}, {"value":"<unknown>"}]}}
+            Map<String, Object> knownMap = Map.of("value", user.getId());
+            Map<String, Object> unknownMap = Map.of("value", "00000000-0000-0000-0000-000000000000");
+            PatchRequest replace = new PatchRequest();
+            replace.setSchemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"));
+            PatchRequestOperationsInner replaceOp = new PatchRequestOperationsInner();
+            replaceOp.setOp("replace");
+            // No path -- value is a map of attribute -> list, Okta Group Push shape
+            replaceOp.setValue(Map.of("members", List.of(knownMap, unknownMap)));
+            replace.setOperations(List.of(replaceOp));
+
+            ApiException ex = assertThrows(ApiException.class,
+                    () -> scimClient.patchGroup(group.getId(), replace));
+            assertEquals(400, ex.getCode());
+
+            com.fasterxml.jackson.databind.JsonNode body =
+                    new com.fasterxml.jackson.databind.ObjectMapper().readTree(ex.getResponseBody());
+            assertEquals("400", body.get("status").asText());
+            assertTrue(body.get("detail").asText().contains("00000000-0000-0000-0000-000000000000"),
+                    "detail should name the unknown member id; got: " + body.get("detail").asText());
+
+            // Group state must be unchanged: original known member still present.
+            Group after = scimClient.findGroup(group.getId());
+            assertNotNull(after.getMembers());
+            assertEquals(1, after.getMembers().size());
+            assertEquals(user.getId(), after.getMembers().get(0).getValue());
+        } finally {
+            deleteRealmUser(TestConsts.TEST_REALM, user.getId());
+            deleteRealmGroup(TestConsts.TEST_REALM, group.getId());
+        }
+    }
+
+    @Test
+    void testRemoveUnknownMemberIsRejected() throws ApiException, java.io.IOException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+
+        User user = createUser(scimClient, "remove-unknown-1", "Remove", "Unknown");
+        Group group = createGroup(scimClient, "remove-unknown-group");
+
+        try {
+            // Seed with the known member
+            GroupMembersInner known = new GroupMembersInner();
+            known.setValue(user.getId());
+            PatchRequest seed = new PatchRequest();
+            seed.setSchemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"));
+            PatchRequestOperationsInner addOp = new PatchRequestOperationsInner();
+            addOp.setOp("add");
+            addOp.setPath("members");
+            addOp.setValue(List.of(known));
+            seed.setOperations(List.of(addOp));
+            scimClient.patchGroup(group.getId(), seed);
+
+            // REMOVE [unknown] should fail 400 atomically; the known member stays.
+            GroupMembersInner unknown = new GroupMembersInner();
+            unknown.setValue("11111111-1111-1111-1111-111111111111");
+            PatchRequest remove = new PatchRequest();
+            remove.setSchemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"));
+            PatchRequestOperationsInner removeOp = new PatchRequestOperationsInner();
+            removeOp.setOp("remove");
+            removeOp.setPath("members");
+            removeOp.setValue(List.of(unknown));
+            remove.setOperations(List.of(removeOp));
+
+            ApiException ex = assertThrows(ApiException.class,
+                    () -> scimClient.patchGroup(group.getId(), remove));
+            assertEquals(400, ex.getCode());
+            com.fasterxml.jackson.databind.JsonNode body =
+                    new com.fasterxml.jackson.databind.ObjectMapper().readTree(ex.getResponseBody());
+            assertTrue(body.get("detail").asText().contains("11111111-1111-1111-1111-111111111111"),
+                    "detail should name the unknown member id; got: " + body.get("detail").asText());
+
+            // Known member untouched
+            Group after = scimClient.findGroup(group.getId());
+            assertEquals(1, after.getMembers().size());
+            assertEquals(user.getId(), after.getMembers().get(0).getValue());
+        } finally {
+            deleteRealmUser(TestConsts.TEST_REALM, user.getId());
+            deleteRealmGroup(TestConsts.TEST_REALM, group.getId());
+        }
+    }
+
+    /**
+     * REMOVE with an unquoted (malformed) filter value must return HTTP 400
+     * with a SCIM error body, not silently succeed.
+     * Example malformed path: members[value eq abc]  (no quotes around the id)
+     */
+    @Test
+    void testRemoveMemberWithMalformedFilterReturns400() throws ApiException, IOException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+
+        User user = createUser(scimClient, "malformed-filter-user", "Malformed", "Filter");
+        Group group = createGroup(scimClient, "malformed-filter-group");
+
+        try {
+            // Seed with a known member so the group is non-empty
+            GroupMembersInner member = new GroupMembersInner();
+            member.setValue(user.getId());
+            PatchRequest seed = new PatchRequest();
+            seed.setSchemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"));
+            PatchRequestOperationsInner addOp = new PatchRequestOperationsInner();
+            addOp.setOp("add");
+            addOp.setPath("members");
+            addOp.setValue(List.of(member));
+            seed.setOperations(List.of(addOp));
+            scimClient.patchGroup(group.getId(), seed);
+
+            // REMOVE with unquoted filter value -- must be rejected with 400.
+            PatchRequest remove = new PatchRequest();
+            remove.setSchemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"));
+            PatchRequestOperationsInner removeOp = new PatchRequestOperationsInner();
+            removeOp.setOp("remove");
+            // Intentionally malformed: value not quoted
+            removeOp.setPath("members[value eq " + user.getId() + "]");
+            remove.setOperations(List.of(removeOp));
+
+            ApiException ex = assertThrows(ApiException.class,
+                    () -> scimClient.patchGroup(group.getId(), remove));
+            assertEquals(400, ex.getCode());
+
+            com.fasterxml.jackson.databind.JsonNode body =
+                    new com.fasterxml.jackson.databind.ObjectMapper().readTree(ex.getResponseBody());
+            assertEquals("400", body.get("status").asText());
+
+            // Group state must be unchanged: original member still present.
+            Group after = scimClient.findGroup(group.getId());
+            assertNotNull(after.getMembers());
+            assertEquals(1, after.getMembers().size());
+            assertEquals(user.getId(), after.getMembers().get(0).getValue());
+        } finally {
+            deleteRealmUser(TestConsts.TEST_REALM, user.getId());
+            deleteRealmGroup(TestConsts.TEST_REALM, group.getId());
+        }
     }
 }

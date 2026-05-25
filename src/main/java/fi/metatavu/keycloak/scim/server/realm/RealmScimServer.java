@@ -4,6 +4,7 @@ import fi.metatavu.keycloak.scim.server.AbstractScimServer;
 import fi.metatavu.keycloak.scim.server.ScimErrors;
 import fi.metatavu.keycloak.scim.server.config.ConfigurationError;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
+import fi.metatavu.keycloak.scim.server.groups.InvalidGroupMemberReference;
 import fi.metatavu.keycloak.scim.server.groups.UnsupportedGroupPath;
 import fi.metatavu.keycloak.scim.server.metadata.UserAttributes;
 import fi.metatavu.keycloak.scim.server.model.User;
@@ -254,6 +255,8 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
         try {
             fi.metatavu.keycloak.scim.server.model.Group updated = groupsController.patchGroup(scimContext, existing, patchRequest);
             return Response.ok(updated).build();
+        } catch (InvalidGroupMemberReference e) {
+            return ScimErrors.badRequest(e.getMessage());
         } catch (UnsupportedGroupPath e) {
             return ScimErrors.badRequest(e.getMessage() != null ? e.getMessage() : "Unsupported group path");
         } catch (UnsupportedPatchOperation e) {

@@ -225,18 +225,11 @@ public class RealmGroupPatchTestsIT extends AbstractInternalAuthRealmScimTest {
 
         try {
             // Seed with a known member
-            GroupMembersInner known = new GroupMembersInner();
-            known.setValue(user.getId());
-            PatchRequest seed = new PatchRequest();
-            seed.setSchemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"));
-            PatchRequestOperationsInner addOp = new PatchRequestOperationsInner();
-            addOp.setOp("add");
-            addOp.setPath("members");
-            addOp.setValue(List.of(known));
-            seed.setOperations(List.of(addOp));
-            scimClient.patchGroup(group.getId(), seed);
+            seedGroupWithMember(scimClient, group, user);
 
             // REPLACE with [known, unknown] -- must fail atomically with HTTP 400.
+            GroupMembersInner known = new GroupMembersInner();
+            known.setValue(user.getId());
             GroupMembersInner unknown = new GroupMembersInner();
             unknown.setValue("00000000-0000-0000-0000-000000000000");
             PatchRequest replace = new PatchRequest();
@@ -258,10 +251,7 @@ public class RealmGroupPatchTestsIT extends AbstractInternalAuthRealmScimTest {
                     "detail should name the unknown member id; got: " + body.get("detail").asText());
 
             // Group state must be unchanged: original known member still present.
-            Group after = scimClient.findGroup(group.getId());
-            assertNotNull(after.getMembers());
-            assertEquals(1, after.getMembers().size());
-            assertEquals(user.getId(), after.getMembers().get(0).getValue());
+            assertGroupHasOnlyMember(scimClient, group, user);
         } finally {
             deleteRealmUser(TestConsts.TEST_REALM, user.getId());
             deleteRealmGroup(TestConsts.TEST_REALM, group.getId());
@@ -282,16 +272,7 @@ public class RealmGroupPatchTestsIT extends AbstractInternalAuthRealmScimTest {
 
         try {
             // Seed with a known member via path-based ADD
-            GroupMembersInner known = new GroupMembersInner();
-            known.setValue(user.getId());
-            PatchRequest seed = new PatchRequest();
-            seed.setSchemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"));
-            PatchRequestOperationsInner addOp = new PatchRequestOperationsInner();
-            addOp.setOp("add");
-            addOp.setPath("members");
-            addOp.setValue(List.of(known));
-            seed.setOperations(List.of(addOp));
-            scimClient.patchGroup(group.getId(), seed);
+            seedGroupWithMember(scimClient, group, user);
 
             // Path-less REPLACE with one known + one unknown member.
             // Shape: {"op":"replace","value":{"members":[{"value":"<known>"}, {"value":"<unknown>"}]}}
@@ -316,10 +297,7 @@ public class RealmGroupPatchTestsIT extends AbstractInternalAuthRealmScimTest {
                     "detail should name the unknown member id; got: " + body.get("detail").asText());
 
             // Group state must be unchanged: original known member still present.
-            Group after = scimClient.findGroup(group.getId());
-            assertNotNull(after.getMembers());
-            assertEquals(1, after.getMembers().size());
-            assertEquals(user.getId(), after.getMembers().get(0).getValue());
+            assertGroupHasOnlyMember(scimClient, group, user);
         } finally {
             deleteRealmUser(TestConsts.TEST_REALM, user.getId());
             deleteRealmGroup(TestConsts.TEST_REALM, group.getId());
@@ -335,16 +313,7 @@ public class RealmGroupPatchTestsIT extends AbstractInternalAuthRealmScimTest {
 
         try {
             // Seed with the known member
-            GroupMembersInner known = new GroupMembersInner();
-            known.setValue(user.getId());
-            PatchRequest seed = new PatchRequest();
-            seed.setSchemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"));
-            PatchRequestOperationsInner addOp = new PatchRequestOperationsInner();
-            addOp.setOp("add");
-            addOp.setPath("members");
-            addOp.setValue(List.of(known));
-            seed.setOperations(List.of(addOp));
-            scimClient.patchGroup(group.getId(), seed);
+            seedGroupWithMember(scimClient, group, user);
 
             // REMOVE [unknown] should fail 400 atomically; the known member stays.
             GroupMembersInner unknown = new GroupMembersInner();
@@ -366,9 +335,7 @@ public class RealmGroupPatchTestsIT extends AbstractInternalAuthRealmScimTest {
                     "detail should name the unknown member id; got: " + body.get("detail").asText());
 
             // Known member untouched
-            Group after = scimClient.findGroup(group.getId());
-            assertEquals(1, after.getMembers().size());
-            assertEquals(user.getId(), after.getMembers().get(0).getValue());
+            assertGroupHasOnlyMember(scimClient, group, user);
         } finally {
             deleteRealmUser(TestConsts.TEST_REALM, user.getId());
             deleteRealmGroup(TestConsts.TEST_REALM, group.getId());
@@ -389,16 +356,7 @@ public class RealmGroupPatchTestsIT extends AbstractInternalAuthRealmScimTest {
 
         try {
             // Seed with a known member so the group is non-empty
-            GroupMembersInner member = new GroupMembersInner();
-            member.setValue(user.getId());
-            PatchRequest seed = new PatchRequest();
-            seed.setSchemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"));
-            PatchRequestOperationsInner addOp = new PatchRequestOperationsInner();
-            addOp.setOp("add");
-            addOp.setPath("members");
-            addOp.setValue(List.of(member));
-            seed.setOperations(List.of(addOp));
-            scimClient.patchGroup(group.getId(), seed);
+            seedGroupWithMember(scimClient, group, user);
 
             // REMOVE with unquoted filter value -- must be rejected with 400.
             PatchRequest remove = new PatchRequest();
@@ -418,10 +376,7 @@ public class RealmGroupPatchTestsIT extends AbstractInternalAuthRealmScimTest {
             assertEquals("400", body.get("status").asText());
 
             // Group state must be unchanged: original member still present.
-            Group after = scimClient.findGroup(group.getId());
-            assertNotNull(after.getMembers());
-            assertEquals(1, after.getMembers().size());
-            assertEquals(user.getId(), after.getMembers().get(0).getValue());
+            assertGroupHasOnlyMember(scimClient, group, user);
         } finally {
             deleteRealmUser(TestConsts.TEST_REALM, user.getId());
             deleteRealmGroup(TestConsts.TEST_REALM, group.getId());
@@ -516,5 +471,37 @@ public class RealmGroupPatchTestsIT extends AbstractInternalAuthRealmScimTest {
 
         deleteRealmUser(TestConsts.TEST_REALM, user.getId());
         deleteRealmGroup(TestConsts.TEST_REALM, group.getId());
+    }
+
+    // --- helpers shared by the atomic-resolution tests ---
+
+    /**
+     * Seed a group with a single member via a path-based ADD members PatchOp.
+     * Mirrors what an upstream IdP would push to establish initial membership
+     * before the test exercises a subsequent REPLACE/REMOVE op.
+     */
+    private void seedGroupWithMember(ScimClient scimClient, Group group, User user) throws ApiException {
+        PatchRequest seed = new PatchRequest();
+        seed.setSchemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"));
+        PatchRequestOperationsInner addOp = new PatchRequestOperationsInner();
+        addOp.setOp("add");
+        addOp.setPath("members");
+        GroupMembersInner known = new GroupMembersInner();
+        known.setValue(user.getId());
+        addOp.setValue(List.of(known));
+        seed.setOperations(List.of(addOp));
+        scimClient.patchGroup(group.getId(), seed);
+    }
+
+    /**
+     * Re-fetch the group and assert it has exactly one member, whose value
+     * matches the given user's id. Used to confirm membership is unchanged
+     * after a failed atomic PatchOp.
+     */
+    private void assertGroupHasOnlyMember(ScimClient scimClient, Group group, User user) throws ApiException {
+        Group after = scimClient.findGroup(group.getId());
+        assertNotNull(after.getMembers());
+        assertEquals(1, after.getMembers().size());
+        assertEquals(user.getId(), after.getMembers().get(0).getValue());
     }
 }

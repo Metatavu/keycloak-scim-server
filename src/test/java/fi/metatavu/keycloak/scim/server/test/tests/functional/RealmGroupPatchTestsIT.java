@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.keycloak.events.admin.AdminEvent;
 import org.keycloak.events.admin.OperationType;
 import org.keycloak.events.admin.ResourceType;
+import org.keycloak.representations.idm.UserRepresentation;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.io.IOException;
@@ -468,5 +469,52 @@ public class RealmGroupPatchTestsIT extends AbstractInternalAuthRealmScimTest {
             deleteRealmUser(TestConsts.TEST_REALM, user.getId());
             deleteRealmGroup(TestConsts.TEST_REALM, group.getId());
         }
+    }
+
+    /**
+     * Regression: removing a group member whose email is null must not 500.
+     * Map.of() rejects null values, so the admin event dispatch previously
+     * NPE'd when the user had no email set.
+     */
+    @Test
+    void testRemoveGroupMemberWithoutEmail() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+
+        User user = createUser(scimClient, "no-email-user", "No", "Email");
+        Group group = createGroup(scimClient, "no-email-group");
+
+        UserRepresentation userRep = findRealmUser(TestConsts.TEST_REALM, user.getId());
+        userRep.setEmail(null);
+        getKeycloakContainer().getKeycloakAdminClient()
+            .realms()
+            .realm(TestConsts.TEST_REALM)
+            .users()
+            .get(user.getId())
+            .update(userRep);
+
+        PatchRequest addRequest = new PatchRequest();
+        addRequest.setSchemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"));
+        PatchRequestOperationsInner addOperation = new PatchRequestOperationsInner();
+        addOperation.setOp("add");
+        addOperation.setPath("members");
+        GroupMembersInner member = new GroupMembersInner();
+        member.setValue(user.getId());
+        addOperation.setValue(Collections.singletonList(member));
+        addRequest.setOperations(List.of(addOperation));
+        scimClient.patchGroup(group.getId(), addRequest);
+
+        PatchRequest removeRequest = new PatchRequest();
+        removeRequest.setSchemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"));
+        PatchRequestOperationsInner removeOperation = new PatchRequestOperationsInner();
+        removeOperation.setOp("remove");
+        removeOperation.setPath("members[value eq \"" + user.getId() + "\"]");
+        removeRequest.setOperations(List.of(removeOperation));
+
+        Group patched = scimClient.patchGroup(group.getId(), removeRequest);
+
+        assertTrue(patched.getMembers() == null || patched.getMembers().isEmpty());
+
+        deleteRealmUser(TestConsts.TEST_REALM, user.getId());
+        deleteRealmGroup(TestConsts.TEST_REALM, group.getId());
     }
 }

@@ -505,7 +505,7 @@ public class GroupsController extends AbstractController {
                 groupRepresentation,
                 Map.of(
                         UserModel.USERNAME, user.getUsername(),
-                        UserModel.EMAIL, user.getEmail()
+                        UserModel.EMAIL, user.getEmail() == null ? "" : user.getEmail()
                 )
         );
     }

@@ -14,6 +14,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.util.ArrayList;
 import java.util.List;
 
+import fi.metatavu.keycloak.scim.server.test.utils.ScimErrorAssertions;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -228,8 +229,7 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
             scimClient.listUsers("userName \"bob\"", 0, 10)
     );
 
-    assertTrue(exception.getMessage().contains("Invalid filter"),
-        "Expected error message to contain 'Invalid filter'; got: " + exception.getMessage());
+    ScimErrorAssertions.assertScimError(exception, 400, "Invalid filter");
   }
 
   @Test
@@ -240,8 +240,7 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
             scimClient.listUsers("userName gt \"bob\"", 0, 10)
     );
 
-    assertTrue(exception.getMessage().contains("Invalid filter"),
-        "Expected error message to contain 'Invalid filter'; got: " + exception.getMessage());
+    ScimErrorAssertions.assertScimError(exception, 400, "Invalid filter");
   }
 
   @Test
@@ -252,8 +251,7 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
             scimClient.listUsers("userName eq bob", 0, 10)
     );
 
-    assertTrue(exception.getMessage().contains("Invalid filter"),
-        "Expected error message to contain 'Invalid filter'; got: " + exception.getMessage());
+    ScimErrorAssertions.assertScimError(exception, 400, "Invalid filter");
   }
 
   @Test
@@ -264,8 +262,7 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
             scimClient.listUsers("userName eq \"a\" and", 0, 10)
     );
 
-    assertTrue(exception.getMessage().contains("Invalid filter"),
-        "Expected error message to contain 'Invalid filter'; got: " + exception.getMessage());
+    ScimErrorAssertions.assertScimError(exception, 400, "Invalid filter");
   }
 
   @Test

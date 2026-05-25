@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import fi.metatavu.keycloak.scim.server.test.utils.ScimErrorAssertions;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -200,8 +201,7 @@ class RealmGroupListTestsIT extends AbstractInternalAuthRealmScimTest {
                     scimClient.listGroups("displayName \"test\"", 0, 10)
             );
 
-            assertTrue(exception.getMessage().contains("Invalid filter"),
-                "Expected error message to contain 'Invalid filter'; got: " + exception.getMessage());
+            ScimErrorAssertions.assertScimError(exception, 400, "Invalid filter");
         } finally {
             deleteGroup(scimClient, group.getId());
         }
@@ -219,8 +219,7 @@ class RealmGroupListTestsIT extends AbstractInternalAuthRealmScimTest {
                     scimClient.listGroups("displayName eq test", 0, 10)
             );
 
-            assertTrue(exception.getMessage().contains("Invalid filter"),
-                "Expected error message to contain 'Invalid filter'; got: " + exception.getMessage());
+            ScimErrorAssertions.assertScimError(exception, 400, "Invalid filter");
         } finally {
             deleteGroup(scimClient, group.getId());
         }
@@ -238,8 +237,7 @@ class RealmGroupListTestsIT extends AbstractInternalAuthRealmScimTest {
                     scimClient.listGroups("displayName eq \"test\" and", 0, 10)
             );
 
-            assertTrue(exception.getMessage().contains("Invalid filter"),
-                "Expected error message to contain 'Invalid filter'; got: " + exception.getMessage());
+            ScimErrorAssertions.assertScimError(exception, 400, "Invalid filter");
         } finally {
             deleteGroup(scimClient, group.getId());
         }

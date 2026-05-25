@@ -120,7 +120,7 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
         UserModel existing = session.users().getUserById(realm, userId);
         if (existing == null) {
             logger.warn(String.format("User not found: %s", userId));
-            return scimError(Response.Status.NOT_FOUND, "User not found");
+            return ScimErrors.notFound("User not found");
         }
 
         UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
@@ -129,7 +129,7 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
             fi.metatavu.keycloak.scim.server.model.User result = usersController.patchUser(scimContext, userAttributes, existing, patchRequest);
             return Response.ok(result).build();
         } catch (UnsupportedPatchOperation e) {
-            return scimError(Response.Status.BAD_REQUEST, "Unsupported patch operation");
+            return ScimErrors.badRequest("Unsupported patch operation");
         }
     }
 
@@ -248,22 +248,17 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
         }
 
         if (!groupId.equals(existing.getId())) {
-            return scimError(Response.Status.BAD_REQUEST, "Group ID mismatch");
+            return ScimErrors.badRequest("Group ID mismatch");
         }
 
         try {
             fi.metatavu.keycloak.scim.server.model.Group updated = groupsController.patchGroup(scimContext, existing, patchRequest);
             return Response.ok(updated).build();
         } catch (UnsupportedGroupPath e) {
-            return scimError(Response.Status.BAD_REQUEST, e.getMessage() != null ? e.getMessage() : "Unsupported group path");
+            return ScimErrors.badRequest(e.getMessage() != null ? e.getMessage() : "Unsupported group path");
         } catch (UnsupportedPatchOperation e) {
-            return scimError(Response.Status.BAD_REQUEST, "Unsupported patch operation");
+            return ScimErrors.badRequest("Unsupported patch operation");
         }
-    }
-
-    /** Backwards-compat shim around {@link ScimErrors#error(Response.Status, String)}. */
-    private static Response scimError(Response.Status status, String detail) {
-        return ScimErrors.error(status, detail);
     }
 
     @Override

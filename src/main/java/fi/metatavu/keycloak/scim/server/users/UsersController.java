@@ -368,7 +368,7 @@ public class UsersController extends AbstractController {
      * @param existing user being patched
      * @param value    raw operation value
      */
-    private void applyPatchValue(
+    protected void applyPatchValue(
         PatchOperation op,
         UserAttribute<?> attr,
         UserModel existing,
@@ -394,7 +394,7 @@ public class UsersController extends AbstractController {
                         break;
                 }
             }
-            case REMOVE -> attr.write(existing, null);
+            case REMOVE -> attr.clear(existing);
         }
     }
 

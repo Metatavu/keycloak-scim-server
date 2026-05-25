@@ -191,6 +191,37 @@ public class RealmUserPatchTestsIT extends AbstractInternalAuthRealmScimTest {
     }
 
     /**
+     * Regression: SCIM REMOVE on a USER_PROFILE-backed attribute (externalId, displayName, etc.)
+     * previously called attr.write(user, null) which passed null into List.of(value) and threw NPE,
+     * returning HTTP 500 instead of a clean removal.
+     */
+    @Test
+    void testRemoveExternalIdDoesNotNpe() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+
+        User created = new User();
+        created.setUserName("remove-extid-test");
+        created.setActive(true);
+        created.putAdditionalProperty("externalId", "00uREMOVETEST");
+        User u = scimClient.createUser(created);
+
+        try {
+            PatchRequest patch = new PatchRequest();
+            patch.setSchemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"));
+            PatchRequestOperationsInner op = new PatchRequestOperationsInner();
+            op.setOp("remove");
+            op.setPath("externalId");
+            patch.setOperations(List.of(op));
+
+            // Before this fix: attr.write(user, null) -> List.of(null) -> NPE -> HTTP 500.
+            User after = scimClient.patchUser(u.getId(), patch);
+            assertNull(after.getAdditionalProperty("externalId"));
+        } finally {
+            deleteRealmUser(TestConsts.TEST_REALM, u.getId());
+        }
+    }
+
+    /**
      * Okta's Deactivate User action emits a PATCH without a top-level "path",
      * carrying the attribute change inside a map-valued "value" (RFC 7644
      * §3.5.2). This test covers that shape; the other tests only cover the

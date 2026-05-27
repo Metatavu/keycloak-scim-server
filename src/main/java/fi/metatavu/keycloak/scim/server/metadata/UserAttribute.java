@@ -19,8 +19,12 @@ public class UserAttribute <T> {
      * Attribute source
      */
     public enum Source {
+        // User model attributes are stored in Keycloak user model
         USER_MODEL,
-        USER_PROFILE
+        // Custom attributes defined in user profile
+        USER_PROFILE,
+        // Attributes defined in identity provider attribute mapper
+        IDP_MAPPER
     }
 
     private final Source source;

@@ -16,16 +16,23 @@ import fi.metatavu.keycloak.scim.server.model.ServiceProviderConfigFilter;
 import fi.metatavu.keycloak.scim.server.model.AuthenticationScheme;
 import fi.metatavu.keycloak.scim.server.model.ResourceTypeListResponse;
 import fi.metatavu.keycloak.scim.server.model.SchemaAttribute;
+import org.jboss.logging.Logger;
+import org.keycloak.models.IdentityProviderStorageProvider;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.UserModel;
 import org.keycloak.representations.userprofile.config.UPAttribute;
 import org.keycloak.representations.userprofile.config.UPConfig;
 import org.keycloak.userprofile.UserProfileProvider;
+import org.keycloak.utils.StringUtil;
+
+import static org.keycloak.broker.oidc.mappers.UserAttributeMapper.USER_ATTRIBUTE;
 
 /**
  * Controller for metadata
  */
 public class MetadataController extends AbstractController {
+
+    private static final Logger logger = Logger.getLogger(MetadataController.class);
 
     /**
      * Lists resource types supported by the SCIM server
@@ -304,6 +311,39 @@ public class MetadataController extends AbstractController {
                         user -> user.getFirstAttribute(userProfileAttribute.getName()),
                         (user, value) -> user.setAttribute(userProfileAttribute.getName(), List.of(value))
                     ));
+                }
+            }
+
+            if (UPConfig.UnmanagedAttributePolicy.ENABLED.equals(userProfileProvider.getConfiguration().getUnmanagedAttributePolicy())) {
+                String identityProviderAlias = scimContext.getConfig().getIdentityProviderAlias();
+                if (!StringUtil.isNullOrEmpty(identityProviderAlias)) {
+                    try {
+                        IdentityProviderStorageProvider identityProviderStorageProvider = session.getProvider(IdentityProviderStorageProvider.class);
+                        identityProviderStorageProvider.getMappersByAliasStream(identityProviderAlias).forEach(mapper -> {
+                            if (mapper.getConfig() == null) {
+                                return;
+                            }
+                            String attribute = mapper.getConfig().get(USER_ATTRIBUTE);
+                            if (StringUtil.isNullOrEmpty(attribute)) {
+                                return;
+                            }
+                            if (!builtInAttributeNames.contains(attribute) && customAttributes.stream().noneMatch(a -> a.getScimPath().equals(attribute))) {
+                                customAttributes.add(new StringUserAttribute(
+                                        UserAttribute.Source.IDP_MAPPER,
+                                        attribute,
+                                        attribute,
+                                        attribute,
+                                        SchemaAttribute.TypeEnum.STRING,
+                                        SchemaAttribute.MutabilityEnum.READWRITE,
+                                        SchemaAttribute.UniquenessEnum.NONE,
+                                        user -> user.getFirstAttribute(attribute),
+                                        (user, value) -> user.setAttribute(attribute, List.of(value))
+                                ));
+                            }
+                        });
+                    } catch (Exception e) {
+                        logger.warnf("Failed to read identity provider mappers for alias %s: %s", identityProviderAlias, e.getMessage());
+                    }
                 }
             }
         }

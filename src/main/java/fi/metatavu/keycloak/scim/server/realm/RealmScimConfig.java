@@ -21,8 +21,9 @@ public class RealmScimConfig implements ScimConfig {
     public static final String SCIM_EXTERNAL_SHARED_SECRET = "scim.external.shared.secret";
     public static final String SCIM_AUTHENTICATION_MODE = "scim.authentication.mode";
     public static final String SCIM_EXTERNAL_ISSUER = "scim.external.issuer";
-    public static final String SCIM_LINK_IDP = "scim.link.idp";
     public static final String SCIM_IDENTITY_PROVIDER_ALIAS = "scim.identity.provider.alias";
+
+    public static final String SCIM_LINK_IDP = "scim.link.idp";
     public static final String SCIM_EMAIL_AS_USERNAME = "scim.email.as.username";
     public static final String SCIM_BASIC_AUTH_USERNAME = "scim.basic.auth.username";
     public static final String SCIM_BASIC_AUTH_PASSWORD = "scim.basic.auth.password";

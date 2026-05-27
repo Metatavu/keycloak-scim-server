@@ -75,7 +75,7 @@ public interface ScimConfig {
      * @return true if email should be used as username
      */
     boolean getEmailAsUsername();
-
+    
     /**
      * Gets the basic auth username (if using EXTERNAL mode with Basic auth)
      *

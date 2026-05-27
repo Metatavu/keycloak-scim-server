@@ -153,6 +153,7 @@ public class RealmUserPatchTestsIT extends AbstractInternalAuthRealmScimTest {
         assertEquals("external-5678", patchedAgain.getAdditionalProperty("externalId"));
         assertEquals("Updated Display", patchedAgain.getAdditionalProperty("displayName"));
         assertEquals("en_US", patchedAgain.getAdditionalProperty("preferredLanguage"));
+        assertEquals("pilot", patchedAgain.getAdditionalProperty("job"));
 
         // Also verify state in Keycloak
         UserRepresentation realmUser = findRealmUser(TestConsts.TEST_REALM, created.getId());

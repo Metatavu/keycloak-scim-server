@@ -56,6 +56,7 @@ public class RealmUserCreateTestsIT extends AbstractInternalAuthRealmScimTest {
             "fi-FI",
             "The New User"
         );
+        assertEquals("farmer", created.getAdditionalProperty("job"));
 
         // Assert that the user was created in Keycloak
         UserRepresentation realmUser = findRealmUser(TestConsts.TEST_REALM, created.getId());

@@ -72,6 +72,7 @@ public class RealmUserUpdateTestsIT extends AbstractInternalAuthRealmScimTest {
         assertEquals("Replaced User", updated.getAdditionalProperty("displayName"));
         assertEquals("replaced-external-id", updated.getAdditionalProperty("externalId"));
         assertEquals("fi_FI", updated.getAdditionalProperty("preferredLanguage"));
+        assertEquals("chef", updated.getAdditionalProperty("job"));
         assertFalse(updated.getActive());
 
         // Also verify state in Keycloak

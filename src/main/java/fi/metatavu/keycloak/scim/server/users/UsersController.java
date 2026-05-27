@@ -522,15 +522,10 @@ public class UsersController extends AbstractController {
                         .givenName(user.getFirstName())
                 );
 
-        List<UserAttribute<?>> customAttributes = userAttributes.listBySource(UserAttribute.Source.USER_PROFILE);
+        List<UserAttribute<?>> customAttributes = new ArrayList<>();
+        customAttributes.addAll(userAttributes.listBySource(UserAttribute.Source.USER_PROFILE));
+        customAttributes.addAll(userAttributes.listBySource(UserAttribute.Source.IDP_MAPPER));
         for (UserAttribute<?> userAttribute : customAttributes) {
-            Object value = userAttribute.read(user);
-            if (value != null) {
-                result.putAdditionalProperty(userAttribute.getScimPath(), value);
-            }
-        }
-        List<UserAttribute<?>> mapperAttributes = userAttributes.listBySource(UserAttribute.Source.IDP_MAPPER);
-        for (UserAttribute<?> userAttribute : mapperAttributes) {
             Object value = userAttribute.read(user);
             if (value != null) {
                 result.putAdditionalProperty(userAttribute.getScimPath(), value);

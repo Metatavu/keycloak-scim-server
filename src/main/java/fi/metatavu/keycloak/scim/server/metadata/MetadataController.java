@@ -282,7 +282,8 @@ public class MetadataController extends AbstractController {
                 SchemaAttribute.MutabilityEnum.READWRITE,
                 SchemaAttribute.UniquenessEnum.NONE,
                 UserModel::isEnabled,
-                UserModel::setEnabled
+                UserModel::setEnabled,
+                user -> user.setEnabled(false)
             )
         );
 
@@ -309,7 +310,8 @@ public class MetadataController extends AbstractController {
                         SchemaAttribute.MutabilityEnum.READWRITE,
                         SchemaAttribute.UniquenessEnum.NONE,
                         user -> user.getFirstAttribute(userProfileAttribute.getName()),
-                        (user, value) -> user.setAttribute(userProfileAttribute.getName(), List.of(value))
+                        (user, value) -> user.setAttribute(userProfileAttribute.getName(), List.of(value)),
+                        user -> user.removeAttribute(userProfileAttribute.getName())
                     ));
                 }
             }

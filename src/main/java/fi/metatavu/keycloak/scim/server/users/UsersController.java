@@ -295,40 +295,7 @@ public class UsersController extends AbstractController {
         UserModel existing,
         fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
     ) throws UnsupportedPatchOperation {
-        for (var operation : patchRequest.getOperations()) {
-            PatchOperation op = PatchOperation.fromString(operation.getOp());
-            if (op == null) {
-                logger.warn("Invalid patch operation: " + operation.getOp());
-                throw new UnsupportedPatchOperation("Unsupported patch operation: " + operation.getOp());
-            }
-
-            String path = operation.getPath();
-            Object value = operation.getValue();
-
-            // RFC 7644 §3.5.2: when "path" is omitted, "value" carries a map of
-            // attribute -> value to apply to the resource. Okta's Deactivate User
-            // emits this shape: {"op":"replace","value":{"active":false}}.
-            if (path == null) {
-                if (!(value instanceof Map<?, ?> valueMap)) {
-                    throw new UnsupportedUserPath("PatchOp without 'path' requires a map-valued 'value'");
-                }
-                for (Map.Entry<?, ?> entry : valueMap.entrySet()) {
-                    String attrPath = String.valueOf(entry.getKey());
-                    UserAttribute<?> ua = userAttributes.findByScimPath(attrPath);
-                    if (ua == null) {
-                        throw new UnsupportedUserPath("Unsupported attribute: " + attrPath);
-                    }
-                    applyPatchValue(op, ua, existing, entry.getValue());
-                }
-                continue;
-            }
-
-            UserAttribute<?> userAttribute = userAttributes.findByScimPath(path);
-            if (userAttribute == null) {
-                throw new UnsupportedUserPath("Unsupported attribute: " + path);
-            }
-            applyPatchValue(op, userAttribute, existing, value);
-        }
+        applyPatchOperations(userAttributes, existing, patchRequest);
 
         dispatchUserUpdateEvent(scimContext, existing);
 
@@ -348,6 +315,68 @@ public class UsersController extends AbstractController {
     }
 
     /**
+     * Walk a PatchRequest's operations and apply each one to {@code existing}.
+     * Shared between {@link #patchUser} and
+     * {@link fi.metatavu.keycloak.scim.server.organization.OrganizationUserController#patchOrganizationUser}
+     * so the realm-scope and org-scope SCIM PATCH endpoints handle path-less /
+     * path-based shapes and read-only / structural attributes identically.
+     *
+     * @param userAttributes user attributes metadata
+     * @param existing       user being patched
+     * @param patchRequest   SCIM patch request
+     */
+    protected void applyPatchOperations(
+        UserAttributes userAttributes,
+        UserModel existing,
+        fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
+    ) throws UnsupportedPatchOperation {
+        for (var operation : patchRequest.getOperations()) {
+            PatchOperation op = PatchOperation.fromString(operation.getOp());
+            if (op == null) {
+                logger.warn("Invalid patch operation: " + operation.getOp());
+                throw new UnsupportedPatchOperation("Unsupported patch operation: " + operation.getOp());
+            }
+
+            String path = operation.getPath();
+            Object value = operation.getValue();
+
+            // RFC 7644 §3.5.2: when "path" is omitted, "value" carries a map of
+            // attribute -> value to apply to the resource. Okta's Deactivate User
+            // emits this shape: {"op":"replace","value":{"active":false}}.
+            if (path == null) {
+                if (!(value instanceof Map<?, ?> valueMap)) {
+                    throw new UnsupportedUserPath("PatchOp without 'path' requires a map-valued 'value'");
+                }
+                for (Map.Entry<?, ?> entry : valueMap.entrySet()) {
+                    String attrPath = String.valueOf(entry.getKey());
+                    if (isReadOnlyOrStructural(attrPath)) {
+                        // RFC 7644 §3.5.2 / §7.5: ignore read-only and
+                        // structural attributes (id, meta, schemas)
+                        // on PATCH. Clients (Okta) echo them back from a prior GET.
+                        continue;
+                    }
+                    UserAttribute<?> ua = userAttributes.findByScimPath(attrPath);
+                    if (ua == null) {
+                        throw new UnsupportedUserPath("Unsupported attribute: " + attrPath);
+                    }
+                    applyPatchValue(op, ua, existing, entry.getValue());
+                }
+                continue;
+            }
+
+            if (isReadOnlyOrStructural(path)) {
+                continue;
+            }
+
+            UserAttribute<?> userAttribute = userAttributes.findByScimPath(path);
+            if (userAttribute == null) {
+                throw new UnsupportedUserPath("Unsupported attribute: " + path);
+            }
+            applyPatchValue(op, userAttribute, existing, value);
+        }
+    }
+
+    /**
      * Apply a single PATCH operation (REPLACE/ADD/REMOVE) against one
      * resolved user attribute. Extracted so the path-less PatchOp shape
      * (RFC 7644 §3.5.2, map-valued "value") and the with-path shape share
@@ -358,7 +387,7 @@ public class UsersController extends AbstractController {
      * @param existing user being patched
      * @param value    raw operation value
      */
-    private void applyPatchValue(
+    protected void applyPatchValue(
         PatchOperation op,
         UserAttribute<?> attr,
         UserModel existing,
@@ -384,7 +413,7 @@ public class UsersController extends AbstractController {
                         break;
                 }
             }
-            case REMOVE -> attr.write(existing, null);
+            case REMOVE -> attr.clear(existing);
         }
     }
 

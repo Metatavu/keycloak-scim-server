@@ -22,6 +22,7 @@ import org.keycloak.models.UserModel;
 import org.keycloak.models.utils.ModelToRepresentation;
 import org.keycloak.representations.idm.GroupRepresentation;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -157,10 +158,7 @@ public class GroupsController extends AbstractController {
             ScimContext scimContext,
             GroupModel existing,
             fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
-    ) throws UnsupportedGroupPath, UnsupportedPatchOperation {
-        KeycloakSession session = scimContext.getSession();
-        RealmModel realm = scimContext.getRealm();
-
+    ) throws UnsupportedGroupPath, UnsupportedPatchOperation, InvalidGroupMemberReference {
         for (var operation : patchRequest.getOperations()) {
             PatchOperation op = PatchOperation.fromString(operation.getOp());
             String path = operation.getPath();
@@ -171,10 +169,42 @@ public class GroupsController extends AbstractController {
                 throw new UnsupportedPatchOperation("Unsupported patch operation: " + operation.getOp());
             }
 
+            // RFC 7644 §3.5.2: when "path" is omitted, "value" carries a map of
+            // attribute -> value to apply to the resource. Okta's Group Push
+            // (add/remove members) emits this shape:
+            //   {"op":"replace","value":{"members":[{"value":"<user-id>"}]}}
+            // Without this branch the code below would call findByScimPath(null),
+            // get null, and throw UnsupportedGroupPath, breaking Okta group pushes.
+            if (path == null) {
+                if (!(value instanceof Map<?, ?> valueMap)) {
+                    throw new UnsupportedGroupPath("PatchOp without 'path' requires a map-valued 'value'");
+                }
+                for (Map.Entry<?, ?> entry : valueMap.entrySet()) {
+                    String attrPath = String.valueOf(entry.getKey());
+                    if (isReadOnlyOrStructural(attrPath)) {
+                        // RFC 7644 §3.5.2 / §7.5: ignore read-only and
+                        // structural attributes (id, meta, schemas)
+                        // on PATCH. Okta echoes the resource id back inside
+                        // 'value' on Group Push.
+                        continue;
+                    }
+                    GroupAttribute attr = GroupAttribute.findByScimPath(attrPath);
+                    if (attr == null) {
+                        throw new UnsupportedGroupPath("Unsupported attribute: " + attrPath);
+                    }
+                    applyGroupPatch(scimContext, op, attr, attrPath, entry.getValue(), existing);
+                }
+                continue;
+            }
+
             // Extract base attribute path (e.g., "members" from "members[value eq \"id\"]")
-            String attributePath = path != null && path.contains("[")
+            String attributePath = path.contains("[")
                 ? path.substring(0, path.indexOf("["))
                 : path;
+
+            if (isReadOnlyOrStructural(attributePath)) {
+                continue;
+            }
 
             GroupAttribute groupAttribute = GroupAttribute.findByScimPath(attributePath);
             if (groupAttribute == null) {
@@ -187,75 +217,139 @@ public class GroupsController extends AbstractController {
                 break;
             }
 
-            switch (op) {
-                case REPLACE, ADD -> {
-                    switch (groupAttribute) {
-                        case DISPLAY_NAME -> existing.setName((String) value);
-                        case MEMBERS -> {
-                            // Clear current members if REPLACE, just add if ADD
-                            if (op == PatchOperation.REPLACE) {
-                                session.users().getGroupMembersStream(realm, existing)
-                                    .forEach(user -> user.leaveGroup(existing));
-                            }
+            // For REMOVE with a path filter (e.g. members[value eq "id"]), extract
+            // the member ID from the filter and wrap it in list form so applyGroupPatch
+            // can handle it uniformly.
+            Object effectiveValue = value;
+            if (op == PatchOperation.REMOVE && groupAttribute == GroupAttribute.MEMBERS && path.contains("[")) {
+                String memberId = extractValueFromFilter(path);
+                if (memberId != null) {
+                    effectiveValue = List.of(Map.of("value", memberId));
+                } else {
+                    throw new UnsupportedGroupPath("Unsupported members filter: " + path);
+                }
+            }
 
-                            for (Object obj : (List<?>) value) {
-                                if (!(obj instanceof Map<?, ?> memberMap)) {
-                                    logger.warn("Invalid member object: " + obj);
-                                    continue;
-                                }
+            applyGroupPatch(scimContext, op, groupAttribute, path, effectiveValue, existing);
+        }
 
-                                String memberId = (String) memberMap.get("value");
-                                if (memberId == null) {
-                                    logger.warn("Member value missing: " + obj);
-                                    continue;
-                                }
+        return translateGroup(scimContext, existing);
+    }
 
-                                UserModel user = scimContext.getSession().users().getUserById(scimContext.getRealm(), memberId);
-                                if (user != null) {
-                                    user.joinGroup(existing);
-                                    dispatchGroupMembershipJoinEvent(scimContext, existing, user);
-                                }
-                            }
+    /**
+     * Apply a single SCIM PatchOp on a Group.
+     *
+     * <p>Atomicity scope: per operation. If a PatchRequest contains multiple
+     * operations, each is applied independently in order. An earlier
+     * successful operation is NOT rolled back if a later one fails.
+     *
+     * <p>For MEMBERS modifications (ADD/REPLACE/REMOVE), every incoming member
+     * ID is resolved via {@link #resolveMembers} before any mutation. The
+     * first unresolved ID raises {@link InvalidGroupMemberReference}, so the
+     * group's membership stays intact for that operation.
+     *
+     * <p>Used by both the path-less and path-based PatchOp branches of
+     * {@link #patchGroup}.
+     */
+    private void applyGroupPatch(
+            ScimContext scimContext,
+            PatchOperation op,
+            GroupAttribute attr,
+            String attrPath,
+            Object value,
+            GroupModel existing
+    ) throws InvalidGroupMemberReference, UnsupportedGroupPath {
+        KeycloakSession session = scimContext.getSession();
+        RealmModel realm = scimContext.getRealm();
+
+        switch (op) {
+            case REPLACE, ADD -> {
+                switch (attr) {
+                    case DISPLAY_NAME -> {
+                        if (!(value instanceof String s)) {
+                            throw new UnsupportedGroupPath("displayName requires a string value");
+                        }
+                        existing.setName(s);
+                    }
+                    case MEMBERS -> {
+                        List<UserModel> resolved = resolveMembers(session, realm, value);
+                        if (op == PatchOperation.REPLACE) {
+                            session.users().getGroupMembersStream(realm, existing)
+                                    .forEach(u -> {
+                                        u.leaveGroup(existing);
+                                        dispatchGroupMembershipLeaveEvent(scimContext, existing, u);
+                                    });
+                        }
+                        for (UserModel u : resolved) {
+                            u.joinGroup(existing);
+                            dispatchGroupMembershipJoinEvent(scimContext, existing, u);
                         }
                     }
                 }
-
-                case REMOVE -> {
-                    switch (groupAttribute) {
-                        case DISPLAY_NAME -> existing.setName(null);
-                        case MEMBERS -> {
-                            // Handle path filter (e.g., "members[value eq \"user-id\"]")
-                            if (path != null && path.contains("[")) {
-                                String memberId = extractValueFromFilter(path);
-                                if (memberId != null) {
-                                    UserModel user = session.users().getUserById(realm, memberId);
-                                    if (user != null) {
-                                        user.leaveGroup(existing);
-                                        dispatchGroupMembershipLeaveEvent(scimContext, existing, user);
-                                    }
-                                }
-                            } else if (value instanceof List<?> list) {
-                                // Handle direct value list
-                                for (Object obj : list) {
-                                    if (obj instanceof Map<?, ?> memberMap) {
-                                        String memberId = (String) memberMap.get("value");
-                                        if (memberId != null) {
-                                            UserModel user = session.users().getUserById(realm, memberId);
-                                            if (user != null) {
-                                                user.leaveGroup(existing);
-                                                dispatchGroupMembershipLeaveEvent(scimContext, existing, user);
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+            }
+            case REMOVE -> {
+                switch (attr) {
+                    case DISPLAY_NAME -> existing.setName(null);
+                    case MEMBERS -> {
+                        // REMOVE shares the strict resolution path with REPLACE/ADD: an unknown
+                        // member id surfaces as 400 InvalidGroupMemberReference rather than a
+                        // silent no-op. SCIM clients with stale state get an actionable error
+                        // instead of believing the membership change went through.
+                        List<UserModel> resolved = resolveMembers(session, realm, value);
+                        for (UserModel u : resolved) {
+                            u.leaveGroup(existing);
+                            dispatchGroupMembershipLeaveEvent(scimContext, existing, u);
                         }
                     }
                 }
             }
         }
+    }
 
-        return translateGroup(scimContext, existing);
+    /**
+     * Resolve every member-id-shaped entry in {@code value} into a UserModel,
+     * failing with {@link InvalidGroupMemberReference} on the first unknown ID
+     * before any mutation. Accepts a List of Maps each carrying a "value" key.
+     * Returns an empty list for any non-list input (tolerates null/empty values
+     * on REMOVE operations).
+     *
+     * <p>Atomicity scope: within a single operation only. Resolution runs in
+     * full before any group membership is modified, so a bad ID aborts the
+     * operation without partially applying changes. It does NOT span multiple
+     * operations in the same PatchRequest (see {@link #applyGroupPatch}).
+     *
+     * <p>REMOVE uses this same path: an unknown member ID returns 400 rather
+     * than silently no-oping, so SCIM clients with stale state receive an
+     * actionable error instead of a false success.
+     */
+    private List<UserModel> resolveMembers(
+            KeycloakSession session,
+            RealmModel realm,
+            Object value
+    ) throws InvalidGroupMemberReference {
+        List<UserModel> out = new ArrayList<>();
+        if (!(value instanceof List<?> list)) {
+            return out;
+        }
+        for (Object obj : list) {
+            if (!(obj instanceof Map<?, ?> memberMap)) {
+                continue;
+            }
+            Object idObj = memberMap.get("value");
+            if (!(idObj instanceof String rawMemberId)) {
+                continue;
+            }
+            String memberId = rawMemberId.strip();
+            if (memberId.isEmpty()) {
+                continue;
+            }
+            UserModel user = session.users().getUserById(realm, memberId);
+            if (user == null) {
+                throw new InvalidGroupMemberReference(memberId);
+            }
+            out.add(user);
+        }
+        return out;
     }
 
     /**

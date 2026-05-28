@@ -4,6 +4,7 @@ import fi.metatavu.keycloak.scim.server.model.SchemaAttribute;
 import org.keycloak.models.UserModel;
 
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
@@ -19,8 +20,12 @@ public class UserAttribute <T> {
      * Attribute source
      */
     public enum Source {
+        // User model attributes are stored in Keycloak user model
         USER_MODEL,
-        USER_PROFILE
+        // Custom attributes defined in user profile
+        USER_PROFILE,
+        // Attributes defined in identity provider attribute mapper
+        IDP_MAPPER
     }
 
     private final Source source;
@@ -32,9 +37,10 @@ public class UserAttribute <T> {
     private final SchemaAttribute.UniquenessEnum uniqueness;
     private final Function<UserModel, T> reader;
     private final BiConsumer<UserModel, T> writer;
+    private final Consumer<UserModel> remover;
 
     /**
-     * Constructor
+     * Constructor without explicit remover. Defaults to {@code write(user, null)}.
      *
      * @param source attribute source
      * @param sourceId attribute source id
@@ -57,6 +63,37 @@ public class UserAttribute <T> {
         Function<UserModel, T> reader,
         BiConsumer<UserModel, T> writer
     ) {
+        this(source, sourceId, scimPath, description, type, mutability, uniqueness, reader, writer, null);
+    }
+
+    /**
+     * Constructor with an explicit remover. Use when {@code write(user, null)} would be unsafe
+     * (e.g. USER_PROFILE attributes backed by {@code user.setAttribute(name, List.of(value))}
+     * which throws NPE on {@code List.of(null)}).
+     *
+     * @param source attribute source
+     * @param sourceId attribute source id
+     * @param scimPath SCIM path
+     * @param description attribute description
+     * @param type attribute type
+     * @param mutability attribute mutability
+     * @param uniqueness attribute uniqueness
+     * @param reader attribute reader
+     * @param writer attribute writer
+     * @param remover attribute remover (nullable; falls back to {@code write(user, null)} when null)
+     */
+    UserAttribute(
+        Source source,
+        String sourceId,
+        String scimPath,
+        String description,
+        SchemaAttribute.TypeEnum type,
+        SchemaAttribute.MutabilityEnum mutability,
+        SchemaAttribute.UniquenessEnum uniqueness,
+        Function<UserModel, T> reader,
+        BiConsumer<UserModel, T> writer,
+        Consumer<UserModel> remover
+    ) {
         this.source = source;
         this.sourceId = sourceId;
         this.scimPath = scimPath;
@@ -66,6 +103,7 @@ public class UserAttribute <T> {
         this.uniqueness = uniqueness;
         this.reader = reader;
         this.writer = writer;
+        this.remover = remover;
     }
 
     /**
@@ -149,6 +187,23 @@ public class UserAttribute <T> {
      */
     public void write(UserModel user, T value) {
         writer.accept(user, value);
+    }
+
+    /**
+     * Removes this attribute from the user.
+     * <p>
+     * Uses the explicit remover when one was provided at construction time; otherwise falls back
+     * to {@code write(user, null)}. USER_PROFILE attributes must supply an explicit remover
+     * because their writer uses {@code List.of(value)}, which throws NPE when value is null.
+     *
+     * @param user user
+     */
+    public void clear(UserModel user) {
+        if (remover != null) {
+            remover.accept(user);
+        } else {
+            write(user, null);
+        }
     }
 
 }

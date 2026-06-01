@@ -118,14 +118,50 @@ public class OrganizationUserCreateTestsIT extends AbstractOrganizationScimTest 
         User created = scimClient.createUser(user);
         assertNotNull(created);
 
-        // Second creation should fail with 409 Conflict
+        // Second creation should fail with 409 Conflict and identify the duplicated field
         ApiException exception = assertThrows(ApiException.class, () ->
             scimClient.createUser(user)
         );
 
         assertEquals(409, exception.getCode());
+        assertTrue(exception.getMessage().contains("username"),
+            "Expected conflict message to mention 'username'; got: " + exception.getMessage());
+        assertTrue(exception.getMessage().contains("dupe-user"),
+            "Expected conflict message to include the offending username; got: " + exception.getMessage());
 
         // Clean up
+        deleteRealmUser(TestConsts.ORGANIZATIONS_REALM, created.getId());
+    }
+
+    @Test
+    void testCreateDuplicateEmailReturnsConflict() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
+
+        User first = new User();
+        first.setUserName("org-dupe-email-first");
+        first.setActive(true);
+        first.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
+        first.setEmails(getEmails("org.dupe.email@example.com"));
+
+        User created = scimClient.createUser(first);
+        assertNotNull(created);
+
+        User second = new User();
+        second.setUserName("org-dupe-email-second");
+        second.setActive(true);
+        second.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
+        second.setEmails(getEmails("org.dupe.email@example.com"));
+
+        ApiException exception = assertThrows(ApiException.class, () ->
+            scimClient.createUser(second)
+        );
+
+        assertEquals(409, exception.getCode());
+        assertTrue(exception.getMessage().contains("email"),
+            "Expected conflict message to mention 'email'; got: " + exception.getMessage());
+        assertTrue(exception.getMessage().contains("org.dupe.email@example.com"),
+            "Expected conflict message to include the offending email; got: " + exception.getMessage());
+
         deleteRealmUser(TestConsts.ORGANIZATIONS_REALM, created.getId());
     }
 

@@ -45,6 +45,21 @@ public abstract class OrganizationScimServer extends AbstractScimServer<Organiza
             return ScimErrors.badRequest("Invalid email format for userName");
         }
 
+        KeycloakSession session = scimContext.getSession();
+        RealmModel realm = scimContext.getRealm();
+
+        UserModel existing = session.users().getUserByUsername(realm, createRequest.getUserName());
+        if (existing != null) {
+            return ScimErrors.conflict(String.format("User already exists with username: %s", createRequest.getUserName()));
+        }
+
+        String requestedEmail = createRequest.getEmails() != null && !createRequest.getEmails().isEmpty()
+            ? createRequest.getEmails().getFirst().getValue()
+            : null;
+        if (requestedEmail != null && !realm.isDuplicateEmailsAllowed() && session.users().getUserByEmail(realm, requestedEmail) != null) {
+            return ScimErrors.conflict(String.format("User already exists with email: %s", requestedEmail));
+        }
+
         UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
 
         User user = organizationUserController.createOrganizationUser(

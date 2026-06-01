@@ -207,44 +207,7 @@ public class OrganizationUserController extends UsersController  {
         RealmModel realm = scimContext.getRealm();
         ScimConfig config = scimContext.getConfig();
 
-        for (var operation : patchRequest.getOperations()) {
-            PatchOperation op = PatchOperation.fromString(operation.getOp());
-            if (op == null) {
-                logger.warn("Invalid patch operation: " + operation.getOp());
-                throw new UnsupportedPatchOperation("Unsupported patch operation: " + operation.getOp());
-            }
-
-            UserAttribute<?> userAttribute = userAttributes.findByScimPath(operation.getPath());
-            Object value = operation.getValue();
-
-            if (userAttribute == null) {
-                throw new UnsupportedUserPath("Unsupported attribute: " + operation.getPath());
-            }
-
-            switch (op) {
-                case REPLACE, ADD -> {
-                    switch (value) {
-                        case null:
-                            logger.warn("Value is null for patch operation: " + op);
-                            break;
-                        case String s when userAttribute instanceof StringUserAttribute:
-                            ((StringUserAttribute) userAttribute).write(existing, s);
-                            break;
-                        case String s when userAttribute instanceof BooleanUserAttribute:
-                            ((BooleanUserAttribute) userAttribute).write(existing, Boolean.parseBoolean(s));
-                            break;
-                        case Boolean b when userAttribute instanceof BooleanUserAttribute:
-                            ((BooleanUserAttribute) userAttribute).write(existing, b);
-                            break;
-                        default:
-                            logger.warn("Unsupported value type for patch operation: " + value.getClass());
-                            break;
-                    }
-
-                }
-                case REMOVE -> userAttribute.write(existing, null);
-            }
-        }
+        applyPatchOperations(userAttributes, existing, patchRequest);
 
         fi.metatavu.keycloak.scim.server.model.User patchedUser = translateUser(
             scimContext,

@@ -1,11 +1,11 @@
 package fi.metatavu.keycloak.scim.server.test.tests.functional;
 
-import fi.metatavu.keycloak.scim.server.test.tests.AbstractInternalAuthRealmScimTest;
 import fi.metatavu.keycloak.scim.server.test.ScimClient;
 import fi.metatavu.keycloak.scim.server.test.TestConsts;
 import fi.metatavu.keycloak.scim.server.test.client.ApiException;
 import fi.metatavu.keycloak.scim.server.test.client.model.User;
 import fi.metatavu.keycloak.scim.server.test.client.model.UserName;
+import fi.metatavu.keycloak.scim.server.test.tests.AbstractInternalAuthRealmScimTest;
 import org.junit.jupiter.api.Test;
 import org.keycloak.events.admin.AdminEvent;
 import org.keycloak.events.admin.OperationType;
@@ -15,7 +15,11 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.io.IOException;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Tests for SCIM 2.0 User update (PUT) endpoint
@@ -37,7 +41,8 @@ public class RealmUserUpdateTestsIT extends AbstractInternalAuthRealmScimTest {
         user.putAdditionalProperty("externalId", "replace-external-id");
         user.putAdditionalProperty("preferredLanguage", "en_US");
         user.putAdditionalProperty("displayName", "Replace User");
-        
+        user.putAdditionalProperty("job", "farmer");
+
         User created = scimClient.createUser(user);
         assertNotNull(created);
         String userId = created.getId();
@@ -52,6 +57,7 @@ public class RealmUserUpdateTestsIT extends AbstractInternalAuthRealmScimTest {
         replacement.putAdditionalProperty("displayName", "Replaced User");
         replacement.putAdditionalProperty("externalId", "replaced-external-id");
         replacement.putAdditionalProperty("preferredLanguage", "fi_FI");
+        replacement.putAdditionalProperty("job", "chef");
 
         User updated = scimClient.updateUser(userId, replacement);
 
@@ -67,6 +73,7 @@ public class RealmUserUpdateTestsIT extends AbstractInternalAuthRealmScimTest {
         assertEquals("Replaced User", updated.getAdditionalProperty("displayName"));
         assertEquals("replaced-external-id", updated.getAdditionalProperty("externalId"));
         assertEquals("fi_FI", updated.getAdditionalProperty("preferredLanguage"));
+        assertEquals("chef", updated.getAdditionalProperty("job"));
         assertFalse(updated.getActive());
 
         // Also verify state in Keycloak
@@ -79,6 +86,7 @@ public class RealmUserUpdateTestsIT extends AbstractInternalAuthRealmScimTest {
         assertEquals("Replaced User", realmUser.getAttributes().get("displayName").getFirst());
         assertEquals("replaced-external-id", realmUser.getAttributes().get("externalId").getFirst());
         assertEquals("fi_FI", realmUser.getAttributes().get("preferredLanguage").getFirst());
+        assertEquals("chef", realmUser.getAttributes().get("job").getFirst());
         assertFalse(realmUser.isEnabled());
 
         // Clean up

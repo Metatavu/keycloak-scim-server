@@ -35,17 +35,14 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
         RealmScimContext scimContext,
         User createRequest
     ) {
-        RealmModel realm = scimContext.getRealm();
-        KeycloakSession session = scimContext.getSession();
-
         if (isBlank(createRequest.getUserName())) {
             logger.warn("Cannot create user: Missing userName");
             return ScimErrors.badRequest("Missing userName");
         }
 
-        UserModel existing = session.users().getUserByUsername(realm, createRequest.getUserName());
-        if (existing != null) {
-            return ScimErrors.conflict("User already exists");
+        Response conflict = validateCreateUserConflicts(scimContext, createRequest);
+        if (conflict != null) {
+            return conflict;
         }
 
         UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
@@ -320,26 +317,6 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
             realm,
             config
         );
-    }
-
-    private String formatValidationErrors(UserProfileValidationException e) {
-        if (e.getErrors().isEmpty()) {
-            return "Validation failed";
-        }
-
-        if (e.getErrors().size() == 1) {
-            return e.getErrors().getFirst().toString();
-        }
-
-        StringBuilder stringBuilder = new StringBuilder("Validation failed: ");
-        for (int i = 0; i < e.getErrors().size(); i++) {
-            if (i > 0) {
-                stringBuilder.append("; ");
-            }
-            stringBuilder.append(e.getErrors().get(i));
-        }
-
-        return stringBuilder.toString();
     }
 
 }

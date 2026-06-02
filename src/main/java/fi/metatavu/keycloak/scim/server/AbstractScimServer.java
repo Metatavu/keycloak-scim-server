@@ -6,6 +6,8 @@ import fi.metatavu.keycloak.scim.server.config.ScimConfig;
 import fi.metatavu.keycloak.scim.server.consts.ScimRoles;
 import fi.metatavu.keycloak.scim.server.groups.GroupsController;
 import fi.metatavu.keycloak.scim.server.metadata.MetadataController;
+import fi.metatavu.keycloak.scim.server.model.User;
+import fi.metatavu.keycloak.scim.server.users.UserProfileValidationException;
 import fi.metatavu.keycloak.scim.server.users.UsersController;
 import java.util.Base64;
 import jakarta.mail.internet.AddressException;
@@ -215,6 +217,58 @@ public abstract class AbstractScimServer <T extends ScimContext> implements Scim
      */
     protected boolean isBlank(String str) {
         return str == null || str.isBlank();
+    }
+
+    /**
+     * Validates common user create conflict conditions.
+     *
+     * @param scimContext SCIM context
+     * @param createRequest create user request
+     * @return conflict response, or null when no conflict is found
+     */
+    protected Response validateCreateUserConflicts(T scimContext, User createRequest) {
+        RealmModel realm = scimContext.getRealm();
+        KeycloakSession session = scimContext.getSession();
+
+        UserModel existing = session.users().getUserByUsername(realm, createRequest.getUserName());
+        if (existing != null) {
+            return ScimErrors.conflict(String.format("User already exists with username: %s", createRequest.getUserName()));
+        }
+
+        String requestedEmail = createRequest.getEmails() != null && !createRequest.getEmails().isEmpty()
+            ? createRequest.getEmails().getFirst().getValue()
+            : null;
+        if (requestedEmail != null && !realm.isDuplicateEmailsAllowed() && session.users().getUserByEmail(realm, requestedEmail) != null) {
+            return ScimErrors.conflict(String.format("User already exists with email: %s", requestedEmail));
+        }
+
+        return null;
+    }
+
+    /**
+     * Formats Keycloak user profile validation errors for a SCIM error detail.
+     *
+     * @param e validation exception
+     * @return formatted error detail
+     */
+    protected String formatValidationErrors(UserProfileValidationException e) {
+        if (e.getErrors().isEmpty()) {
+            return "Validation failed";
+        }
+
+        if (e.getErrors().size() == 1) {
+            return e.getErrors().getFirst().toString();
+        }
+
+        StringBuilder stringBuilder = new StringBuilder("Validation failed: ");
+        for (int i = 0; i < e.getErrors().size(); i++) {
+            if (i > 0) {
+                stringBuilder.append("; ");
+            }
+            stringBuilder.append(e.getErrors().get(i));
+        }
+
+        return stringBuilder.toString();
     }
 
     /**

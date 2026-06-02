@@ -46,11 +46,9 @@ public abstract class OrganizationScimServer extends AbstractScimServer<Organiza
             return ScimErrors.badRequest("Invalid email format for userName");
         }
 
-        KeycloakSession session = scimContext.getSession();
-        RealmModel realm = scimContext.getRealm();
-        UserModel existing = session.users().getUserByUsername(realm, createRequest.getUserName());
-        if (existing != null) {
-            return ScimErrors.conflict("User already exists");
+        Response conflict = validateCreateUserConflicts(scimContext, createRequest);
+        if (conflict != null) {
+            return conflict;
         }
 
         UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
@@ -248,25 +246,5 @@ public abstract class OrganizationScimServer extends AbstractScimServer<Organiza
     }
 
     public abstract OrganizationScimContext getScimContext(KeycloakSession session, String organizationId);
-
-    private String formatValidationErrors(UserProfileValidationException e) {
-        if (e.getErrors().isEmpty()) {
-            return "Validation failed";
-        }
-
-        if (e.getErrors().size() == 1) {
-            return e.getErrors().getFirst().toString();
-        }
-
-        StringBuilder stringBuilder = new StringBuilder("Validation failed: ");
-        for (int i = 0; i < e.getErrors().size(); i++) {
-            if (i > 0) {
-                stringBuilder.append("; ");
-            }
-            stringBuilder.append(e.getErrors().get(i));
-        }
-
-        return stringBuilder.toString();
-    }
 
 }

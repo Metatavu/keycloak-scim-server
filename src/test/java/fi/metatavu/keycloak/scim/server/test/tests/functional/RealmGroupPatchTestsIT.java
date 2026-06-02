@@ -212,6 +212,56 @@ public class RealmGroupPatchTestsIT extends AbstractInternalAuthRealmScimTest {
     }
 
     /**
+     * An ADD members operation that includes one valid and one unknown member ID
+     * must be rejected atomically: HTTP 400 and the valid member must NOT sneak
+     * into the group. Complements the REPLACE / REMOVE atomicity tests below.
+     */
+    @Test
+    void testAddMembersRejectsUnknownIdWithoutMutation() throws ApiException, IOException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+
+        User seeded = createUser(scimClient, "atomic-add-seeded", "Atomic", "Seeded");
+        User candidate = createUser(scimClient, "atomic-add-candidate", "Atomic", "Candidate");
+        Group group = createGroup(scimClient, "atomic-add-group");
+
+        try {
+            // Seed with a known member so we can verify the group is left exactly
+            // as it was (and the candidate did not sneak in).
+            seedGroupWithMember(scimClient, group, seeded);
+
+            // ADD [candidate, unknown] -- must fail atomically with HTTP 400.
+            GroupMembersInner candidateRef = new GroupMembersInner();
+            candidateRef.setValue(candidate.getId());
+            GroupMembersInner unknown = new GroupMembersInner();
+            unknown.setValue("22222222-2222-2222-2222-222222222222");
+            PatchRequest add = new PatchRequest();
+            add.setSchemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"));
+            PatchRequestOperationsInner addOp = new PatchRequestOperationsInner();
+            addOp.setOp("add");
+            addOp.setPath("members");
+            addOp.setValue(List.of(candidateRef, unknown));
+            add.setOperations(List.of(addOp));
+
+            ApiException ex = assertThrows(ApiException.class,
+                    () -> scimClient.patchGroup(group.getId(), add));
+            assertEquals(400, ex.getCode());
+
+            com.fasterxml.jackson.databind.JsonNode body =
+                    new com.fasterxml.jackson.databind.ObjectMapper().readTree(ex.getResponseBody());
+            assertEquals("400", body.get("status").asText());
+            assertTrue(body.get("detail").asText().contains("22222222-2222-2222-2222-222222222222"),
+                    "detail should name the unknown member id; got: " + body.get("detail").asText());
+
+            // Group must be unchanged: only the seeded member, candidate did NOT sneak in.
+            assertGroupHasOnlyMember(scimClient, group, seeded);
+        } finally {
+            deleteRealmUser(TestConsts.TEST_REALM, candidate.getId());
+            deleteRealmUser(TestConsts.TEST_REALM, seeded.getId());
+            deleteRealmGroup(TestConsts.TEST_REALM, group.getId());
+        }
+    }
+
+    /**
      * A REPLACE operation that includes one valid and one unknown member ID must
      * be rejected atomically: HTTP 400 with an error body naming the bad ID, and
      * the group's original membership must be unchanged.

@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
@@ -110,62 +109,18 @@ public class RealmUserCreateTestsIT extends AbstractInternalAuthRealmScimTest {
 
     @Test
     void testCreateDuplicateUserReturnsConflict() throws ApiException {
-        ScimClient scimClient = getAuthenticatedScimClient();
-
-        User user = new User();
-        user.setUserName("dupe-user");
-        user.setActive(true);
-        user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
-
-        // First creation should succeed
-        User created = scimClient.createUser(user);
-        assertNotNull(created);
-
-        // Second creation should fail with 409 Conflict and identify the duplicated field
-        ApiException exception = assertThrows(ApiException.class, () ->
-            scimClient.createUser(user)
-        );
-
-        assertEquals(409, exception.getCode());
-        assertTrue(exception.getMessage().contains("username"),
-            "Expected conflict message to mention 'username'; got: " + exception.getMessage());
-        assertTrue(exception.getMessage().contains("dupe-user"),
-            "Expected conflict message to include the offending username; got: " + exception.getMessage());
-
-        // Clean up
-        deleteRealmUser(TestConsts.TEST_REALM, created.getId());
+        assertDuplicateUserCreateConflict(getAuthenticatedScimClient(), TestConsts.TEST_REALM, "dupe-user");
     }
 
     @Test
     void testCreateDuplicateEmailReturnsConflict() throws ApiException {
-        ScimClient scimClient = getAuthenticatedScimClient();
-
-        User first = new User();
-        first.setUserName("dupe-email-first");
-        first.setActive(true);
-        first.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
-        first.setEmails(getEmails("dupe.email@example.com"));
-
-        User created = scimClient.createUser(first);
-        assertNotNull(created);
-
-        User second = new User();
-        second.setUserName("dupe-email-second");
-        second.setActive(true);
-        second.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
-        second.setEmails(getEmails("dupe.email@example.com"));
-
-        ApiException exception = assertThrows(ApiException.class, () ->
-            scimClient.createUser(second)
+        assertDuplicateEmailCreateConflict(
+            getAuthenticatedScimClient(),
+            TestConsts.TEST_REALM,
+            "dupe-email-first",
+            "dupe-email-second",
+            "dupe.email@example.com"
         );
-
-        assertEquals(409, exception.getCode());
-        assertTrue(exception.getMessage().contains("email"),
-            "Expected conflict message to mention 'email'; got: " + exception.getMessage());
-        assertTrue(exception.getMessage().contains("dupe.email@example.com"),
-            "Expected conflict message to include the offending email; got: " + exception.getMessage());
-
-        deleteRealmUser(TestConsts.TEST_REALM, created.getId());
     }
 
     @Test
@@ -204,10 +159,7 @@ public class RealmUserCreateTestsIT extends AbstractInternalAuthRealmScimTest {
     void testCreateUserWithIncorrectUsernameReturnsBadRequest() {
         ScimClient scimClient = getAuthenticatedScimClient();
 
-        User user = new User();
-        user.setActive(true);
-        user.setUserName("invalid username");
-        user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
+        User user = createUserRequest("invalid username");
 
         try {
             scimClient.createUser(user);
@@ -221,11 +173,7 @@ public class RealmUserCreateTestsIT extends AbstractInternalAuthRealmScimTest {
     void testCreateUserWithIncorrectUsernameAndEmailReturnsBadRequest() {
         ScimClient scimClient = getAuthenticatedScimClient();
 
-        User user = new User();
-        user.setActive(true);
-        user.setUserName("invalid username");
-        user.setEmails(getEmails("invalid-email@"));
-        user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
+        User user = createUserRequest("invalid username", "invalid-email@");
 
         try {
             scimClient.createUser(user);

@@ -103,6 +103,95 @@ public abstract class AbstractScimTest {
     }
 
     /**
+     * Creates a minimal SCIM user request.
+     *
+     * @param userName username
+     * @return user request
+     */
+    protected User createUserRequest(String userName) {
+        User user = new User();
+        user.setUserName(userName);
+        user.setActive(true);
+        user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
+        return user;
+    }
+
+    /**
+     * Creates a minimal SCIM user request with an email.
+     *
+     * @param userName username
+     * @param email email address
+     * @return user request
+     */
+    protected User createUserRequest(String userName, String email) {
+        User user = createUserRequest(userName);
+        user.setEmails(getEmails(email));
+        return user;
+    }
+
+    /**
+     * Asserts that creating a duplicate username returns a conflict.
+     *
+     * @param scimClient SCIM client
+     * @param realm realm name
+     * @param userName duplicate username
+     * @throws ApiException if setup creation fails
+     */
+    protected void assertDuplicateUserCreateConflict(
+        ScimClient scimClient,
+        String realm,
+        String userName
+    ) throws ApiException {
+        User user = createUserRequest(userName);
+        User created = scimClient.createUser(user);
+        assertNotNull(created);
+
+        try {
+            ApiException exception = assertThrows(ApiException.class, () -> scimClient.createUser(user));
+            assertConflictMessage(exception, "username", userName);
+        } finally {
+            deleteRealmUser(realm, created.getId());
+        }
+    }
+
+    /**
+     * Asserts that creating a duplicate email returns a conflict.
+     *
+     * @param scimClient SCIM client
+     * @param realm realm name
+     * @param firstUserName first username
+     * @param secondUserName second username
+     * @param email duplicate email
+     * @throws ApiException if setup creation fails
+     */
+    protected void assertDuplicateEmailCreateConflict(
+        ScimClient scimClient,
+        String realm,
+        String firstUserName,
+        String secondUserName,
+        String email
+    ) throws ApiException {
+        User created = scimClient.createUser(createUserRequest(firstUserName, email));
+        assertNotNull(created);
+
+        try {
+            User second = createUserRequest(secondUserName, email);
+            ApiException exception = assertThrows(ApiException.class, () -> scimClient.createUser(second));
+            assertConflictMessage(exception, "email", email);
+        } finally {
+            deleteRealmUser(realm, created.getId());
+        }
+    }
+
+    private void assertConflictMessage(ApiException exception, String field, String value) {
+        assertEquals(409, exception.getCode());
+        assertTrue(exception.getMessage().contains(field),
+            String.format("Expected conflict message to mention '%s'; got: %s", field, exception.getMessage()));
+        assertTrue(exception.getMessage().contains(value),
+            String.format("Expected conflict message to include '%s'; got: %s", value, exception.getMessage()));
+    }
+
+    /**
      * Creates multiple users with the given parameters
      *
      * @param scimClient SCIM client

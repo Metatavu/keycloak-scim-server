@@ -191,4 +191,24 @@ public class RealmUserUpdateTestsIT extends AbstractInternalAuthRealmScimTest {
         // Cleanup
         deleteRealmUser(TestConsts.TEST_REALM, created.getId());
     }
+
+    @Test
+    void testUpdateUserWithIncorrectUsernameReturnsBadRequest() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+
+        User user = new User();
+        user.setUserName("update-invalid-username");
+        user.setActive(true);
+        user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
+
+        User created = scimClient.createUser(user);
+        created.setUserName("update invalid username");
+
+        try {
+            scimClient.updateUser(created.getId(), created);
+            fail("Expected ApiException");
+        } catch (ApiException e) {
+            assertEquals(400, e.getCode());
+        }
+    }
 }

@@ -5,6 +5,7 @@ import fi.metatavu.keycloak.scim.server.test.ScimClient;
 import fi.metatavu.keycloak.scim.server.test.TestConsts;
 import fi.metatavu.keycloak.scim.server.test.client.ApiException;
 import fi.metatavu.keycloak.scim.server.test.client.model.User;
+import fi.metatavu.keycloak.scim.server.test.utils.ScimErrorAssertions;
 import jakarta.ws.rs.NotFoundException;
 import org.junit.jupiter.api.Test;
 import org.keycloak.events.admin.AdminEvent;
@@ -173,9 +174,7 @@ public class OrganizationUserCreateTestsIT extends AbstractOrganizationScimTest 
         user.putAdditionalProperty("preferredLanguage", "fi-FI");
         user.putAdditionalProperty("displayName", "The New User");
 
-        assertThrows(ApiException.class, () -> {
-            scimClient.createUser(user);
-        }, "Invalid email format for userName");
+        assertThrows(ApiException.class, () -> scimClient.createUser(user), "Invalid email format for userName");
     }
 
     @Test
@@ -223,4 +222,39 @@ public class OrganizationUserCreateTestsIT extends AbstractOrganizationScimTest 
                 OperationType.CREATE
         );
     }
+
+        @Test
+        void testCreateUserWithIncorrectUsernameReturnsBadRequest() {
+            ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
+
+            User user = new User();
+            user.setActive(true);
+            user.setUserName("invalid username");
+            user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
+
+            try {
+                scimClient.createUser(user);
+                fail("Expected ApiException");
+            } catch (ApiException e) {
+                assertEquals(400, e.getCode());
+            }
+        }
+
+        @Test
+        void testCreateUserWithIncorrectUsernameAndEmailReturnsBadRequest() {
+            ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
+
+            User user = new User();
+            user.setActive(true);
+            user.setUserName("invalid username");
+            user.setEmails(getEmails("invalid-email@"));
+            user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
+
+            try {
+                scimClient.createUser(user);
+                fail("Expected ApiException");
+            } catch (ApiException e) {
+                ScimErrorAssertions.assertScimError(e, 400, "Validation failed: email: error-invalid-email; email: error-invalid-email; username: error-username-invalid-character");
+            }
+        }
 }

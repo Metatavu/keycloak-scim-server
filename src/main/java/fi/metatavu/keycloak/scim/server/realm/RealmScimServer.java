@@ -9,6 +9,7 @@ import fi.metatavu.keycloak.scim.server.groups.UnsupportedGroupPath;
 import fi.metatavu.keycloak.scim.server.metadata.UserAttributes;
 import fi.metatavu.keycloak.scim.server.model.User;
 import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
+import fi.metatavu.keycloak.scim.server.users.UserProfileValidationException;
 import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
@@ -49,11 +50,17 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
 
         UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
 
-        User user = usersController.createUser(
-            scimContext,
-            userAttributes,
-            createRequest
-        );
+        User user;
+        try {
+            user = usersController.createUser(
+                scimContext,
+                userAttributes,
+                createRequest
+            );
+        } catch (UserProfileValidationException e) {
+            logger.warn("User profile validation failed: " + e.getMessage());
+            return ScimErrors.badRequest(formatValidationErrors(e));
+        }
 
         URI location = UriBuilder.fromPath("v2/Users/{id}").build(user.getId());
 
@@ -108,7 +115,13 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
         }
 
         UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
-        fi.metatavu.keycloak.scim.server.model.User result = usersController.updateUser(scimContext, userAttributes, user, updateRequest);
+        fi.metatavu.keycloak.scim.server.model.User result;
+        try {
+            result = usersController.updateUser(scimContext, userAttributes, user, updateRequest);
+        } catch (UserProfileValidationException e) {
+            logger.warn("User profile validation failed: " + e.getMessage());
+            return ScimErrors.badRequest(formatValidationErrors(e));
+        }
 
         return Response.ok(result).build();
     }
@@ -131,6 +144,9 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
             return Response.ok(result).build();
         } catch (UnsupportedPatchOperation e) {
             return ScimErrors.badRequest("Unsupported patch operation");
+        } catch (UserProfileValidationException e) {
+            logger.warn("User profile validation failed: " + e.getMessage());
+            return ScimErrors.badRequest(formatValidationErrors(e));
         }
     }
 
@@ -304,6 +320,26 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
             realm,
             config
         );
+    }
+
+    private String formatValidationErrors(UserProfileValidationException e) {
+        if (e.getErrors().isEmpty()) {
+            return "Validation failed";
+        }
+
+        if (e.getErrors().size() == 1) {
+            return e.getErrors().getFirst().toString();
+        }
+
+        StringBuilder stringBuilder = new StringBuilder("Validation failed: ");
+        for (int i = 0; i < e.getErrors().size(); i++) {
+            if (i > 0) {
+                stringBuilder.append("; ");
+            }
+            stringBuilder.append(e.getErrors().get(i));
+        }
+
+        return stringBuilder.toString();
     }
 
 }

@@ -10,6 +10,7 @@ import fi.metatavu.keycloak.scim.server.model.Group;
 import fi.metatavu.keycloak.scim.server.model.PatchRequest;
 import fi.metatavu.keycloak.scim.server.model.User;
 import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
+import fi.metatavu.keycloak.scim.server.users.UserProfileValidationException;
 import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
@@ -45,13 +46,26 @@ public abstract class OrganizationScimServer extends AbstractScimServer<Organiza
             return ScimErrors.badRequest("Invalid email format for userName");
         }
 
+        KeycloakSession session = scimContext.getSession();
+        RealmModel realm = scimContext.getRealm();
+        UserModel existing = session.users().getUserByUsername(realm, createRequest.getUserName());
+        if (existing != null) {
+            return ScimErrors.conflict("User already exists");
+        }
+
         UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
 
-        User user = organizationUserController.createOrganizationUser(
-            scimContext,
-            userAttributes,
-            createRequest
-        );
+        User user;
+        try {
+            user = organizationUserController.createOrganizationUser(
+                scimContext,
+                userAttributes,
+                createRequest
+            );
+        } catch (UserProfileValidationException e) {
+            logger.warn("User profile validation failed: " + e.getMessage());
+            return ScimErrors.badRequest(formatValidationErrors(e));
+        }
 
         URI location = scimContext.getServerBaseUri().resolve(String.format("v2/Users/%s", user.getId()));
 
@@ -107,7 +121,13 @@ public abstract class OrganizationScimServer extends AbstractScimServer<Organiza
         }
 
         UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
-        fi.metatavu.keycloak.scim.server.model.User result = organizationUserController.updateOrganizationUser(scimContext, userAttributes, user, updateRequest);
+        fi.metatavu.keycloak.scim.server.model.User result;
+        try {
+            result = organizationUserController.updateOrganizationUser(scimContext, userAttributes, user, updateRequest);
+        } catch (UserProfileValidationException e) {
+            logger.warn("User profile validation failed: " + e.getMessage());
+            return ScimErrors.badRequest(formatValidationErrors(e));
+        }
 
         return Response.ok(result).build();
     }
@@ -130,6 +150,9 @@ public abstract class OrganizationScimServer extends AbstractScimServer<Organiza
             return Response.ok(result).build();
         } catch (UnsupportedPatchOperation e) {
             return ScimErrors.badRequest("Unsupported patch operation");
+        } catch (UserProfileValidationException e) {
+            logger.warn("User profile validation failed: " + e.getMessage());
+            return ScimErrors.badRequest(formatValidationErrors(e));
         }
     }
 
@@ -225,5 +248,25 @@ public abstract class OrganizationScimServer extends AbstractScimServer<Organiza
     }
 
     public abstract OrganizationScimContext getScimContext(KeycloakSession session, String organizationId);
+
+    private String formatValidationErrors(UserProfileValidationException e) {
+        if (e.getErrors().isEmpty()) {
+            return "Validation failed";
+        }
+
+        if (e.getErrors().size() == 1) {
+            return e.getErrors().getFirst().toString();
+        }
+
+        StringBuilder stringBuilder = new StringBuilder("Validation failed: ");
+        for (int i = 0; i < e.getErrors().size(); i++) {
+            if (i > 0) {
+                stringBuilder.append("; ");
+            }
+            stringBuilder.append(e.getErrors().get(i));
+        }
+
+        return stringBuilder.toString();
+    }
 
 }

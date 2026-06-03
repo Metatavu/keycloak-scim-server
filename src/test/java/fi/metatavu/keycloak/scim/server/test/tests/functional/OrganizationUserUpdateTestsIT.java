@@ -64,7 +64,7 @@ public class OrganizationUserUpdateTestsIT extends AbstractOrganizationScimTest 
         assertEquals("User", updated.getName().getFamilyName());
         assertEquals("replaced.user@example.com", updated.getEmails().getFirst().getValue());
         assertEquals("Replaced User", updated.getAdditionalProperty("displayName"));
-        assertEquals("replaced-external-id", updated.getAdditionalProperty("externalId"));
+        assertEquals("replaced-external-id", getUserExternalId(updated));
         assertEquals("fi_FI", updated.getAdditionalProperty("preferredLanguage"));
         assertFalse(updated.getActive());
 

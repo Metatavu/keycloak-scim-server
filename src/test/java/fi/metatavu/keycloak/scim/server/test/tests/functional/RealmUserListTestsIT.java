@@ -22,13 +22,22 @@ import static org.junit.jupiter.api.Assertions.*;
 class RealmUserListTestsIT extends AbstractInternalAuthRealmScimTest {
 
   @Test
-  void testListUsersNoFilter() throws ApiException {
+  void testListUsersStartIndexLessThanOneTreatedAsOne() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient();
 
     UsersList usersList = scimClient.listUsers(null, 0, 10);
 
+    assertEquals(1, usersList.getStartIndex());
+  }
+
+  @Test
+  void testListUsersNoFilter() throws ApiException {
+    ScimClient scimClient = getAuthenticatedScimClient();
+
+    UsersList usersList = scimClient.listUsers(null, 1, 10);
+
     assertEquals(1, usersList.getTotalResults());
-    assertEquals(0, usersList.getStartIndex());
+    assertEquals(1, usersList.getStartIndex());
     assertEquals(10, usersList.getItemsPerPage());
 
     List<User> users = usersList.getResources();
@@ -51,7 +60,7 @@ class RealmUserListTestsIT extends AbstractInternalAuthRealmScimTest {
   @Test
   void testFilterByUserName() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient();
-    UsersList usersList = scimClient.listUsers("userName eq \"testadmin\"", 0, 10);
+    UsersList usersList = scimClient.listUsers("userName eq \"testadmin\"", 1, 10);
 
     assertEquals(1, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -63,7 +72,7 @@ class RealmUserListTestsIT extends AbstractInternalAuthRealmScimTest {
   @Test
   void testFilterByEmail() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient();
-    UsersList usersList = scimClient.listUsers("email eq \"testadmin@example.com\"", 0, 10);
+    UsersList usersList = scimClient.listUsers("email eq \"testadmin@example.com\"", 1, 10);
 
     assertEquals(1, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -77,7 +86,7 @@ class RealmUserListTestsIT extends AbstractInternalAuthRealmScimTest {
   @Test
   void testFilterByFirstName() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient();
-    UsersList usersList = scimClient.listUsers("name.givenName eq \"Test\"", 0, 10);
+    UsersList usersList = scimClient.listUsers("name.givenName eq \"Test\"", 1, 10);
 
     assertEquals(1, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -90,7 +99,7 @@ class RealmUserListTestsIT extends AbstractInternalAuthRealmScimTest {
   @Test
   void testFilterByLastName() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient();
-    UsersList usersList = scimClient.listUsers("name.familyName eq \"Admin\"", 0, 10);
+    UsersList usersList = scimClient.listUsers("name.familyName eq \"Admin\"", 1, 10);
 
     assertEquals(1, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -103,7 +112,7 @@ class RealmUserListTestsIT extends AbstractInternalAuthRealmScimTest {
   @Test
   void testFilterByFamilyName() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient();
-    UsersList usersList = scimClient.listUsers("name.familyName eq \"Admin\"", 0, 10);
+    UsersList usersList = scimClient.listUsers("name.familyName eq \"Admin\"", 1, 10);
 
     assertEquals(1, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -116,7 +125,7 @@ class RealmUserListTestsIT extends AbstractInternalAuthRealmScimTest {
   @Test
   void testFilterByActiveTrue() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient();
-    UsersList usersList = scimClient.listUsers("active eq true", 0, 10);
+    UsersList usersList = scimClient.listUsers("active eq true", 1, 10);
 
     assertEquals(1, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -129,7 +138,7 @@ class RealmUserListTestsIT extends AbstractInternalAuthRealmScimTest {
   @Test
   void testFilterByActiveFalseReturnsEmpty() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient();
-    UsersList usersList = scimClient.listUsers("active eq false", 0, 10);
+    UsersList usersList = scimClient.listUsers("active eq false", 1, 10);
 
     assertEquals(0, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -139,7 +148,7 @@ class RealmUserListTestsIT extends AbstractInternalAuthRealmScimTest {
   @Test
   void testFilterByUserNameAndActive() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient();
-    UsersList usersList = scimClient.listUsers("userName eq \"testadmin\" and active eq true", 0, 10);
+    UsersList usersList = scimClient.listUsers("userName eq \"testadmin\" and active eq true", 1, 10);
 
     assertEquals(1, usersList.getTotalResults());
   }
@@ -147,7 +156,7 @@ class RealmUserListTestsIT extends AbstractInternalAuthRealmScimTest {
   @Test
   void testFilterByUserNameNoMatch() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient();
-    UsersList usersList = scimClient.listUsers("userName eq \"nonexistent\"", 0, 10);
+    UsersList usersList = scimClient.listUsers("userName eq \"nonexistent\"", 1, 10);
 
     assertEquals(0, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -157,7 +166,7 @@ class RealmUserListTestsIT extends AbstractInternalAuthRealmScimTest {
   @Test
   void testFilterByEmailNoMatch() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient();
-    UsersList usersList = scimClient.listUsers("email eq \"nope@example.com\"", 0, 10);
+    UsersList usersList = scimClient.listUsers("email eq \"nope@example.com\"", 1, 10);
 
     assertEquals(0, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -167,7 +176,7 @@ class RealmUserListTestsIT extends AbstractInternalAuthRealmScimTest {
   @Test
   void testFilterByFirstNameNoMatch() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient();
-    UsersList usersList = scimClient.listUsers("name.givenName eq \"NoSuchName\"", 0, 10);
+    UsersList usersList = scimClient.listUsers("name.givenName eq \"NoSuchName\"", 1, 10);
 
     assertEquals(0, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -177,7 +186,7 @@ class RealmUserListTestsIT extends AbstractInternalAuthRealmScimTest {
   @Test
   void testFilterByLastNameNoMatch() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient();
-    UsersList usersList = scimClient.listUsers("name.familyName eq \"Unknown\"", 0, 10);
+    UsersList usersList = scimClient.listUsers("name.familyName eq \"Unknown\"", 1, 10);
 
     assertEquals(0, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -187,7 +196,7 @@ class RealmUserListTestsIT extends AbstractInternalAuthRealmScimTest {
   @Test
   void testFilterByFamilyNameNoMatch() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient();
-    UsersList usersList = scimClient.listUsers("name.familyName eq \"Ghost\"", 0, 10);
+    UsersList usersList = scimClient.listUsers("name.familyName eq \"Ghost\"", 1, 10);
 
     assertEquals(0, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -197,7 +206,7 @@ class RealmUserListTestsIT extends AbstractInternalAuthRealmScimTest {
   @Test
   void testFilterByActiveFalseNoMatch() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient();
-    UsersList usersList = scimClient.listUsers("active eq false", 0, 10);
+    UsersList usersList = scimClient.listUsers("active eq false", 1, 10);
 
     assertEquals(0, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -209,7 +218,7 @@ class RealmUserListTestsIT extends AbstractInternalAuthRealmScimTest {
     ScimClient scimClient = getAuthenticatedScimClient();
 
     ApiException exception = assertThrows(ApiException.class, () ->
-            scimClient.listUsers("userName \"bob\"", 0, 10)
+            scimClient.listUsers("userName \"bob\"", 1, 10)
     );
 
     ScimErrorAssertions.assertScimError(exception, 400, "Invalid filter");
@@ -220,7 +229,7 @@ class RealmUserListTestsIT extends AbstractInternalAuthRealmScimTest {
     ScimClient scimClient = getAuthenticatedScimClient();
 
     ApiException exception = assertThrows(ApiException.class, () ->
-            scimClient.listUsers("userName gt \"bob\"", 0, 10)
+            scimClient.listUsers("userName gt \"bob\"", 1, 10)
     );
 
     ScimErrorAssertions.assertScimError(exception, 400, "Invalid filter");
@@ -231,7 +240,7 @@ class RealmUserListTestsIT extends AbstractInternalAuthRealmScimTest {
     ScimClient scimClient = getAuthenticatedScimClient();
 
     ApiException exception = assertThrows(ApiException.class, () ->
-            scimClient.listUsers("userName eq bob", 0, 10)
+            scimClient.listUsers("userName eq bob", 1, 10)
     );
 
     ScimErrorAssertions.assertScimError(exception, 400, "Invalid filter");
@@ -242,7 +251,7 @@ class RealmUserListTestsIT extends AbstractInternalAuthRealmScimTest {
     ScimClient scimClient = getAuthenticatedScimClient();
 
     ApiException exception = assertThrows(ApiException.class, () ->
-            scimClient.listUsers("userName eq \"a\" and", 0, 10)
+            scimClient.listUsers("userName eq \"a\" and", 1, 10)
     );
 
     ScimErrorAssertions.assertScimError(exception, 400, "Invalid filter");
@@ -266,26 +275,26 @@ class RealmUserListTestsIT extends AbstractInternalAuthRealmScimTest {
       createdUsers.add(created);
     }
 
-    // Page 1: count=2, startIndex=0
-    UsersList page1 = scimClient.listUsers("name.givenName eq \"Paginated\"", 0, 2);
+    // Page 1: count=2, startIndex=1
+    UsersList page1 = scimClient.listUsers("name.givenName eq \"Paginated\"", 1, 2);
     assertEquals(2, page1.getItemsPerPage());
-    assertEquals(0, page1.getStartIndex());
+    assertEquals(1, page1.getStartIndex());
     assertEquals(5, page1.getTotalResults());
     assertNotNull(page1.getResources());
     assertEquals(2, page1.getResources().size());
 
-    // Page 2: count=2, startIndex=2
-    UsersList page2 = scimClient.listUsers("name.givenName eq \"Paginated\"", 2, 2);
+    // Page 2: count=2, startIndex=3
+    UsersList page2 = scimClient.listUsers("name.givenName eq \"Paginated\"", 3, 2);
     assertEquals(2, page2.getItemsPerPage());
-    assertEquals(2, page2.getStartIndex());
+    assertEquals(3, page2.getStartIndex());
     assertEquals(5, page2.getTotalResults());
     assertNotNull(page2.getResources());
     assertEquals(2, page2.getResources().size());
 
-    // Page 3: count=2, startIndex=4 (only one user expected)
-    UsersList page3 = scimClient.listUsers("name.givenName eq \"Paginated\"", 4, 2);
+    // Page 3: count=2, startIndex=5 (only one user expected)
+    UsersList page3 = scimClient.listUsers("name.givenName eq \"Paginated\"", 5, 2);
     assertEquals(2, page3.getItemsPerPage());
-    assertEquals(4, page3.getStartIndex());
+    assertEquals(5, page3.getStartIndex());
     assertEquals(5, page3.getTotalResults());
     assertNotNull(page3.getResources());
     assertTrue(page3.getResources().size() <= 2);

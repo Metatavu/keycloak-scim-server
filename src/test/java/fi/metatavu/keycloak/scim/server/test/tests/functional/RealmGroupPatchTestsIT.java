@@ -523,6 +523,31 @@ public class RealmGroupPatchTestsIT extends AbstractInternalAuthRealmScimTest {
         deleteRealmGroup(TestConsts.TEST_REALM, group.getId());
     }
 
+    @Test
+    void testPatchGroupExternalId() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+        Group group = createGroup(scimClient, "external-id-patch-group");
+
+        try {
+            PatchRequest patchRequest = new PatchRequest();
+            patchRequest.setSchemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"));
+
+            PatchRequestOperationsInner operation = new PatchRequestOperationsInner();
+            operation.setOp("replace");
+            operation.setPath("externalId");
+            operation.setValue("external-1234");
+            patchRequest.setOperations(List.of(operation));
+
+            Group patched = scimClient.patchGroup(group.getId(), patchRequest);
+            assertEquals("external-1234", patched.getExternalId());
+
+            var realmGroup = findRealmGroup(TestConsts.TEST_REALM, group.getId());
+            assertEquals("external-1234", realmGroup.getAttributes().get("externalId").getFirst());
+        } finally {
+            deleteRealmGroup(TestConsts.TEST_REALM, group.getId());
+        }
+    }
+
     // --- helpers shared by the atomic-resolution tests ---
 
     /**

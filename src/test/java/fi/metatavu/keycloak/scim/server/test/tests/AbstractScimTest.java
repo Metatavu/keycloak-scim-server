@@ -406,6 +406,15 @@ public abstract class AbstractScimTest {
         }
     }
 
+    protected String getUserExternalId(User user) {
+        if (user.getExternalId() != null) {
+            return user.getExternalId();
+        }
+
+        Object externalId = user.getAdditionalProperty("externalId");
+        return externalId instanceof String ? (String) externalId : null;
+    }
+
     /**
      * Asserts user
      *
@@ -438,7 +447,7 @@ public abstract class AbstractScimTest {
         assertEquals(1, user.getEmails().size());
         assertEquals(expectedEmail, user.getEmails().getFirst().getValue());
 
-        assertEquals(expectedExternalId, user.getAdditionalProperty("externalId"));
+        assertEquals(expectedExternalId, getUserExternalId(user));
         assertEquals(expectedPreferredLanguage, user.getAdditionalProperty("preferredLanguage"));
         assertEquals(expectedDisplayName, user.getAdditionalProperty("displayName"));
     }

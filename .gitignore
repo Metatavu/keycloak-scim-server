@@ -2,3 +2,10 @@ build
 .gradle
 .DS_Store
 .idea
+scim2-compliance-test-utility
+src/test/resources/kc-test.json
+src/test/resources/kc-external.json
+src/test/resources/kc-organizations.json
+.env
+scripts/bootstrap-permanent-keycloak-admin.sh
+docker-compose.yaml

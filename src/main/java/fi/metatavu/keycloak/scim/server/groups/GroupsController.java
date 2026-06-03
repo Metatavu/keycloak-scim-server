@@ -2,6 +2,7 @@ package fi.metatavu.keycloak.scim.server.groups;
 
 import fi.metatavu.keycloak.scim.server.AbstractController;
 import fi.metatavu.keycloak.scim.server.ScimContext;
+import fi.metatavu.keycloak.scim.server.ScimPagination;
 import fi.metatavu.keycloak.scim.server.adminEvents.AdminEventController;
 import fi.metatavu.keycloak.scim.server.filter.ComparisonFilter;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
@@ -38,6 +39,7 @@ import java.util.stream.Collectors;
 public class GroupsController extends AbstractController {
 
     private static final Logger logger = Logger.getLogger(GroupsController.class);
+    private static final String EXTERNAL_ID_ATTRIBUTE = GroupAttribute.EXTERNAL_ID.getScimPath();
     private final AdminEventController adminEventController = new AdminEventController();
 
     /**
@@ -55,6 +57,8 @@ public class GroupsController extends AbstractController {
         RealmModel realm = scimContext.getRealm();
 
         GroupModel group = session.groups().createGroup(realm, scimGroup.getDisplayName());
+
+        applyExternalId(group, getExternalId(scimGroup));
 
         if (scimGroup.getMembers() != null) {
             for (GroupMembersInner member : scimGroup.getMembers()) {
@@ -95,7 +99,7 @@ public class GroupsController extends AbstractController {
      * Lists groups
      *
      * @param scimContext SCIM context
-     * @param startIndex start index
+     * @param startIndex 1-based SCIM start index
      * @param count count
      * @return groups list
      */
@@ -105,6 +109,9 @@ public class GroupsController extends AbstractController {
             int startIndex,
             int count
     ) {
+        int scimStartIndex = ScimPagination.normalizeStartIndex(startIndex);
+        int offset = ScimPagination.toZeroBasedOffset(startIndex);
+
         KeycloakSession session = scimContext.getSession();
         RealmModel realm = scimContext.getRealm();
         GroupsList result = new GroupsList();
@@ -113,22 +120,25 @@ public class GroupsController extends AbstractController {
 
         // For now only support to filter on display name
         List<GroupModel> filteredGroups;
-        if(scimFilter instanceof ComparisonFilter(
+        List<Group> groups;
+        if (scimFilter instanceof ComparisonFilter(
                 String attribute, ScimFilter.Operator operator, String value
-        ) && operator == ScimFilter.Operator.EQ && attribute.equals(GroupAttribute.DISPLAY_NAME.getScimPath())){
-            filteredGroups = session.groups().searchForGroupByNameStream(realm, value, true, startIndex, count).toList();
-        }else{
+        ) && operator == ScimFilter.Operator.EQ && attribute.equals(GroupAttribute.DISPLAY_NAME.getScimPath())) {
+            filteredGroups = session.groups().searchForGroupByNameStream(realm, value, true, offset, count).toList();
+            groups = filteredGroups.stream()
+                .map(group -> translateGroup(scimContext, group))
+                .collect(Collectors.toList());
+        } else {
             filteredGroups = session.groups().getGroupsStream(realm).toList();
+            groups = filteredGroups.stream()
+                .skip(offset)
+                .limit(count)
+                .map(group -> translateGroup(scimContext, group))
+                .collect(Collectors.toList());
         }
 
-        List<Group> groups = filteredGroups.stream()
-            .skip(startIndex)
-            .limit(count)
-            .map(group -> translateGroup(scimContext, group))
-            .collect(Collectors.toList());
-
         result.setTotalResults(filteredGroups.size());
-        result.setStartIndex(startIndex);
+        result.setStartIndex(scimStartIndex);
         result.setItemsPerPage(count);
         result.setResources(groups);
         result.setSchemas(Collections.singletonList("urn:ietf:params:scim:api:messages:2.0:ListResponse"));
@@ -151,6 +161,8 @@ public class GroupsController extends AbstractController {
         if (group.getDisplayName() != null) {
             existing.setName(group.getDisplayName());
         }
+
+        applyExternalId(existing, getExternalId(group));
 
         // SCIM PUT is a full replace of the resource — reconcile members against the request.
         // Okta's Group Push uses PUT (not PATCH) with the desired final member list.
@@ -320,6 +332,12 @@ public class GroupsController extends AbstractController {
         switch (op) {
             case REPLACE, ADD -> {
                 switch (attr) {
+                    case EXTERNAL_ID -> {
+                        if (!(value instanceof String s)) {
+                            throw new UnsupportedGroupPath("externalId requires a string value");
+                        }
+                        applyExternalId(existing, s);
+                    }
                     case DISPLAY_NAME -> {
                         if (!(value instanceof String s)) {
                             throw new UnsupportedGroupPath("displayName requires a string value");
@@ -344,6 +362,7 @@ public class GroupsController extends AbstractController {
             }
             case REMOVE -> {
                 switch (attr) {
+                    case EXTERNAL_ID -> existing.removeAttribute(EXTERNAL_ID_ATTRIBUTE);
                     case DISPLAY_NAME -> existing.setName(null);
                     case MEMBERS -> {
                         // REMOVE shares the strict resolution path with REPLACE/ADD: an unknown
@@ -465,10 +484,24 @@ public class GroupsController extends AbstractController {
 
         return new Group()
                 .id(group.getId())
+                .externalId(group.getFirstAttribute(EXTERNAL_ID_ATTRIBUTE))
                 .displayName(group.getName())
                 .members(members)
                 .schemas(Collections.singletonList(Schemas.GROUP_SCHEMA))
                 .meta(getMeta(scimContext, "Group", String.format("Groups/%s", group.getId())));
+    }
+
+    private String getExternalId(fi.metatavu.keycloak.scim.server.model.Group scimGroup) {
+        return scimGroup.getExternalId();
+    }
+
+    private void applyExternalId(GroupModel group, String externalId) {
+        if (externalId == null || externalId.isBlank()) {
+            group.removeAttribute(EXTERNAL_ID_ATTRIBUTE);
+            return;
+        }
+
+        group.setSingleAttribute(EXTERNAL_ID_ATTRIBUTE, externalId);
     }
 
     /**

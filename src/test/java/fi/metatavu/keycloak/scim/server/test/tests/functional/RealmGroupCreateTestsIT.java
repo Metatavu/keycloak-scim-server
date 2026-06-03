@@ -24,6 +24,32 @@ import static org.junit.jupiter.api.Assertions.*;
 public class RealmGroupCreateTestsIT extends AbstractInternalAuthRealmScimTest {
 
     @Test
+    void testCreateGroupWithExternalId() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+
+        String externalId = "urn:mace:surf.nl:invite.test.surfconext.nl:4f9831b6-dfa9-4113-a697-0c9f62ff9ace:harry";
+
+        Group group = new Group();
+        group.setDisplayName("external-id-group");
+        group.setExternalId(externalId);
+        group.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:Group"));
+
+        Group created = scimClient.createGroup(group);
+
+        assertNotNull(created);
+        assertEquals(externalId, created.getExternalId());
+
+        GroupRepresentation realmGroup = findRealmGroup(TestConsts.TEST_REALM, created.getId());
+        assertNotNull(realmGroup);
+        assertEquals(externalId, realmGroup.getAttributes().get("externalId").getFirst());
+
+        Group fetched = scimClient.findGroup(created.getId());
+        assertEquals(externalId, fetched.getExternalId());
+
+        deleteRealmGroup(TestConsts.TEST_REALM, realmGroup.getId());
+    }
+
+    @Test
     void testCreateGroup() throws ApiException {
         ScimClient scimClient = getAuthenticatedScimClient();
 

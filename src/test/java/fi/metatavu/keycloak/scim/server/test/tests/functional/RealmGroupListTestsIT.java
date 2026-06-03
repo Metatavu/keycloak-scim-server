@@ -32,11 +32,11 @@ class RealmGroupListTestsIT extends AbstractInternalAuthRealmScimTest {
         Group group3 = createGroup(scimClient, "another-group");
 
         try {
-            GroupsList groupsList = scimClient.listGroups(null, 0, 10);
+            GroupsList groupsList = scimClient.listGroups(null, 1, 10);
 
             assertNotNull(groupsList);
             assertEquals(3, groupsList.getTotalResults());
-            assertEquals(0, groupsList.getStartIndex());
+            assertEquals(1, groupsList.getStartIndex());
             assertEquals(10, groupsList.getItemsPerPage());
 
             List<Group> groups = groupsList.getResources();
@@ -59,7 +59,7 @@ class RealmGroupListTestsIT extends AbstractInternalAuthRealmScimTest {
         Group group2 = createGroup(scimClient, "other-group");
 
         try {
-            GroupsList groupsList = scimClient.listGroups("displayName eq \"exact-match-group\"", 0, 10);
+            GroupsList groupsList = scimClient.listGroups("displayName eq \"exact-match-group\"", 1, 10);
 
             assertNotNull(groupsList);
             assertEquals(1, groupsList.getTotalResults());
@@ -86,7 +86,7 @@ class RealmGroupListTestsIT extends AbstractInternalAuthRealmScimTest {
         Group group2 = createGroup(scimClient, "existing-group-2");
 
         try {
-            GroupsList groupsList = scimClient.listGroups("displayName eq \"nonexistent-group\"", 0, 10);
+            GroupsList groupsList = scimClient.listGroups("displayName eq \"nonexistent-group\"", 1, 10);
 
             assertNotNull(groupsList);
             assertEquals(0, groupsList.getTotalResults());
@@ -109,7 +109,7 @@ class RealmGroupListTestsIT extends AbstractInternalAuthRealmScimTest {
 
         try {
             // Keycloak's searchForGroupByNameStream is case-insensitive
-            GroupsList groupsList = scimClient.listGroups("displayName eq \"testgroup\"", 0, 10);
+            GroupsList groupsList = scimClient.listGroups("displayName eq \"testgroup\"", 1, 10);
 
             assertNotNull(groupsList);
             // Should find both groups due to case-insensitive search
@@ -131,7 +131,7 @@ class RealmGroupListTestsIT extends AbstractInternalAuthRealmScimTest {
 
         try {
             // Use an unsupported attribute
-            GroupsList groupsList = scimClient.listGroups("id eq \"some-id\"", 0, 10);
+            GroupsList groupsList = scimClient.listGroups("id eq \"some-id\"", 1, 10);
 
             assertNotNull(groupsList);
             // Should fall back to listing all groups
@@ -157,26 +157,26 @@ class RealmGroupListTestsIT extends AbstractInternalAuthRealmScimTest {
                 createdGroups.add(group);
             }
 
-            // Page 1: count=2, startIndex=0
-            GroupsList page1 = scimClient.listGroups(null, 0, 2);
+            // Page 1: count=2, startIndex=1
+            GroupsList page1 = scimClient.listGroups(null, 1, 2);
             assertEquals(2, page1.getItemsPerPage());
-            assertEquals(0, page1.getStartIndex());
+            assertEquals(1, page1.getStartIndex());
             assertEquals(5, page1.getTotalResults());
             assertNotNull(page1.getResources());
             assertEquals(2, page1.getResources().size());
 
-            // Page 2: count=2, startIndex=2
-            GroupsList page2 = scimClient.listGroups(null, 2, 2);
+            // Page 2: count=2, startIndex=3
+            GroupsList page2 = scimClient.listGroups(null, 3, 2);
             assertEquals(2, page2.getItemsPerPage());
-            assertEquals(2, page2.getStartIndex());
+            assertEquals(3, page2.getStartIndex());
             assertEquals(5, page2.getTotalResults());
             assertNotNull(page2.getResources());
             assertEquals(2, page2.getResources().size());
 
-            // Page 3: count=2, startIndex=4 (only one group expected)
-            GroupsList page3 = scimClient.listGroups(null, 4, 2);
+            // Page 3: count=2, startIndex=5 (only one group expected)
+            GroupsList page3 = scimClient.listGroups(null, 5, 2);
             assertEquals(2, page3.getItemsPerPage());
-            assertEquals(4, page3.getStartIndex());
+            assertEquals(5, page3.getStartIndex());
             assertEquals(5, page3.getTotalResults());
             assertNotNull(page3.getResources());
             assertTrue(page3.getResources().size() <= 2);
@@ -198,7 +198,7 @@ class RealmGroupListTestsIT extends AbstractInternalAuthRealmScimTest {
         try {
             // Invalid filter syntax - missing operator
             ApiException exception = assertThrows(ApiException.class, () ->
-                    scimClient.listGroups("displayName \"test\"", 0, 10)
+                    scimClient.listGroups("displayName \"test\"", 1, 10)
             );
 
             ScimErrorAssertions.assertScimError(exception, 400, "Invalid filter");
@@ -216,7 +216,7 @@ class RealmGroupListTestsIT extends AbstractInternalAuthRealmScimTest {
         try {
             // Invalid filter syntax - unquoted string value
             ApiException exception = assertThrows(ApiException.class, () ->
-                    scimClient.listGroups("displayName eq test", 0, 10)
+                    scimClient.listGroups("displayName eq test", 1, 10)
             );
 
             ScimErrorAssertions.assertScimError(exception, 400, "Invalid filter");
@@ -234,7 +234,7 @@ class RealmGroupListTestsIT extends AbstractInternalAuthRealmScimTest {
         try {
             // Invalid filter syntax - incomplete logical expression
             ApiException exception = assertThrows(ApiException.class, () ->
-                    scimClient.listGroups("displayName eq \"test\" and", 0, 10)
+                    scimClient.listGroups("displayName eq \"test\" and", 1, 10)
             );
 
             ScimErrorAssertions.assertScimError(exception, 400, "Invalid filter");
@@ -248,7 +248,7 @@ class RealmGroupListTestsIT extends AbstractInternalAuthRealmScimTest {
         ScimClient scimClient = getAuthenticatedScimClient();
 
         // Don't create any groups, just list
-        GroupsList groupsList = scimClient.listGroups(null, 0, 10);
+        GroupsList groupsList = scimClient.listGroups(null, 1, 10);
 
         assertNotNull(groupsList);
         assertEquals(0, groupsList.getTotalResults());

@@ -34,8 +34,11 @@ paths:
             type: string
         - name: startIndex
           in: query
+          description: 1-based index of the first result (RFC 7644). Values less than 1 are treated as 1.
           schema:
             type: integer
+            minimum: 1
+            default: 1
         - name: count
           in: query
           schema:
@@ -218,8 +221,11 @@ paths:
             type: string
         - name: startIndex
           in: query
+          description: 1-based index of the first result (RFC 7644). Values less than 1 are treated as 1.
           schema:
             type: integer
+            minimum: 1
+            default: 1
         - name: count
           in: query
           schema:
@@ -489,6 +495,8 @@ components:
           type: integer
         startIndex:
           type: integer
+          minimum: 1
+          description: 1-based index of the first result in this page (RFC 7644).
         itemsPerPage:
           type: integer
         Resources:
@@ -504,6 +512,9 @@ components:
       properties:
         id:
           type: string
+        externalId:
+          type: string
+          description: Client-defined identifier for correlation with an external system (RFC 7643 §3.1).
         userName:
           type: string
         name:
@@ -542,6 +553,9 @@ components:
       properties:
         id:
           type: string
+        externalId:
+          type: string
+          description: Client-defined identifier for correlation with an external system (RFC 7643 §3.1).
         displayName:
           type: string
         members:
@@ -573,6 +587,8 @@ components:
           type: integer
         startIndex:
           type: integer
+          minimum: 1
+          description: 1-based index of the first result in this page (RFC 7644).
         itemsPerPage:
           type: integer
         Resources:

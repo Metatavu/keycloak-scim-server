@@ -12,7 +12,13 @@ import org.keycloak.events.admin.ResourceType;
 import org.keycloak.representations.idm.GroupRepresentation;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.IOException;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -103,6 +109,65 @@ public class RealmGroupCreateTestsIT extends AbstractInternalAuthRealmScimTest {
         deleteRealmGroup(TestConsts.TEST_REALM, group.getId());
     }
   
+    @Test
+    void testCreateGroupWithApplicationJsonContentType() throws Exception {
+        String body = """
+            {
+              "schemas": ["urn:ietf:params:scim:schemas:core:2.0:Group"],
+              "displayName": "json-content-type-group"
+            }
+            """;
+
+        HttpRequest request = HttpRequest.newBuilder()
+            .uri(getScimUri().resolve("Groups"))
+            .POST(HttpRequest.BodyPublishers.ofString(body))
+            .header("Authorization", "Bearer " + getServiceAccountToken())
+            .header("Content-Type", "application/json")
+            .header("Accept", "application/json")
+            .build();
+
+        HttpResponse<String> response;
+        try (HttpClient client = HttpClient.newHttpClient()) {
+            response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        }
+
+        assertEquals(201, response.statusCode(), () -> response.body());
+
+        JsonNode created = new ObjectMapper().readTree(response.body());
+        String groupId = created.get("id").asText();
+        assertEquals("json-content-type-group", created.get("displayName").asText());
+
+        deleteRealmGroup(TestConsts.TEST_REALM, groupId);
+    }
+
+    @Test
+    void testCreateGroupWithApplicationScimContentType() throws Exception {
+        String body = """
+            {
+              "schemas": ["urn:ietf:params:scim:schemas:core:2.0:Group"],
+              "displayName": "scim-content-type-group"
+            }
+            """;
+
+        HttpRequest request = HttpRequest.newBuilder()
+            .uri(getScimUri().resolve("Groups"))
+            .POST(HttpRequest.BodyPublishers.ofString(body))
+            .header("Authorization", "Bearer " + getServiceAccountToken())
+            .header("Content-Type", "application/scim")
+            .header("Accept", "application/scim")
+            .build();
+
+        HttpResponse<String> response;
+        try (HttpClient client = HttpClient.newHttpClient()) {
+            response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        }
+
+        assertEquals(201, response.statusCode(), () -> response.body());
+
+        JsonNode created = new ObjectMapper().readTree(response.body());
+        deleteRealmGroup(TestConsts.TEST_REALM, created.get("id").asText());
+    }
+
     @Test
     void testCreateGroupWithoutDisplayNameReturnsBadRequest() {
         ScimClient scimClient = getAuthenticatedScimClient();

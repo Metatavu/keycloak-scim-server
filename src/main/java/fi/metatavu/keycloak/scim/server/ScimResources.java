@@ -59,8 +59,8 @@ public class ScimResources {
 
     @POST
     @Path("v2/Users")
-    @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
-    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @Consumes({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response createRealmUser(
         @Context KeycloakSession session,
@@ -81,7 +81,7 @@ public class ScimResources {
 
     @GET
     @Path("v2/Users")
-    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response listRealmUsers(
         @Context KeycloakSession session,
@@ -111,7 +111,7 @@ public class ScimResources {
 
     @GET
     @Path("v2/Users/{id}")
-    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response findRealmUser(
             @Context KeycloakSession session,
@@ -129,8 +129,8 @@ public class ScimResources {
 
     @PUT
     @Path("v2/Users/{id}")
-    @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
-    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @Consumes({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response updateRealmUser(
         @Context KeycloakSession session,
@@ -153,8 +153,8 @@ public class ScimResources {
 
     @PATCH
     @Path("v2/Users/{id}")
-    @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
-    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @Consumes({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response patchRealmUser(
         @Context KeycloakSession session,
@@ -177,7 +177,7 @@ public class ScimResources {
 
     @DELETE
     @Path("v2/Users/{id}")
-    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response deleteRealmUser(
         @Context KeycloakSession session,
@@ -192,8 +192,8 @@ public class ScimResources {
 
     @POST
     @Path("v2/Groups")
-    @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
-    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @Consumes({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response createRealmGroup(
         @Context KeycloakSession session,
@@ -214,7 +214,7 @@ public class ScimResources {
 
     @GET
     @Path("v2/Groups")
-    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response listRealmGroups(
             @Context KeycloakSession session,
@@ -244,7 +244,7 @@ public class ScimResources {
 
     @GET
     @Path("v2/Groups/{id}")
-    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response findRealmGroup(
             @Context KeycloakSession session,
@@ -262,8 +262,8 @@ public class ScimResources {
 
     @PUT
     @Path("v2/Groups/{id}")
-    @Consumes("application/scim+json")
-    @Produces("application/scim+json")
+    @Consumes({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response updateRealmGroup(
             @PathParam("id") String id,
@@ -286,8 +286,8 @@ public class ScimResources {
 
     @PATCH
     @Path("v2/Groups/{id}")
-    @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
-    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @Consumes({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response patchRealmGroup(
             @Context KeycloakSession session,
@@ -327,7 +327,7 @@ public class ScimResources {
 
     @GET
     @Path("v2/ResourceTypes")
-    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response listRealmResourceTypes(
         @Context KeycloakSession session,
@@ -342,7 +342,7 @@ public class ScimResources {
 
     @GET
     @Path("v2/ResourceTypes/{id}")
-    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response findRealmResourceType(
         @Context KeycloakSession session,
@@ -360,7 +360,7 @@ public class ScimResources {
 
     @GET
     @Path("v2/Schemas")
-    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response listRealmSchemas(
         @Context KeycloakSession session,
@@ -375,7 +375,7 @@ public class ScimResources {
 
     @GET
     @Path("v2/Schemas/{id}")
-    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response findRealmSchema(
         @Context KeycloakSession session,
@@ -393,7 +393,7 @@ public class ScimResources {
 
     @GET
     @Path("v2/ServiceProviderConfig")
-    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response getRealmServiceProviderConfig(
         @Context KeycloakSession session,
@@ -410,8 +410,8 @@ public class ScimResources {
 
     @POST
     @Path("v2/organizations/{organizationId}/Users")
-    @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
-    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @Consumes({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response createOrganizationUser(
             @Context KeycloakSession session,
@@ -433,7 +433,7 @@ public class ScimResources {
 
     @GET
     @Path("v2/organizations/{organizationId}/Users")
-    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response listOrganizationUsers(
             @Context KeycloakSession session,
@@ -464,7 +464,7 @@ public class ScimResources {
 
     @GET
     @Path("v2/organizations/{organizationId}/Users/{id}")
-    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response findOrganizationUser(
             @Context KeycloakSession session,
@@ -483,8 +483,8 @@ public class ScimResources {
 
     @PUT
     @Path("v2/organizations/{organizationId}/Users/{id}")
-    @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
-    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @Consumes({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response updateOrganizationUser(
             @Context KeycloakSession session,
@@ -508,8 +508,8 @@ public class ScimResources {
 
     @PATCH
     @Path("v2/organizations/{organizationId}/Users/{id}")
-    @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
-    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @Consumes({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response patchOrganizationUser(
             @Context KeycloakSession session,
@@ -533,7 +533,7 @@ public class ScimResources {
 
     @DELETE
     @Path("v2/organizations/{organizationId}/Users/{id}")
-    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response deleteOrganizationUser(
         @Context KeycloakSession session,
@@ -549,8 +549,8 @@ public class ScimResources {
 
     @POST
     @Path("v2/organizations/{organizationId}/Groups")
-    @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
-    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @Consumes({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response createOrganizationGroup(
         @Context KeycloakSession session,
@@ -572,7 +572,7 @@ public class ScimResources {
 
     @GET
     @Path("v2/organizations/{organizationId}/Groups")
-    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response listOrganizationGroups(
             @Context KeycloakSession session,
@@ -603,7 +603,7 @@ public class ScimResources {
 
     @GET
     @Path("v2/organizations/{organizationId}/Groups/{id}")
-    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response findOrganizationGroup(
             @Context KeycloakSession session,
@@ -622,8 +622,8 @@ public class ScimResources {
 
     @PUT
     @Path("v2/organizations/{organizationId}/Groups/{id}")
-    @Consumes("application/scim+json")
-    @Produces("application/scim+json")
+    @Consumes({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response updateOrganizationGroup(
             @Context KeycloakSession session,
@@ -647,8 +647,8 @@ public class ScimResources {
 
     @PATCH
     @Path("v2/organizations/{organizationId}/Groups/{id}")
-    @Consumes(ContentTypes.APPLICATION_SCIM_JSON)
-    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @Consumes({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response patchOrganizationGroup(
             @Context KeycloakSession session,
@@ -690,7 +690,7 @@ public class ScimResources {
 
     @GET
     @Path("v2/organizations/{organizationId}/ResourceTypes")
-    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response listOrganizationResourceTypes(
         @Context KeycloakSession session,
@@ -708,7 +708,7 @@ public class ScimResources {
 
     @GET
     @Path("v2/organizations/{organizationId}/ResourceTypes/{id}")
-    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response findOrganizationResourceType(
         @Context KeycloakSession session,
@@ -727,7 +727,7 @@ public class ScimResources {
 
     @GET
     @Path("v2/organizations/{organizationId}/Schemas")
-    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response listOrganizationSchemas(
         @Context KeycloakSession session,
@@ -745,7 +745,7 @@ public class ScimResources {
 
     @GET
     @Path("v2/organizations/{organizationId}/Schemas/{id}")
-    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response findOrganizationSchema(
         @Context KeycloakSession session,
@@ -764,7 +764,7 @@ public class ScimResources {
 
     @GET
     @Path("v2/organizations/{organizationId}/ServiceProviderConfig")
-    @Produces(ContentTypes.APPLICATION_SCIM_JSON)
+    @Produces({ContentTypes.APPLICATION_SCIM_JSON, ContentTypes.APPLICATION_SCIM, ContentTypes.APPLICATION_JSON})
     @SuppressWarnings("unused")
     public Response getOrganizationServiceProviderConfig(
         @Context KeycloakSession session,

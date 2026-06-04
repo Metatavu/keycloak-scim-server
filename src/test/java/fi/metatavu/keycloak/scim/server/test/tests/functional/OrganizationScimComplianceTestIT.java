@@ -36,7 +36,7 @@ public class OrganizationScimComplianceTestIT extends AbstractOrganizationScimTe
     @Test
     void scimComplianceShouldPass() throws IOException, InterruptedException {
         URI complianceServerUrl = URI.create(String.format("http://%s:%d", scimCompliance.getHost(), scimCompliance.getMappedPort(8081)));
-        URI endPointUrl = URI.create(String.format("http://scim-keycloak:8080/realms/%s/scim/v2/organizations/%s/", TestConsts.ORGANIZATIONS_REALM, TestConsts.ORGANIZATION_1_ID));
+        URI endPointUrl = URI.create(String.format("http://scim-keycloak:8080/realms/%s/scim/v2/organizations/%s", TestConsts.ORGANIZATIONS_REALM, TestConsts.ORGANIZATION_1_ID));
         String accessToken = getExternalServiceAccountToken();
         String runId = startComplianceTests(complianceServerUrl, endPointUrl, accessToken, true, false);
 

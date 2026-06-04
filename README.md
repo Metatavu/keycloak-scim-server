@@ -9,6 +9,7 @@ This project provides a **SCIM 2.0-compliant extension** for [Keycloak](https://
 
 ## Table of Contents
 
+- [Version Compatibility](#version-compatibility)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
   - [Option 1: Include from GitHub Release](#option-1-include-it-directly-from-github-release)
@@ -31,9 +32,18 @@ This project provides a **SCIM 2.0-compliant extension** for [Keycloak](https://
 - [SCIM-Managed Users](#scim-managed-users)
 - [License](#license)
 
+## Version Compatibility
+
+| Plugin Version | Keycloak Version | Status |
+|---|---|---|
+| 1.5.0 | 26.3.x (tested: 26.3.5) | Stable |
+| 1.6.0 | 26.6.x (tested: 26.6.2) | In development — see [known issues](#known-issues) |
+
+> **Note:** Organization-level SCIM APIs require Keycloak **26+** with the Organizations feature enabled.
+
 ## Prerequisites
 
-- **Keycloak**: This extension is developed for Keycloak **26.3.5**. It may work with other versions, but compatibility is not guaranteed.
+- **Keycloak**: See the [Version Compatibility](#version-compatibility) matrix above for supported versions.
 - **Java**: Java **21** is required to build the project.
 
 ## Installation
@@ -213,6 +223,8 @@ Authorization: Bearer my-secret-token
 
 ### External Basic Auth Authentication
 
+> **⚠️ Not supported on Keycloak 26.6.x:** A regression in Keycloak 26.6.x ([keycloak/keycloak#49611](https://github.com/keycloak/keycloak/issues/49611)) causes all Basic auth requests to be rejected before they reach the SCIM handler. Fixed in Keycloak 26.7.0 ([keycloak/keycloak#49630](https://github.com/keycloak/keycloak/pull/49630)).
+
 Validates credentials sent via HTTP Basic Authentication. The client sends a Base64-encoded `username:password` pair, and the server verifies the username against the configured value and the password against a stored hash.
 
 **Required settings:**
@@ -368,6 +380,8 @@ Okta sends a static bearer token in the `Authorization` header. This uses the sh
 8. Click **Save**.
 
 #### Option B: Basic Auth
+
+> **⚠️ Breaking change in Keycloak 26.6.x:** Due to a regression in Keycloak 26.6.x ([keycloak/keycloak#49611](https://github.com/keycloak/keycloak/issues/49611)), HTTP Basic Authentication is not supported when running on Keycloak 26.6.x. Use Option A (Shared Secret) or Option C (OAuth2) instead. The issue is fixed in Keycloak 26.7.0.
 
 Okta sends credentials via HTTP Basic Authentication (Base64-encoded `username:password`).
 
@@ -628,6 +642,22 @@ This example shows how to provision the `jobTitle` attribute from Microsoft Entr
     - **Target attribute**: `job`
 
 When Entra ID provisions a user, the `job` attribute will be stored in Keycloak and available on the user's attributes.
+
+## Known Issues
+
+### Basic Auth broken on Keycloak 26.6.x
+
+**Affected versions:** Keycloak 26.6.0 – 26.6.x  
+**Fixed in:** Keycloak 26.7.0  
+**Upstream issue:** [keycloak/keycloak#49611](https://github.com/keycloak/keycloak/issues/49611)
+
+A regression introduced in Keycloak 26.6.x added a `BearerTokenAuthenticator` check to `RealmsResource.resolveRealmExtension()` that rejects any `Authorization` header that is not Bearer or DPoP **before** the request reaches realm resource extensions (including this SCIM server). As a result, HTTP Basic Authentication (`Authorization: Basic ...`) returns 401 for all requests regardless of credentials.
+
+**Impact:** Okta SCIM provisioning using Basic Auth and any other SCIM client relying on `SCIM_BASIC_AUTH_USERNAME` / `SCIM_BASIC_AUTH_PASSWORD` will not work on Keycloak 26.6.x.
+
+**Workaround:** Use Shared Secret (Bearer token) or OAuth2/JWT authentication instead. See [Okta configuration](#okta) for alternatives.
+
+**Resolution:** Upgrade to Keycloak 26.7.0 once released.
 
 ## License
 

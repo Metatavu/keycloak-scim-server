@@ -259,7 +259,8 @@ public class ScimClient {
      */
     private ApiClient getApiClient() {
         ApiClient result = new ApiClient();
-        result.setBasePath(scimUri.getPath());
+        String path = scimUri.getPath();
+        result.setBasePath(path.endsWith("/") ? path.substring(0, path.length() - 1) : path);
         result.setHost(scimUri.getHost());
         result.setScheme(scimUri.getScheme());
         result.setPort(scimUri.getPort());

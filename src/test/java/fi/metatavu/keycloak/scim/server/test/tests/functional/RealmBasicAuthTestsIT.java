@@ -23,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  *
  * Re-enable this test class when upgrading to Keycloak 26.7.0 or later.
  */
-@Disabled("Keycloak 26.6.x regression: Basic auth rejected by framework before reaching SCIM handler. See https://github.com/keycloak/keycloak/issues/49611. Re-enable on Keycloak 26.7.0+.")
 @Testcontainers
 public class RealmBasicAuthTestsIT extends AbstractRealmScimTest {
 

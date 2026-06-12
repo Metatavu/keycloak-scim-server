@@ -157,12 +157,12 @@ public abstract class AbstractScimServer <T extends ScimContext> implements Scim
                 .setHeaders(headers)
                 .authenticate();
 
-        if (auth == null || auth.getUser() == null || auth.getToken() == null) {
+        if (auth == null || auth.user() == null || auth.token() == null) {
             logger.warn("Keycloak authentication failed");
             throw new NotAuthorizedException("Keycloak authentication failed");
         }
 
-        ClientModel client = auth.getClient();
+        ClientModel client = auth.client();
         if (client == null) {
             logger.warn("Client not found");
             throw new NotAuthorizedException("Client not found");

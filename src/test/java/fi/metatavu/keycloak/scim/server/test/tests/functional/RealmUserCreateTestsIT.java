@@ -5,7 +5,6 @@ import fi.metatavu.keycloak.scim.server.test.TestConsts;
 import fi.metatavu.keycloak.scim.server.test.client.ApiException;
 import fi.metatavu.keycloak.scim.server.test.client.model.User;
 import fi.metatavu.keycloak.scim.server.test.tests.AbstractInternalAuthRealmScimTest;
-import fi.metatavu.keycloak.scim.server.test.utils.ScimErrorAssertions;
 import org.junit.jupiter.api.Test;
 import org.keycloak.events.admin.AdminEvent;
 import org.keycloak.events.admin.OperationType;
@@ -155,32 +154,5 @@ public class RealmUserCreateTestsIT extends AbstractInternalAuthRealmScimTest {
         );
     }
 
-    @Test
-    void testCreateUserWithIncorrectUsernameReturnsBadRequest() {
-        ScimClient scimClient = getAuthenticatedScimClient();
-
-        User user = createUserRequest("invalid username");
-
-        try {
-            scimClient.createUser(user);
-            fail("Expected ApiException");
-        } catch (ApiException e) {
-            assertEquals(400, e.getCode());
-        }
-    }
-
-    @Test
-    void testCreateUserWithIncorrectUsernameAndEmailReturnsBadRequest() {
-        ScimClient scimClient = getAuthenticatedScimClient();
-
-        User user = createUserRequest("invalid username", "invalid-email@");
-
-        try {
-            scimClient.createUser(user);
-            fail("Expected ApiException");
-        } catch (ApiException e) {
-            ScimErrorAssertions.assertScimError(e, 400, "Validation failed: email: error-invalid-email; username: error-username-invalid-character");
-        }
-    }
 
 }

@@ -9,7 +9,6 @@ import fi.metatavu.keycloak.scim.server.groups.UnsupportedGroupPath;
 import fi.metatavu.keycloak.scim.server.metadata.UserAttributes;
 import fi.metatavu.keycloak.scim.server.model.User;
 import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
-import fi.metatavu.keycloak.scim.server.users.UserProfileValidationException;
 import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
@@ -37,7 +36,7 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
     ) {
         if (isBlank(createRequest.getUserName())) {
             logger.warn("Cannot create user: Missing userName");
-            return ScimErrors.badRequest("Missing userName");
+            return ScimErrors.invalidValue("Missing userName");
         }
 
         Response conflict = validateCreateUserConflicts(scimContext, createRequest);
@@ -47,24 +46,11 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
 
         UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
 
-        User user;
-        try {
-            user = usersController.createUser(
-                scimContext,
-                userAttributes,
-                createRequest
-            );
-        } catch (UserProfileValidationException e) {
-            logger.warn("User profile validation failed: " + e.getMessage());
-            return ScimErrors.badRequest(formatValidationErrors(e));
-        }
-
-        URI location = UriBuilder.fromPath("v2/Users/{id}").build(user.getId());
-
-        return Response
-            .created(location)
-            .entity(user)
-            .build();
+        return executeUserOperation(() -> {
+            User user = usersController.createUser(scimContext, userAttributes, createRequest);
+            URI location = UriBuilder.fromPath("v2/Users/{id}").build(user.getId());
+            return Response.created(location).entity(user).build();
+        });
     }
 
     @Override
@@ -74,19 +60,19 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
 
         if (isBlank(updateRequest.getUserName())) {
             logger.warn("Missing userName");
-            return ScimErrors.badRequest("Missing userName");
+            return ScimErrors.invalidValue("Missing userName");
         }
 
         if (emailAsUsername && !isValidEmail(updateRequest.getUserName())) {
             logger.warn("Cannot update user: Invalid email format for userName");
-            return ScimErrors.badRequest("Invalid email format for userName");
+            return ScimErrors.invalidValue("Invalid email format for userName");
         }
 
         if (emailAsUsername && updateRequest.getEmails() != null) {
             for (fi.metatavu.keycloak.scim.server.model.UserEmailsInner email : updateRequest.getEmails()) {
                 if (!Objects.equals(email.getValue(), updateRequest.getUserName())) {
                     logger.warn("Conflicting email and userName when emailAsUsername is enabled");
-                    return ScimErrors.badRequest("Username and email must match when emailAsUsername is enabled");
+                    return ScimErrors.invalidValue("Username and email must match when emailAsUsername is enabled");
                 }
             }
         }
@@ -112,15 +98,11 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
         }
 
         UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
-        fi.metatavu.keycloak.scim.server.model.User result;
-        try {
-            result = usersController.updateUser(scimContext, userAttributes, user, updateRequest);
-        } catch (UserProfileValidationException e) {
-            logger.warn("User profile validation failed: " + e.getMessage());
-            return ScimErrors.badRequest(formatValidationErrors(e));
-        }
 
-        return Response.ok(result).build();
+        return executeUserOperation(() -> {
+            fi.metatavu.keycloak.scim.server.model.User result = usersController.updateUser(scimContext, userAttributes, user, updateRequest);
+            return Response.ok(result).build();
+        });
     }
 
     @Override
@@ -136,15 +118,10 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
 
         UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
 
-        try {
+        return executeUserOperation(() -> {
             fi.metatavu.keycloak.scim.server.model.User result = usersController.patchUser(scimContext, userAttributes, existing, patchRequest);
             return Response.ok(result).build();
-        } catch (UnsupportedPatchOperation e) {
-            return ScimErrors.badRequest("Unsupported patch operation");
-        } catch (UserProfileValidationException e) {
-            logger.warn("User profile validation failed: " + e.getMessage());
-            return ScimErrors.badRequest(formatValidationErrors(e));
-        }
+        });
     }
 
     @Override
@@ -202,7 +179,7 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
 
         if (isBlank(createRequest.getDisplayName())) {
             logger.warn("Cannot create group: Missing displayName");
-            return ScimErrors.badRequest("Missing displayName");
+            return ScimErrors.invalidValue("Missing displayName");
         }
 
         fi.metatavu.keycloak.scim.server.model.Group created = groupsController.createGroup(scimContext, createRequest);
@@ -240,7 +217,7 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
         }
 
         if (!id.equals(existing.getId())) {
-            return ScimErrors.badRequest("Group ID mismatch");
+            return ScimErrors.invalidValue("Group ID mismatch");
         }
 
         fi.metatavu.keycloak.scim.server.model.Group updated = groupsController.updateGroup(
@@ -262,18 +239,18 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
         }
 
         if (!groupId.equals(existing.getId())) {
-            return ScimErrors.badRequest("Group ID mismatch");
+            return ScimErrors.invalidValue("Group ID mismatch");
         }
 
         try {
             fi.metatavu.keycloak.scim.server.model.Group updated = groupsController.patchGroup(scimContext, existing, patchRequest);
             return Response.ok(updated).build();
         } catch (InvalidGroupMemberReference e) {
-            return ScimErrors.badRequest(e.getMessage());
+            return ScimErrors.invalidValue(e.getMessage());
         } catch (UnsupportedGroupPath e) {
-            return ScimErrors.badRequest(e.getMessage() != null ? e.getMessage() : "Unsupported group path");
+            return ScimErrors.invalidPath(e.getMessage() != null ? e.getMessage() : "Unsupported group path");
         } catch (UnsupportedPatchOperation e) {
-            return ScimErrors.badRequest("Unsupported patch operation");
+            return ScimErrors.invalidSyntax("Unsupported patch operation");
         }
     }
 

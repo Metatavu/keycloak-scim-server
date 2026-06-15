@@ -7,6 +7,8 @@ import fi.metatavu.keycloak.scim.server.consts.ScimRoles;
 import fi.metatavu.keycloak.scim.server.groups.GroupsController;
 import fi.metatavu.keycloak.scim.server.metadata.MetadataController;
 import fi.metatavu.keycloak.scim.server.model.User;
+import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
+import fi.metatavu.keycloak.scim.server.users.UnsupportedUserPath;
 import fi.metatavu.keycloak.scim.server.users.UserProfileValidationException;
 import fi.metatavu.keycloak.scim.server.users.UsersController;
 import java.util.Base64;
@@ -190,6 +192,27 @@ public abstract class AbstractScimServer <T extends ScimContext> implements Scim
         } else {
             logger.warn("Invalid Authorization header");
             throw new NotAuthorizedException("Invalid Authorization header");
+        }
+    }
+
+    /**
+     * Executes a user operation, mapping known exceptions to SCIM error responses.
+     *
+     * @param op user operation to execute
+     * @return response
+     */
+    protected Response executeUserOperation(UserOperation op) {
+        try {
+            return op.execute();
+        } catch (UnsupportedPatchOperation e) {
+            logger.warn("Unsupported patch operation: " + e.getMessage());
+            return ScimErrors.invalidSyntax("Unsupported patch operation");
+        } catch (UnsupportedUserPath e) {
+            logger.warn("Unsupported user path: " + e.getMessage());
+            return ScimErrors.invalidPath("Unsupported user path");
+        } catch (UserProfileValidationException e) {
+            logger.warn("User profile validation failed: " + e.getMessage());
+            return ScimErrors.invalidValue(formatValidationErrors(e));
         }
     }
 

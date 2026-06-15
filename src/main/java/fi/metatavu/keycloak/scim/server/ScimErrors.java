@@ -32,14 +32,18 @@ public final class ScimErrors {
     /**
      * Build a SCIM 2.0 Error response.
      *
-     * @param status HTTP status (e.g. BAD_REQUEST)
-     * @param detail human-readable error detail; null is rendered as the empty string
+     * @param status   HTTP status (e.g. BAD_REQUEST)
+     * @param scimType RFC 7644 §3.12 scimType value; null omits the field
+     * @param detail   human-readable error detail; null is rendered as the empty string
      * @return Response carrying a SCIM Error JSON body and application/scim+json type
      */
-    public static Response error(Response.Status status, String detail) {
+    public static Response error(Response.Status status, String scimType, String detail) {
         ObjectNode node = MAPPER.createObjectNode();
         node.putArray("schemas").add(ERROR_SCHEMA);
         node.put("status", Integer.toString(status.getStatusCode()));
+        if (scimType != null) {
+            node.put("scimType", scimType);
+        }
         node.put("detail", detail == null ? "" : detail);
         String body;
         try {
@@ -54,30 +58,65 @@ public final class ScimErrors {
     }
 
     /**
-     * Convenience for HTTP 400 errors.
+     * Convenience for HTTP 400 errors without a semantic scimType.
      */
     public static Response badRequest(String detail) {
-        return error(Response.Status.BAD_REQUEST, detail);
+        return error(Response.Status.BAD_REQUEST, null, detail);
+    }
+
+    /**
+     * HTTP 400 — scimType=invalidValue (attribute value fails profile validation).
+     */
+    public static Response invalidValue(String detail) {
+        return error(Response.Status.BAD_REQUEST, "invalidValue", detail);
+    }
+
+    /**
+     * HTTP 400 — scimType=invalidFilter (filter expression is invalid or unsupported).
+     */
+    public static Response invalidFilter(String detail) {
+        return error(Response.Status.BAD_REQUEST, "invalidFilter", detail);
+    }
+
+    /**
+     * HTTP 400 — scimType=invalidPath (path attribute in PATCH is invalid or malformed).
+     */
+    public static Response invalidPath(String detail) {
+        return error(Response.Status.BAD_REQUEST, "invalidPath", detail);
+    }
+
+    /**
+     * HTTP 400 — scimType=invalidSyntax (request body or operation is malformed).
+     */
+    public static Response invalidSyntax(String detail) {
+        return error(Response.Status.BAD_REQUEST, "invalidSyntax", detail);
     }
 
     /**
      * Convenience for HTTP 404 errors.
      */
     public static Response notFound(String detail) {
-        return error(Response.Status.NOT_FOUND, detail);
+        return error(Response.Status.NOT_FOUND, null, detail);
     }
 
     /**
-     * Convenience for HTTP 409 errors.
+     * HTTP 400 — scimType=mutability (PATCH attempted on a read-only or immutable attribute).
+     */
+    public static Response mutability(String detail) {
+        return error(Response.Status.BAD_REQUEST, "mutability", detail);
+    }
+
+    /**
+     * HTTP 409 — scimType=uniqueness (uniqueness constraint violated).
      */
     public static Response conflict(String detail) {
-        return error(Response.Status.CONFLICT, detail);
+        return error(Response.Status.CONFLICT, "uniqueness", detail);
     }
 
     /**
      * Convenience for HTTP 403 errors.
      */
     public static Response forbidden(String detail) {
-        return error(Response.Status.FORBIDDEN, detail);
+        return error(Response.Status.FORBIDDEN, null, detail);
     }
 }

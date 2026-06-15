@@ -37,7 +37,17 @@ public final class UserProfileValidationService {
         UserAttributes userAttributes,
         User scimUser
     ) throws UserProfileValidationException {
-        validate(session, toUserProfileAttributes(userAttributes, scimUser));
+        try {
+            Map<String, Object> attrs = toUserProfileAttributes(userAttributes, scimUser);
+            // For create there is no existing user model, so Keycloak's required-validator
+            // needs the username key present. For non-emailAsUsername this is already there
+            // via putScimAttribute; for emailAsUsername (where userName maps to the email key)
+            // we add it explicitly so the username field is not flagged as missing.
+            attrs.putIfAbsent(UserModel.USERNAME, normalizeValue(scimUser.getUserName()));
+            validate(session, attrs);
+        } catch (UserProfileValidationException e) {
+            throw remapToScimPaths(e, userAttributes);
+        }
     }
 
     /**
@@ -55,7 +65,11 @@ public final class UserProfileValidationService {
         UserModel existing,
         User scimUser
     ) throws UserProfileValidationException {
-        validate(session, toUserProfileAttributes(userAttributes, scimUser), existing);
+        try {
+            validate(session, toUserProfileAttributes(userAttributes, scimUser), existing);
+        } catch (UserProfileValidationException e) {
+            throw remapToScimPaths(e, userAttributes);
+        }
     }
 
     /**
@@ -72,9 +86,11 @@ public final class UserProfileValidationService {
         UserModel existing,
         Map<String, ?> patchedAttributes
     ) throws UserProfileValidationException {
-        Map<String, Object> attributes = toUserProfileAttributes(userAttributes, existing);
-        attributes.putAll(patchedAttributes);
-        validate(session, attributes, existing);
+        try {
+            validate(session, new HashMap<>(patchedAttributes), existing);
+        } catch (UserProfileValidationException e) {
+            throw remapToScimPaths(e, userAttributes);
+        }
     }
 
     private static void validate(KeycloakSession session, Map<String, ?> attributes) throws UserProfileValidationException {
@@ -121,7 +137,6 @@ public final class UserProfileValidationService {
         Map<String, Object> result = new HashMap<>();
 
         putScimAttribute(result, userAttributes, "userName", scimUser.getUserName());
-        result.putIfAbsent(UserModel.USERNAME, normalizeValue(scimUser.getUserName()));
         putScimAttribute(result, userAttributes, "active", scimUser.getActive());
 
         if (scimUser.getName() != null) {
@@ -141,29 +156,10 @@ public final class UserProfileValidationService {
         return result;
     }
 
-    private static Map<String, Object> toUserProfileAttributes(UserAttributes userAttributes, UserModel user) {
-        Map<String, Object> result = new HashMap<>();
-        putUserModelAttributes(result, userAttributes, user, UserAttribute.Source.USER_MODEL);
-        putUserModelAttributes(result, userAttributes, user, UserAttribute.Source.USER_PROFILE);
-        putUserModelAttributes(result, userAttributes, user, UserAttribute.Source.IDP_MAPPER);
-        result.putIfAbsent(UserModel.USERNAME, normalizeValue(user.getUsername()));
-
-        return result;
-    }
-
-    private static void putUserModelAttributes(
-        Map<String, Object> target,
-        UserAttributes userAttributes,
-        UserModel user,
-        UserAttribute.Source source
-    ) {
-        userAttributes.listBySource(source).forEach(attribute -> target.put(attribute.getSourceId(), normalizeValue(attribute.read(user))));
-    }
-
     private static void putScimAttribute(Map<String, Object> target, UserAttributes userAttributes, String scimPath, Object value) {
         UserAttribute<?> userAttribute = userAttributes.findByScimPath(scimPath);
         if (userAttribute != null) {
-            target.put(userAttribute.getSourceId(), normalizeValue(value));
+            target.putIfAbsent(userAttribute.getSourceId(), normalizeValue(value));
         }
     }
 
@@ -201,6 +197,24 @@ public final class UserProfileValidationService {
         }
 
         return new UserProfileValidationException(errors);
+    }
+
+    private static UserProfileValidationException remapToScimPaths(UserProfileValidationException e, UserAttributes userAttributes) {
+        List<UserProfileValidationException.ValidationError> remapped = e.getErrors().stream()
+            .map(error -> {
+                String scimPath = toScimPath(error.attribute(), userAttributes);
+                return new UserProfileValidationException.ValidationError(scimPath, error.message());
+            })
+            .collect(Collectors.toList());
+        return new UserProfileValidationException(remapped);
+    }
+
+    private static String toScimPath(String keycloakAttr, UserAttributes userAttributes) {
+        if (keycloakAttr == null) {
+            return null;
+        }
+        UserAttribute<?> attr = userAttributes.findBySourceId(keycloakAttr);
+        return attr != null ? attr.getScimPath() : keycloakAttr;
     }
 
 }

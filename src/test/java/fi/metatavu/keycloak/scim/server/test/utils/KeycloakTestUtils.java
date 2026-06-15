@@ -186,6 +186,39 @@ public class KeycloakTestUtils {
                 .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
     }
 
+    @SuppressWarnings("resource")
+    public static KeycloakContainer createValidationRealmKeycloakContainer(Network network) {
+        return new KeycloakContainer(KeycloakTestUtils.getKeycloakImage())
+                .withNetwork(network)
+                .withNetworkAliases("scim-keycloak")
+                .withEnv("SCIM_AUTHENTICATION_MODE", "KEYCLOAK")
+                .withEnv("SCIM_IDENTITY_PROVIDER_ALIAS", TestConsts.TEST_IDP)
+                .withEnv("SCIM_LINK_IDP", "true")
+                .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
+                .withRealmImportFile("kc-validation-test.json")
+                .withEnv("JAVA_OPTS_APPEND", "-javaagent:/jacoco-agent/org.jacoco.agent-runtime.jar=destfile=/tmp/jacoco.exec")
+                .withCopyFileToContainer(
+                        MountableFile.forHostPath(getJacocoAgentPath()),
+                        "/jacoco-agent/org.jacoco.agent-runtime.jar"
+                )
+                .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
+    }
+
+    @SuppressWarnings("resource")
+    public static KeycloakContainer createValidationOrganizationKeycloakContainer(Network network) {
+        return new KeycloakContainer(KeycloakTestUtils.getKeycloakImage())
+                .withNetwork(network)
+                .withNetworkAliases("scim-keycloak")
+                .withProviderLibsFrom(KeycloakTestUtils.getBuildProviders())
+                .withRealmImportFiles("kc-validation-orgs.json", "kc-external.json")
+                .withEnv("JAVA_OPTS_APPEND", "-javaagent:/jacoco-agent/org.jacoco.agent-runtime.jar=destfile=/tmp/jacoco.exec")
+                .withCopyFileToContainer(
+                        MountableFile.forHostPath(getJacocoAgentPath()),
+                        "/jacoco-agent/org.jacoco.agent-runtime.jar"
+                )
+                .withLogConsumer(outputFrame -> System.out.printf("KEYCLOAK: %s", outputFrame.getUtf8String()));
+    }
+
     /**
      * Stops the Keycloak container and copies the JaCoCo exec file to the build directory
      *

@@ -287,4 +287,5 @@ public class OrganizationUserUpdateTestsIT extends AbstractOrganizationScimTest 
         deleteRealmUser(TestConsts.ORGANIZATIONS_REALM, created.getId());
     }
 
+
 }

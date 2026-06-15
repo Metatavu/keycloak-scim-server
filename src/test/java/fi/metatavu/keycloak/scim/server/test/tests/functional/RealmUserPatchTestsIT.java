@@ -187,8 +187,8 @@ public class RealmUserPatchTestsIT extends AbstractInternalAuthRealmScimTest {
                 .operations(List.of(
                         new PatchRequestOperationsInner()
                                 .op("replace")
-                                .path("userName")
-                                .value("patched-user-name")
+                                .path("active")
+                                .value(Boolean.FALSE)
                 )));
 
         List<AdminEvent> adminEvents = getAdminEvents();

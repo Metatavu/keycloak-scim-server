@@ -2,13 +2,16 @@ package fi.metatavu.keycloak.scim.server.organization;
 
 import fi.metatavu.keycloak.scim.server.AbstractScimServer;
 import fi.metatavu.keycloak.scim.server.ScimErrors;
+import fi.metatavu.keycloak.scim.server.UserOperation;
+import fi.metatavu.keycloak.scim.server.config.ConfigurationError;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
 import fi.metatavu.keycloak.scim.server.jacoco.ExcludeFromJacocoGeneratedReport;
 import fi.metatavu.keycloak.scim.server.metadata.UserAttributes;
 import fi.metatavu.keycloak.scim.server.model.Group;
 import fi.metatavu.keycloak.scim.server.model.PatchRequest;
 import fi.metatavu.keycloak.scim.server.model.User;
-import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
+import jakarta.ws.rs.InternalServerErrorException;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
 import org.jboss.logging.Logger;
 import org.keycloak.models.*;
@@ -34,43 +37,26 @@ public abstract class OrganizationScimServer extends AbstractScimServer<Organiza
 
         if (isBlank(createRequest.getUserName())) {
             logger.warn("Cannot create user: Missing userName");
-            return ScimErrors.badRequest("Missing userName");
+            return ScimErrors.invalidValue("Missing userName");
         }
 
         if (emailAsUsername && !isValidEmail(createRequest.getUserName())) {
             logger.warn("Cannot create user: Invalid email format for userName");
-            return ScimErrors.badRequest("Invalid email format for userName");
+            return ScimErrors.invalidValue("Invalid email format for userName");
         }
 
-        KeycloakSession session = scimContext.getSession();
-        RealmModel realm = scimContext.getRealm();
-
-        UserModel existing = session.users().getUserByUsername(realm, createRequest.getUserName());
-        if (existing != null) {
-            return ScimErrors.conflict(String.format("User already exists with username: %s", createRequest.getUserName()));
-        }
-
-        String requestedEmail = createRequest.getEmails() != null && !createRequest.getEmails().isEmpty()
-            ? createRequest.getEmails().getFirst().getValue()
-            : null;
-        if (requestedEmail != null && !realm.isDuplicateEmailsAllowed() && session.users().getUserByEmail(realm, requestedEmail) != null) {
-            return ScimErrors.conflict(String.format("User already exists with email: %s", requestedEmail));
+        Response conflict = validateCreateUserConflicts(scimContext, createRequest);
+        if (conflict != null) {
+            return conflict;
         }
 
         UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
 
-        User user = organizationUserController.createOrganizationUser(
-            scimContext,
-            userAttributes,
-            createRequest
-        );
-
-        URI location = scimContext.getServerBaseUri().resolve(String.format("v2/Users/%s", user.getId()));
-
-        return Response
-            .created(location)
-            .entity(user)
-            .build();
+        return executeUserOperation(() -> {
+            User user = organizationUserController.createOrganizationUser(scimContext, userAttributes, createRequest);
+            URI location = scimContext.getServerBaseUri().resolve(String.format("v2/Users/%s", user.getId()));
+            return Response.created(location).entity(user).build();
+        });
     }
 
     @Override
@@ -81,19 +67,19 @@ public abstract class OrganizationScimServer extends AbstractScimServer<Organiza
 
         if (isBlank(username)) {
             logger.warn("Missing userName");
-            return ScimErrors.badRequest("Missing userName");
+            return ScimErrors.invalidValue("Missing userName");
         }
 
         if (emailAsUsername && !isValidEmail(updateRequest.getUserName())) {
             logger.warn("Cannot update user: Invalid email format for userName");
-            return ScimErrors.badRequest("Invalid email format for userName");
+            return ScimErrors.invalidValue("Invalid email format for userName");
         }
 
         if (emailAsUsername && updateRequest.getEmails() != null) {
             for (fi.metatavu.keycloak.scim.server.model.UserEmailsInner email : updateRequest.getEmails()) {
                 if (!Objects.equals(email.getValue(), updateRequest.getUserName())) {
                     logger.warn("Conflicting email and userName when emailAsUsername is enabled");
-                    return ScimErrors.badRequest("Username and email must match when emailAsUsername is enabled");
+                    return ScimErrors.invalidValue("Username and email must match when emailAsUsername is enabled");
                 }
             }
         }
@@ -119,9 +105,11 @@ public abstract class OrganizationScimServer extends AbstractScimServer<Organiza
         }
 
         UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
-        fi.metatavu.keycloak.scim.server.model.User result = organizationUserController.updateOrganizationUser(scimContext, userAttributes, user, updateRequest);
 
-        return Response.ok(result).build();
+        return executeUserOperation(() -> {
+            fi.metatavu.keycloak.scim.server.model.User result = organizationUserController.updateOrganizationUser(scimContext, userAttributes, user, updateRequest);
+            return Response.ok(result).build();
+        });
     }
 
     @Override
@@ -137,12 +125,10 @@ public abstract class OrganizationScimServer extends AbstractScimServer<Organiza
 
         UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
 
-        try {
+        return executeUserOperation(() -> {
             fi.metatavu.keycloak.scim.server.model.User result = organizationUserController.patchOrganizationUser(scimContext, userAttributes, existing, patchRequest);
             return Response.ok(result).build();
-        } catch (UnsupportedPatchOperation e) {
-            return ScimErrors.badRequest("Unsupported patch operation");
-        }
+        });
     }
 
     @Override

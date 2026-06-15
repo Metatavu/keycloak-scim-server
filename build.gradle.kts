@@ -39,6 +39,7 @@ val testContainersVersion: String by project
 val testContainersKeycloakVersion: String by project
 val junitVersion: String by project
 val junitPlatformVersion: String by project
+val mockitoVersion: String by project
 val awaitilityVersion: String by project
 val seleniumRemoteDriverVersion: String by project
 val seleniumVersion: String by project
@@ -51,8 +52,10 @@ dependencies {
     compileOnly("org.keycloak:keycloak-services:$keycloakVersion")
 
     testImplementation("org.keycloak:keycloak-services:$keycloakVersion")
-    testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.junit.jupiter:junit-jupiter:$junitVersion")
+    testImplementation("org.mockito:mockito-core:$mockitoVersion")
+    testImplementation("org.mockito:mockito-junit-jupiter:$mockitoVersion")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.13.4")
 
     testImplementation("org.testcontainers:testcontainers:$testContainersVersion")
     testImplementation("org.testcontainers:junit-jupiter:$testContainersVersion")
@@ -159,6 +162,8 @@ tasks.named("compileTestJava") {
 }
 
 tasks.named<Test>("test") {
+    dependsOn("jar", ":test-event-listener:jar")
+
     val jacocoAgent = configurations["jacocoRuntime"].singleFile
 
     environment("BUILD_DIR", getLayout().buildDirectory.asFile.get().absolutePath)

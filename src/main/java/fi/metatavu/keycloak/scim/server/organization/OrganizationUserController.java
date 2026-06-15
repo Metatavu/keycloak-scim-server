@@ -12,6 +12,8 @@ import fi.metatavu.keycloak.scim.server.model.User;
 import fi.metatavu.keycloak.scim.server.patch.PatchOperation;
 import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
 import fi.metatavu.keycloak.scim.server.users.UnsupportedUserPath;
+import fi.metatavu.keycloak.scim.server.users.UserProfileValidationException;
+import fi.metatavu.keycloak.scim.server.users.UserProfileValidationService;
 import fi.metatavu.keycloak.scim.server.users.UsersController;
 import jakarta.ws.rs.NotFoundException;
 import org.jboss.logging.Logger;
@@ -45,10 +47,12 @@ public class OrganizationUserController extends UsersController  {
         OrganizationScimContext scimContext,
         UserAttributes userAttributes,
         fi.metatavu.keycloak.scim.server.model.User scimUser
-    ) {
+    ) throws UserProfileValidationException {
         KeycloakSession session = scimContext.getSession();
         RealmModel realm = scimContext.getRealm();
         ScimConfig config = scimContext.getConfig();
+
+        UserProfileValidationService.validateForCreate(session, userAttributes, scimUser);
 
         UserModel user = session.users().addUser(realm, scimUser.getUserName());
         user.setEnabled(scimUser.getActive() == null || Boolean.TRUE.equals(scimUser.getActive()));
@@ -129,10 +133,12 @@ public class OrganizationUserController extends UsersController  {
             UserAttributes userAttributes,
             UserModel existing,
             fi.metatavu.keycloak.scim.server.model.User scimUser
-    ) {
+    ) throws UserProfileValidationException {
         KeycloakSession session = scimContext.getSession();
         RealmModel realm = scimContext.getRealm();
         ScimConfig config = scimContext.getConfig();
+
+        UserProfileValidationService.validateForUpdate(session, userAttributes, existing, scimUser);
 
         ((StringUserAttribute) userAttributes.findByScimPath("userName")).write(existing, scimUser.getUserName());
         ((BooleanUserAttribute) userAttributes.findByScimPath("active")).write(existing, scimUser.getActive() == null || Boolean.TRUE.equals(scimUser.getActive()));
@@ -202,10 +208,17 @@ public class OrganizationUserController extends UsersController  {
         UserAttributes userAttributes,
         UserModel existing,
         fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
-    ) throws UnsupportedPatchOperation {
+    ) throws UnsupportedPatchOperation, UserProfileValidationException {
         KeycloakSession session = scimContext.getSession();
         RealmModel realm = scimContext.getRealm();
         ScimConfig config = scimContext.getConfig();
+
+        UserProfileValidationService.validateForPatch(
+            session,
+            userAttributes,
+            existing,
+            collectPatchAttributesForValidation(userAttributes, patchRequest)
+        );
 
         applyPatchOperations(userAttributes, existing, patchRequest);
 

@@ -53,9 +53,11 @@ public class UsersController extends AbstractController {
         ScimContext scimContext,
         UserAttributes userAttributes,
         fi.metatavu.keycloak.scim.server.model.User scimUser
-    ) {
+    ) throws UserProfileValidationException {
         KeycloakSession session = scimContext.getSession();
         RealmModel realm = scimContext.getRealm();
+
+        UserProfileValidationService.validateForCreate(session, userAttributes, scimUser);
 
         UserModel user = session.users().addUser(realm, scimUser.getUserName());
         user.setEnabled(scimUser.getActive() == null || Boolean.TRUE.equals(scimUser.getActive()));
@@ -227,7 +229,9 @@ public class UsersController extends AbstractController {
         UserAttributes userAttributes,
         UserModel existing,
         User scimUser
-    ) {
+    ) throws UserProfileValidationException {
+        UserProfileValidationService.validateForUpdate(scimContext.getSession(), userAttributes, existing, scimUser);
+
         ((StringUserAttribute) userAttributes.findByScimPath("userName")).write(existing, scimUser.getUserName());
         ((BooleanUserAttribute) userAttributes.findByScimPath("active")).write(existing, scimUser.getActive() == null || Boolean.TRUE.equals(scimUser.getActive()));
 
@@ -298,7 +302,14 @@ public class UsersController extends AbstractController {
         UserAttributes userAttributes,
         UserModel existing,
         fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
-    ) throws UnsupportedPatchOperation {
+    ) throws UnsupportedPatchOperation, UserProfileValidationException {
+        UserProfileValidationService.validateForPatch(
+            scimContext.getSession(),
+            userAttributes,
+            existing,
+            collectPatchAttributesForValidation(userAttributes, patchRequest)
+        );
+
         applyPatchOperations(userAttributes, existing, patchRequest);
 
         dispatchUserUpdateEvent(scimContext, existing);
@@ -316,6 +327,68 @@ public class UsersController extends AbstractController {
 
 
         return patchedUser;
+    }
+
+    /**
+     * Collects attributes affected by a PATCH request in Keycloak user profile format.
+     *
+     * @param userAttributes user attributes metadata
+     * @param patchRequest SCIM patch request
+     * @return patched attributes keyed by Keycloak user profile attribute name
+     * @throws UnsupportedPatchOperation when operation is unsupported
+     */
+    protected Map<String, Object> collectPatchAttributesForValidation(
+        UserAttributes userAttributes,
+        fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
+    ) throws UnsupportedPatchOperation {
+        Map<String, Object> result = new HashMap<>();
+
+        for (var operation : patchRequest.getOperations()) {
+            PatchOperation op = PatchOperation.fromString(operation.getOp());
+            if (op == null) {
+                logger.warn("Invalid patch operation: " + operation.getOp());
+                throw new UnsupportedPatchOperation("Unsupported patch operation: " + operation.getOp());
+            }
+
+            String path = operation.getPath();
+            Object value = operation.getValue();
+
+            if (path == null) {
+                if (!(value instanceof Map<?, ?> valueMap)) {
+                    throw new UnsupportedUserPath("PatchOp without 'path' requires a map-valued 'value'");
+                }
+
+                for (Map.Entry<?, ?> entry : valueMap.entrySet()) {
+                    String attrPath = String.valueOf(entry.getKey());
+                    collectPatchAttributeForValidation(result, userAttributes, op, attrPath, entry.getValue());
+                }
+                continue;
+            }
+
+            collectPatchAttributeForValidation(result, userAttributes, op, path, value);
+        }
+
+        return result;
+    }
+
+    private void collectPatchAttributeForValidation(
+        Map<String, Object> target,
+        UserAttributes userAttributes,
+        PatchOperation op,
+        String path,
+        Object value
+    ) {
+        if (isReadOnlyOrStructural(path)) {
+            return;
+        }
+
+        UserAttribute<?> userAttribute = userAttributes.findByScimPath(path);
+        if (userAttribute == null) {
+            throw new UnsupportedUserPath("Unsupported attribute: " + path);
+        }
+
+        Object validationValue = op == PatchOperation.REMOVE ? null : UserProfileValidationService.normalizeValue(value);
+        target.put(userAttribute.getSourceId(), validationValue);
     }
 
     /**

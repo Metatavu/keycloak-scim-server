@@ -33,6 +33,15 @@ public class UserAttributes {
     }
 
     /**
+     * Returns all configured user attributes.
+     *
+     * @return all user attributes
+     */
+    public List<UserAttribute<?>> list() {
+        return List.copyOf(attributeMap.values());
+    }
+
+    /**
      * Lists user attributes by source
      *
      * @param source source

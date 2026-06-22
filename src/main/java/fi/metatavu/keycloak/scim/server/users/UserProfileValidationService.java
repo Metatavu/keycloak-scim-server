@@ -74,10 +74,18 @@ public final class UserProfileValidationService {
 
     /**
      * Validates patched attributes before applying them to the existing user.
+     * <p>
+     * RFC 7644 §3.5.2 PATCH is a partial update — fields absent from the request
+     * keep their current value. The Keycloak user profile validator runs against
+     * the attribute map it is given, so we pre-merge the existing user's current
+     * attribute values with the patch delta. REMOVE operations come through with
+     * a null value and overwrite the existing entry, so required-field checks
+     * still reject removing a mandatory field.
      *
      * @param session Keycloak session
+     * @param userAttributes user attribute metadata
      * @param existing existing user
-     * @param patchedAttributes patched user profile attributes
+     * @param patchedAttributes patched user profile attributes (delta only)
      * @throws UserProfileValidationException when validation fails
      */
     public static void validateForPatch(
@@ -87,10 +95,24 @@ public final class UserProfileValidationService {
         Map<String, ?> patchedAttributes
     ) throws UserProfileValidationException {
         try {
-            validate(session, new HashMap<>(patchedAttributes), existing);
+            Map<String, Object> merged = readExistingAttributes(userAttributes, existing);
+            merged.putAll(patchedAttributes);
+            validate(session, merged, existing);
         } catch (UserProfileValidationException e) {
             throw remapToScimPaths(e, userAttributes);
         }
+    }
+
+    private static Map<String, Object> readExistingAttributes(UserAttributes userAttributes, UserModel existing) {
+        Map<String, Object> result = new HashMap<>();
+        for (UserAttribute<?> attribute : userAttributes.list()) {
+            Object value = attribute.read(existing);
+            if (value == null) {
+                continue;
+            }
+            result.putIfAbsent(attribute.getSourceId(), normalizeValue(value));
+        }
+        return result;
     }
 
     private static void validate(KeycloakSession session, Map<String, ?> attributes) throws UserProfileValidationException {

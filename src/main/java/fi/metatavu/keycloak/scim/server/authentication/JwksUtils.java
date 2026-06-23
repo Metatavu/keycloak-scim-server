@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.keycloak.jose.jwk.JWKParser;
 
+import org.jboss.logging.Logger;
+
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -19,6 +21,8 @@ import java.util.Map;
  * Utility class for JWKS
  */
 public class JwksUtils {
+
+    private static final Logger logger = Logger.getLogger(JwksUtils.class.getName());
 
     /**
      * Loads all public keys from JWKS URL
@@ -38,6 +42,7 @@ public class JwksUtils {
             HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
 
             if (response.statusCode() != 200) {
+                logger.errorf("Failed to fetch JWKS from %s: HTTP %d", jwksUrl, response.statusCode());
                 throw new RuntimeException("Failed to fetch JWKS: HTTP " + response.statusCode());
             }
 
@@ -48,6 +53,7 @@ public class JwksUtils {
             List<Map<String, Object>> keys = (List<Map<String, Object>>) jwks.get("keys");
 
             if (keys == null || keys.isEmpty()) {
+                logger.errorf("No keys found in JWKS response from %s", jwksUrl);
                 throw new RuntimeException("No keys found in JWKS");
             }
 
@@ -55,7 +61,10 @@ public class JwksUtils {
                 String kid = (String) jwk.get("kid");
                 String use = (String) jwk.get("use");
 
-                if (kid == null) continue;
+                if (kid == null) {
+                    logger.warn("Skipping JWK entry with no 'kid' field");
+                    continue;
+                }
 
                 if (use == null) {
                     use = "sig";
@@ -69,6 +78,7 @@ public class JwksUtils {
                 result.add(new JwkKey(publicKey, kid, use));
             }
 
+            logger.debugf("Loaded %d public key(s) from JWKS", result.size());
             return result;
         }
     }

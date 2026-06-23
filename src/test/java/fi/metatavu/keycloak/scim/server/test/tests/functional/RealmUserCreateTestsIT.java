@@ -1,10 +1,10 @@
 package fi.metatavu.keycloak.scim.server.test.tests.functional;
 
-import fi.metatavu.keycloak.scim.server.test.tests.AbstractInternalAuthRealmScimTest;
 import fi.metatavu.keycloak.scim.server.test.ScimClient;
 import fi.metatavu.keycloak.scim.server.test.TestConsts;
 import fi.metatavu.keycloak.scim.server.test.client.ApiException;
 import fi.metatavu.keycloak.scim.server.test.client.model.User;
+import fi.metatavu.keycloak.scim.server.test.tests.AbstractInternalAuthRealmScimTest;
 import org.junit.jupiter.api.Test;
 import org.keycloak.events.admin.AdminEvent;
 import org.keycloak.events.admin.OperationType;
@@ -17,7 +17,11 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.io.IOException;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Tests for SCIM 2.0 User create endpoint
@@ -38,6 +42,7 @@ public class RealmUserCreateTestsIT extends AbstractInternalAuthRealmScimTest {
         user.putAdditionalProperty("externalId", "my-external-id");
         user.putAdditionalProperty("preferredLanguage", "fi-FI");
         user.putAdditionalProperty("displayName", "The New User");
+        user.putAdditionalProperty("job", "farmer");
 
         User created = scimClient.createUser(user);
 
@@ -51,6 +56,7 @@ public class RealmUserCreateTestsIT extends AbstractInternalAuthRealmScimTest {
             "fi-FI",
             "The New User"
         );
+        assertEquals("farmer", created.getAdditionalProperty("job"));
 
         // Assert that the user was created in Keycloak
         UserRepresentation realmUser = findRealmUser(TestConsts.TEST_REALM, created.getId());
@@ -63,6 +69,7 @@ public class RealmUserCreateTestsIT extends AbstractInternalAuthRealmScimTest {
         assertEquals("my-external-id", realmUser.getAttributes().get("externalId").getFirst());
         assertEquals("fi-FI", realmUser.getAttributes().get("preferredLanguage").getFirst());
         assertEquals("The New User", realmUser.getAttributes().get("displayName").getFirst());
+        assertEquals("farmer", realmUser.getAttributes().get("job").getFirst());
 
         // Assert that user has correct roles
 
@@ -101,26 +108,18 @@ public class RealmUserCreateTestsIT extends AbstractInternalAuthRealmScimTest {
 
     @Test
     void testCreateDuplicateUserReturnsConflict() throws ApiException {
-        ScimClient scimClient = getAuthenticatedScimClient();
+        assertDuplicateUserCreateConflict(getAuthenticatedScimClient(), TestConsts.TEST_REALM, "dupe-user");
+    }
 
-        User user = new User();
-        user.setUserName("dupe-user");
-        user.setActive(true);
-        user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
-
-        // First creation should succeed
-        User created = scimClient.createUser(user);
-        assertNotNull(created);
-
-        // Second creation should fail with 409 Conflict
-        ApiException exception = assertThrows(ApiException.class, () ->
-            scimClient.createUser(user)
+    @Test
+    void testCreateDuplicateEmailReturnsConflict() throws ApiException {
+        assertDuplicateEmailCreateConflict(
+            getAuthenticatedScimClient(),
+            TestConsts.TEST_REALM,
+            "dupe-email-first",
+            "dupe-email-second",
+            "dupe.email@example.com"
         );
-
-        assertEquals(409, exception.getCode());
-
-        // Clean up
-        deleteRealmUser(TestConsts.TEST_REALM, created.getId());
     }
 
     @Test
@@ -154,5 +153,6 @@ public class RealmUserCreateTestsIT extends AbstractInternalAuthRealmScimTest {
             OperationType.CREATE
         );
     }
+
 
 }

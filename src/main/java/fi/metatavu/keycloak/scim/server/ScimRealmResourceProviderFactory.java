@@ -5,6 +5,7 @@ import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.KeycloakSessionFactory;
 import org.keycloak.services.resource.RealmResourceProvider;
 import org.keycloak.services.resource.RealmResourceProviderFactory;
+import org.jboss.logging.Logger;
 
 /**
  * SCIM realm resource provider factory
@@ -13,13 +14,16 @@ import org.keycloak.services.resource.RealmResourceProviderFactory;
  */
 public class ScimRealmResourceProviderFactory implements RealmResourceProviderFactory {
 
+    private static final Logger logger = Logger.getLogger(ScimRealmResourceProviderFactory.class);
+
     @Override
     public RealmResourceProvider create(KeycloakSession session) {
-        return new ScimRealmResourceProvider();
+        return new ScimRealmResourceProvider(session);
     }
 
     @Override
-    public void init(Config.Scope config) {}
+    public void init(Config.Scope config) {
+    }
 
     @Override
     public void postInit(KeycloakSessionFactory factory) {}

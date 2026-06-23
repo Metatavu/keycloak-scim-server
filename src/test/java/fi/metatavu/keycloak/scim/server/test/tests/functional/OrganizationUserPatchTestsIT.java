@@ -207,6 +207,37 @@ public class OrganizationUserPatchTestsIT extends AbstractOrganizationScimTest {
         deleteRealmUser(TestConsts.ORGANIZATIONS_REALM, created.getId());
     }
 
+    /**
+     * Regression: SCIM REMOVE on a USER_PROFILE-backed attribute in org-scope previously threw NPE
+     * because applyOrgPatchValue called attr.write(user, null) -> List.of(null). After the fix both
+     * realm and org controllers share applyPatchValue which routes REMOVE through attr.clear(user).
+     */
+    @Test
+    void testRemoveExternalIdDoesNotNpe() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
+
+        User created = new User();
+        created.setUserName("org-remove-extid-test");
+        created.setActive(true);
+        created.putAdditionalProperty("externalId", "00uORGREMOVETEST");
+        User u = scimClient.createUser(created);
+
+        try {
+            PatchRequest patch = new PatchRequest();
+            patch.setSchemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"));
+            PatchRequestOperationsInner op = new PatchRequestOperationsInner();
+            op.setOp("remove");
+            op.setPath("externalId");
+            patch.setOperations(List.of(op));
+
+            // Before this fix: applyOrgPatchValue called attr.write(user, null) -> NPE -> HTTP 500.
+            User after = scimClient.patchUser(u.getId(), patch);
+            assertNull(after.getAdditionalProperty("externalId"));
+        } finally {
+            deleteRealmUser(TestConsts.ORGANIZATIONS_REALM, u.getId());
+        }
+    }
+
     @Test
     void testPatchUsernameEmailAsUsername() throws ApiException {
         ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_EMAIL_AS_USERNAME_ID);
@@ -280,8 +311,8 @@ public class OrganizationUserPatchTestsIT extends AbstractOrganizationScimTest {
             .operations(List.of(
                 new PatchRequestOperationsInner()
                     .op("replace")
-                    .path("userName")
-                    .value("patched-user-name")
+                    .path("active")
+                    .value(Boolean.FALSE)
             )));
 
         List<AdminEvent> adminEvents = getAdminEvents();

@@ -1,8 +1,10 @@
 package fi.metatavu.keycloak.scim.server.realm;
 
 import fi.metatavu.keycloak.scim.server.AbstractScimServer;
+import fi.metatavu.keycloak.scim.server.ScimErrors;
 import fi.metatavu.keycloak.scim.server.config.ConfigurationError;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
+import fi.metatavu.keycloak.scim.server.groups.InvalidGroupMemberReference;
 import fi.metatavu.keycloak.scim.server.groups.UnsupportedGroupPath;
 import fi.metatavu.keycloak.scim.server.metadata.UserAttributes;
 import fi.metatavu.keycloak.scim.server.model.User;
@@ -32,33 +34,23 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
         RealmScimContext scimContext,
         User createRequest
     ) {
-        RealmModel realm = scimContext.getRealm();
-        KeycloakSession session = scimContext.getSession();
-
         if (isBlank(createRequest.getUserName())) {
             logger.warn("Cannot create user: Missing userName");
-            return Response.status(Response.Status.BAD_REQUEST).entity("Missing userName").build();
+            return ScimErrors.invalidValue("Missing userName");
         }
 
-        UserModel existing = session.users().getUserByUsername(realm, createRequest.getUserName());
-        if (existing != null) {
-            return Response.status(Response.Status.CONFLICT).entity("User already exists").build();
+        Response conflict = validateCreateUserConflicts(scimContext, createRequest);
+        if (conflict != null) {
+            return conflict;
         }
 
         UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
 
-        User user = usersController.createUser(
-            scimContext,
-            userAttributes,
-            createRequest
-        );
-
-        URI location = UriBuilder.fromPath("v2/Users/{id}").build(user.getId());
-
-        return Response
-            .created(location)
-            .entity(user)
-            .build();
+        return executeUserOperation(() -> {
+            User user = usersController.createUser(scimContext, userAttributes, createRequest);
+            URI location = UriBuilder.fromPath("v2/Users/{id}").build(user.getId());
+            return Response.created(location).entity(user).build();
+        });
     }
 
     @Override
@@ -68,19 +60,19 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
 
         if (isBlank(updateRequest.getUserName())) {
             logger.warn("Missing userName");
-            return Response.status(Response.Status.BAD_REQUEST).entity("Missing userName").build();
+            return ScimErrors.invalidValue("Missing userName");
         }
 
         if (emailAsUsername && !isValidEmail(updateRequest.getUserName())) {
             logger.warn("Cannot update user: Invalid email format for userName");
-            return Response.status(Response.Status.BAD_REQUEST).entity("Invalid email format for userName").build();
+            return ScimErrors.invalidValue("Invalid email format for userName");
         }
 
         if (emailAsUsername && updateRequest.getEmails() != null) {
             for (fi.metatavu.keycloak.scim.server.model.UserEmailsInner email : updateRequest.getEmails()) {
                 if (!Objects.equals(email.getValue(), updateRequest.getUserName())) {
                     logger.warn("Conflicting email and userName when emailAsUsername is enabled");
-                    return Response.status(Response.Status.BAD_REQUEST).entity("Username and email must match when emailAsUsername is enabled").build();
+                    return ScimErrors.invalidValue("Username and email must match when emailAsUsername is enabled");
                 }
             }
         }
@@ -89,7 +81,7 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
         UserModel user = session.users().getUserById(realm, userId);
         if (user == null) {
             logger.warn(String.format("User not found: %s", userId));
-            return Response.status(Response.Status.NOT_FOUND).entity("User not found").build();
+            return ScimErrors.notFound("User not found");
         }
 
         // Check if username is being changed to an already existing one
@@ -102,13 +94,15 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
 
         if (existing != null && !existing.getId().equals(userId)) {
             logger.warn(String.format("User name already taken: %s", updateRequest.getUserName()));
-            return Response.status(Response.Status.CONFLICT).entity("User name already taken").build();
+            return ScimErrors.conflict("User name already taken");
         }
 
         UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
-        fi.metatavu.keycloak.scim.server.model.User result = usersController.updateUser(scimContext, userAttributes, user, updateRequest);
 
-        return Response.ok(result).build();
+        return executeUserOperation(() -> {
+            fi.metatavu.keycloak.scim.server.model.User result = usersController.updateUser(scimContext, userAttributes, user, updateRequest);
+            return Response.ok(result).build();
+        });
     }
 
     @Override
@@ -119,17 +113,15 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
         UserModel existing = session.users().getUserById(realm, userId);
         if (existing == null) {
             logger.warn(String.format("User not found: %s", userId));
-            return Response.status(Response.Status.NOT_FOUND).entity("User not found").build();
+            return ScimErrors.notFound("User not found");
         }
 
         UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
 
-        try {
+        return executeUserOperation(() -> {
             fi.metatavu.keycloak.scim.server.model.User result = usersController.patchUser(scimContext, userAttributes, existing, patchRequest);
             return Response.ok(result).build();
-        } catch (UnsupportedPatchOperation e) {
-            return Response.status(Response.Status.BAD_REQUEST).entity("Unsupported patch operation").build();
-        }
+        });
     }
 
     @Override
@@ -173,7 +165,7 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
         RoleModel scimManagedRole = realm.getRole("scim-managed");
         if (scimManagedRole != null && !user.hasRole(scimManagedRole)) {
             logger.warn(String.format("User is not SCIM-managed: %s", userId));
-            return Response.status(Response.Status.FORBIDDEN).entity("User is not managed by SCIM").build();
+            return ScimErrors.forbidden("User is not managed by SCIM");
         }
 
         usersController.deleteUser(scimContext, user);
@@ -187,7 +179,7 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
 
         if (isBlank(createRequest.getDisplayName())) {
             logger.warn("Cannot create group: Missing displayName");
-            return Response.status(Response.Status.BAD_REQUEST).entity("Missing displayName").build();
+            return ScimErrors.invalidValue("Missing displayName");
         }
 
         fi.metatavu.keycloak.scim.server.model.Group created = groupsController.createGroup(scimContext, createRequest);
@@ -225,7 +217,7 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
         }
 
         if (!id.equals(existing.getId())) {
-            return Response.status(Response.Status.BAD_REQUEST).entity("Group ID mismatch").build();
+            return ScimErrors.invalidValue("Group ID mismatch");
         }
 
         fi.metatavu.keycloak.scim.server.model.Group updated = groupsController.updateGroup(
@@ -247,16 +239,18 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
         }
 
         if (!groupId.equals(existing.getId())) {
-            return Response.status(Response.Status.BAD_REQUEST).entity("Group ID mismatch").build();
+            return ScimErrors.invalidValue("Group ID mismatch");
         }
 
         try {
             fi.metatavu.keycloak.scim.server.model.Group updated = groupsController.patchGroup(scimContext, existing, patchRequest);
             return Response.ok(updated).build();
+        } catch (InvalidGroupMemberReference e) {
+            return ScimErrors.invalidValue(e.getMessage());
         } catch (UnsupportedGroupPath e) {
-            return Response.status(Response.Status.BAD_REQUEST).entity("Unsupported group path").build();
+            return ScimErrors.invalidPath(e.getMessage() != null ? e.getMessage() : "Unsupported group path");
         } catch (UnsupportedPatchOperation e) {
-            return Response.status(Response.Status.BAD_REQUEST).entity("Unsupported patch operation").build();
+            return ScimErrors.invalidSyntax("Unsupported patch operation");
         }
     }
 

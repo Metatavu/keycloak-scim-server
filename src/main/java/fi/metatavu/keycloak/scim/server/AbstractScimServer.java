@@ -6,7 +6,12 @@ import fi.metatavu.keycloak.scim.server.config.ScimConfig;
 import fi.metatavu.keycloak.scim.server.consts.ScimRoles;
 import fi.metatavu.keycloak.scim.server.groups.GroupsController;
 import fi.metatavu.keycloak.scim.server.metadata.MetadataController;
+import fi.metatavu.keycloak.scim.server.model.User;
+import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
+import fi.metatavu.keycloak.scim.server.users.UnsupportedUserPath;
+import fi.metatavu.keycloak.scim.server.users.UserProfileValidationException;
 import fi.metatavu.keycloak.scim.server.users.UsersController;
+import java.util.Base64;
 import jakarta.mail.internet.AddressException;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.ws.rs.ForbiddenException;
@@ -105,8 +110,36 @@ public abstract class AbstractScimServer <T extends ScimContext> implements Scim
 
         if (config.getAuthenticationMode() == ScimConfig.AuthenticationMode.KEYCLOAK) {
             keycloakAuthentication(context, session, realm, headers);
+        } else if (authorization.startsWith("Basic ")) {
+            basicAuthentication(config, authorization, session);
         } else {
-            externalAuthentication(config, extractToken(authorization), session);
+            externalAuthentication(config, extractBearerToken(authorization), session);
+        }
+    }
+
+    private void basicAuthentication(ScimConfig config, String authorization, KeycloakSession session) {
+        String basicAuthUsername = config.getBasicAuthUsername();
+        String basicAuthPassword = config.getBasicAuthPassword();
+
+        if (basicAuthUsername == null || basicAuthUsername.isBlank() || basicAuthPassword == null || basicAuthPassword.isBlank()) {
+            logger.warn("Basic auth credentials received but Basic auth is not configured");
+            throw new NotAuthorizedException("Basic auth is not configured");
+        }
+
+        String encoded = authorization.substring("Basic ".length()).trim();
+        String decoded;
+        try {
+            decoded = new String(Base64.getDecoder().decode(encoded));
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid Base64 in Basic auth header");
+            throw new NotAuthorizedException("Invalid Basic auth header");
+        }
+
+        Verifier verifier = VerifierFactory.buildBasicAuth(config, session);
+
+        if (!verifier.verify(decoded)) {
+            logger.warn("Basic auth verification failed");
+            throw new NotAuthorizedException("Basic auth verification failed");
         }
     }
 
@@ -153,12 +186,33 @@ public abstract class AbstractScimServer <T extends ScimContext> implements Scim
         }
     }
 
-    private String extractToken(String authorization) {
+    private String extractBearerToken(String authorization) {
         if (authorization.startsWith("Bearer ")) {
             return authorization.substring("Bearer ".length()).trim();
         } else {
             logger.warn("Invalid Authorization header");
             throw new NotAuthorizedException("Invalid Authorization header");
+        }
+    }
+
+    /**
+     * Executes a user operation, mapping known exceptions to SCIM error responses.
+     *
+     * @param op user operation to execute
+     * @return response
+     */
+    protected Response executeUserOperation(UserOperation op) {
+        try {
+            return op.execute();
+        } catch (UnsupportedPatchOperation e) {
+            logger.warn("Unsupported patch operation: " + e.getMessage());
+            return ScimErrors.invalidSyntax("Unsupported patch operation");
+        } catch (UnsupportedUserPath e) {
+            logger.warn("Unsupported user path: " + e.getMessage());
+            return ScimErrors.invalidPath("Unsupported user path");
+        } catch (UserProfileValidationException e) {
+            logger.warn("User profile validation failed: " + e.getMessage());
+            return ScimErrors.invalidValue(formatValidationErrors(e));
         }
     }
 
@@ -186,6 +240,58 @@ public abstract class AbstractScimServer <T extends ScimContext> implements Scim
      */
     protected boolean isBlank(String str) {
         return str == null || str.isBlank();
+    }
+
+    /**
+     * Validates common user create conflict conditions.
+     *
+     * @param scimContext SCIM context
+     * @param createRequest create user request
+     * @return conflict response, or null when no conflict is found
+     */
+    protected Response validateCreateUserConflicts(T scimContext, User createRequest) {
+        RealmModel realm = scimContext.getRealm();
+        KeycloakSession session = scimContext.getSession();
+
+        UserModel existing = session.users().getUserByUsername(realm, createRequest.getUserName());
+        if (existing != null) {
+            return ScimErrors.conflict(String.format("User already exists with username: %s", createRequest.getUserName()));
+        }
+
+        String requestedEmail = createRequest.getEmails() != null && !createRequest.getEmails().isEmpty()
+            ? createRequest.getEmails().getFirst().getValue()
+            : null;
+        if (requestedEmail != null && !realm.isDuplicateEmailsAllowed() && session.users().getUserByEmail(realm, requestedEmail) != null) {
+            return ScimErrors.conflict(String.format("User already exists with email: %s", requestedEmail));
+        }
+
+        return null;
+    }
+
+    /**
+     * Formats Keycloak user profile validation errors for a SCIM error detail.
+     *
+     * @param e validation exception
+     * @return formatted error detail
+     */
+    protected String formatValidationErrors(UserProfileValidationException e) {
+        if (e.getErrors().isEmpty()) {
+            return "Validation failed";
+        }
+
+        if (e.getErrors().size() == 1) {
+            return e.getErrors().getFirst().toString();
+        }
+
+        StringBuilder stringBuilder = new StringBuilder("Validation failed: ");
+        for (int i = 0; i < e.getErrors().size(); i++) {
+            if (i > 0) {
+                stringBuilder.append("; ");
+            }
+            stringBuilder.append(e.getErrors().get(i));
+        }
+
+        return stringBuilder.toString();
     }
 
     /**

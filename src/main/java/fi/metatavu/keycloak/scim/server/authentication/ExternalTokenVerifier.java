@@ -46,12 +46,11 @@ public class ExternalTokenVerifier implements Verifier {
         try {
             for (JwkKey jwkKey : JwksUtils.getPublicKeysFromJwks(jwksUrl)) {
                 if (verify(tokenString, jwkKey.getPublicKey())) {
-                    logger.info("Token verification succeeded with key: " + jwkKey.getKid());
+                    logger.debug("Token verification succeeded with key: " + jwkKey.getKid());
                     return true;
                 }
-
-                logger.warn("Token verification failed with key: " + jwkKey.getKid());
             }
+            logger.warn("Token verification failed with all keys");
         } catch (URISyntaxException | IOException | JWSInputException e) {
             logger.warn("Failed to verify permissions", e);
             throw new NotAuthorizedException(e);
@@ -61,7 +60,7 @@ public class ExternalTokenVerifier implements Verifier {
             logger.warn("Failed to verify permissions", e);
             throw new NotAuthorizedException(e);
         }
-
+        logger.warn("Token verification failed ");
         return false;
     }
 
@@ -77,7 +76,6 @@ public class ExternalTokenVerifier implements Verifier {
         boolean validSignature = RSAProvider.verify(jwsInput, publicKey);
 
         if (!validSignature) {
-            logger.warn("Token signature verification failed");
             return false;
         }
 

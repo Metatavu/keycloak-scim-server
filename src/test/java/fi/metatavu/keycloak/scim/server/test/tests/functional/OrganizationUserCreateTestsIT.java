@@ -107,26 +107,22 @@ public class OrganizationUserCreateTestsIT extends AbstractOrganizationScimTest 
 
     @Test
     void testCreateDuplicateUserReturnsConflict() throws ApiException {
-        ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
-
-        User user = new User();
-        user.setUserName("dupe-user");
-        user.setActive(true);
-        user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
-
-        // First creation should succeed
-        User created = scimClient.createUser(user);
-        assertNotNull(created);
-
-        // Second creation should fail with 409 Conflict
-        ApiException exception = assertThrows(ApiException.class, () ->
-            scimClient.createUser(user)
+        assertDuplicateUserCreateConflict(
+            getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID),
+            TestConsts.ORGANIZATIONS_REALM,
+            "dupe-user"
         );
+    }
 
-        assertEquals(409, exception.getCode());
-
-        // Clean up
-        deleteRealmUser(TestConsts.ORGANIZATIONS_REALM, created.getId());
+    @Test
+    void testCreateDuplicateEmailReturnsConflict() throws ApiException {
+        assertDuplicateEmailCreateConflict(
+            getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID),
+            TestConsts.ORGANIZATIONS_REALM,
+            "org-dupe-email-first",
+            "org-dupe-email-second",
+            "org.dupe.email@example.com"
+        );
     }
 
     @Test
@@ -173,9 +169,7 @@ public class OrganizationUserCreateTestsIT extends AbstractOrganizationScimTest 
         user.putAdditionalProperty("preferredLanguage", "fi-FI");
         user.putAdditionalProperty("displayName", "The New User");
 
-        assertThrows(ApiException.class, () -> {
-            scimClient.createUser(user);
-        }, "Invalid email format for userName");
+        assertThrows(ApiException.class, () -> scimClient.createUser(user), "Invalid email format for userName");
     }
 
     @Test
@@ -223,4 +217,5 @@ public class OrganizationUserCreateTestsIT extends AbstractOrganizationScimTest 
                 OperationType.CREATE
         );
     }
+
 }

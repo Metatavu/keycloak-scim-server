@@ -12,14 +12,18 @@ import fi.metatavu.keycloak.scim.server.model.User;
 import fi.metatavu.keycloak.scim.server.patch.PatchOperation;
 import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
 import fi.metatavu.keycloak.scim.server.users.UnsupportedUserPath;
+import fi.metatavu.keycloak.scim.server.users.UserProfileValidationException;
+import fi.metatavu.keycloak.scim.server.users.UserProfileValidationService;
 import fi.metatavu.keycloak.scim.server.users.UsersController;
 import jakarta.ws.rs.NotFoundException;
 import org.jboss.logging.Logger;
 import org.keycloak.events.admin.OperationType;
 import org.keycloak.events.admin.ResourceType;
-import org.keycloak.models.*;
+import org.keycloak.models.KeycloakSession;
+import org.keycloak.models.RealmModel;
+import org.keycloak.models.RoleModel;
+import org.keycloak.models.UserModel;
 import org.keycloak.models.utils.ModelToRepresentation;
-import org.keycloak.organization.OrganizationProvider;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -43,11 +47,12 @@ public class OrganizationUserController extends UsersController  {
         OrganizationScimContext scimContext,
         UserAttributes userAttributes,
         fi.metatavu.keycloak.scim.server.model.User scimUser
-    ) {
+    ) throws UserProfileValidationException {
         KeycloakSession session = scimContext.getSession();
         RealmModel realm = scimContext.getRealm();
-        OrganizationModel organization = scimContext.getOrganization();
         ScimConfig config = scimContext.getConfig();
+
+        UserProfileValidationService.validateForCreate(session, userAttributes, scimUser);
 
         UserModel user = session.users().addUser(realm, scimUser.getUserName());
         user.setEnabled(scimUser.getActive() == null || Boolean.TRUE.equals(scimUser.getActive()));
@@ -93,8 +98,7 @@ public class OrganizationUserController extends UsersController  {
             });
         }
 
-        OrganizationProvider organizationProvider = getOrganizationProvider(scimContext.getSession());
-        organizationProvider.addManagedMember(organization, user);
+        scimContext.addMember(user);
 
         User createdUser = translateUser(
             scimContext,
@@ -103,9 +107,10 @@ public class OrganizationUserController extends UsersController  {
         );
 
         if (config.getLinkIdp()) {
-            String scimUsername = createdUser.getUserName();
+            scimUserEmail = getScimUserEmail(createdUser, config);
+            String scimUserName = createdUser.getUserName();
             String externalId = getExternalId(createdUser);
-            linkUserIdp(organizationProvider, organization, session, realm, user, scimUserEmail, scimUsername, externalId);
+            scimContext.linkUserIdp(user, scimUserEmail, scimUserName, externalId);
         }
 
         dispatchUserCreateEvent(scimContext, user);
@@ -128,11 +133,12 @@ public class OrganizationUserController extends UsersController  {
             UserAttributes userAttributes,
             UserModel existing,
             fi.metatavu.keycloak.scim.server.model.User scimUser
-    ) {
+    ) throws UserProfileValidationException {
         KeycloakSession session = scimContext.getSession();
         RealmModel realm = scimContext.getRealm();
-        OrganizationModel organization = scimContext.getOrganization();
         ScimConfig config = scimContext.getConfig();
+
+        UserProfileValidationService.validateForUpdate(session, userAttributes, existing, scimUser);
 
         ((StringUserAttribute) userAttributes.findByScimPath("userName")).write(existing, scimUser.getUserName());
         ((BooleanUserAttribute) userAttributes.findByScimPath("active")).write(existing, scimUser.getActive() == null || Boolean.TRUE.equals(scimUser.getActive()));
@@ -177,11 +183,10 @@ public class OrganizationUserController extends UsersController  {
         );
 
         if (config.getLinkIdp()) {
-            OrganizationProvider organizationProvider = getOrganizationProvider(scimContext.getSession());
             String scimUserEmail = getScimUserEmail(updatedUser, config);
-            String scimUsername = updatedUser.getUserName();
+            String scimUserName = updatedUser.getUserName();
             String externalId = getExternalId(updatedUser);
-            linkUserIdp(organizationProvider, organization, session, realm, existing, scimUserEmail, scimUsername, externalId);
+            scimContext.linkUserIdp(existing, scimUserEmail, scimUserName, externalId);
         }
 
         dispatchUserUpdateEvent(scimContext, existing);
@@ -203,50 +208,19 @@ public class OrganizationUserController extends UsersController  {
         UserAttributes userAttributes,
         UserModel existing,
         fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
-    ) throws UnsupportedPatchOperation {
+    ) throws UnsupportedPatchOperation, UserProfileValidationException {
         KeycloakSession session = scimContext.getSession();
         RealmModel realm = scimContext.getRealm();
-        OrganizationModel organization = scimContext.getOrganization();
         ScimConfig config = scimContext.getConfig();
 
-        for (var operation : patchRequest.getOperations()) {
-            PatchOperation op = PatchOperation.fromString(operation.getOp());
-            if (op == null) {
-                logger.warn("Invalid patch operation: " + operation.getOp());
-                throw new UnsupportedPatchOperation("Unsupported patch operation: " + operation.getOp());
-            }
+        UserProfileValidationService.validateForPatch(
+            session,
+            userAttributes,
+            existing,
+            collectPatchAttributesForValidation(userAttributes, patchRequest)
+        );
 
-            UserAttribute<?> userAttribute = userAttributes.findByScimPath(operation.getPath());
-            Object value = operation.getValue();
-
-            if (userAttribute == null) {
-                throw new UnsupportedUserPath("Unsupported attribute: " + operation.getPath());
-            }
-
-            switch (op) {
-                case REPLACE, ADD -> {
-                    switch (value) {
-                        case null:
-                            logger.warn("Value is null for patch operation: " + op);
-                            break;
-                        case String s when userAttribute instanceof StringUserAttribute:
-                            ((StringUserAttribute) userAttribute).write(existing, s);
-                            break;
-                        case String s when userAttribute instanceof BooleanUserAttribute:
-                            ((BooleanUserAttribute) userAttribute).write(existing, Boolean.parseBoolean(s));
-                            break;
-                        case Boolean b when userAttribute instanceof BooleanUserAttribute:
-                            ((BooleanUserAttribute) userAttribute).write(existing, b);
-                            break;
-                        default:
-                            logger.warn("Unsupported value type for patch operation: " + value.getClass());
-                            break;
-                    }
-
-                }
-                case REMOVE -> userAttribute.write(existing, null);
-            }
-        }
+        applyPatchOperations(userAttributes, existing, patchRequest);
 
         fi.metatavu.keycloak.scim.server.model.User patchedUser = translateUser(
             scimContext,
@@ -255,11 +229,10 @@ public class OrganizationUserController extends UsersController  {
         );
 
         if (config.getLinkIdp()) {
-            OrganizationProvider organizationProvider = getOrganizationProvider(scimContext.getSession());
             String scimUserEmail = getScimUserEmail(patchedUser, config);
-            String scimUsername = patchedUser.getUserName();
+            String scimUserName = patchedUser.getUserName();
             String externalId = getExternalId(patchedUser);
-            linkUserIdp(organizationProvider, organization, session, realm, existing, scimUserEmail, scimUsername, externalId);
+            scimContext.linkUserIdp(existing, scimUserEmail, scimUserName, externalId);
         }
 
         dispatchUserUpdateEvent(scimContext, existing);
@@ -281,10 +254,7 @@ public class OrganizationUserController extends UsersController  {
         String userId
     ) {
         try {
-            UserModel organizationUser = getOrganizationProvider(scimContext.getSession()).getMemberById(
-                scimContext.getOrganization(),
-                userId
-            );
+            UserModel organizationUser = scimContext.findUser(userId);
 
             return translateUser(
                 scimContext,
@@ -321,7 +291,7 @@ public class OrganizationUserController extends UsersController  {
             throw new IllegalStateException("SCIM managed role not found");
         }
 
-        List<UserModel> filteredUsers = getOrganizationProvider(session).getMembersStream(scimContext.getOrganization(), Collections.emptyMap(), true, null, null)
+        List<UserModel> filteredUsers = scimContext.getMembersStream(null, null)
             .filter(user -> matchScimFilter(user, userAttributes, scimFilter))
             .filter(user -> user.hasRole(scimManagedRole))
             .toList();
@@ -348,30 +318,14 @@ public class OrganizationUserController extends UsersController  {
      */
     public void deleteOrganizationUser(OrganizationScimContext scimContext, UserModel user) {
         KeycloakSession session = scimContext.getSession();
-        OrganizationProvider organizationProvider = getOrganizationProvider(session);
 
-        if (organizationProvider.isManagedMember(scimContext.getOrganization(), user)) {
-            organizationProvider.removeMember(scimContext.getOrganization(), user);
+        if (scimContext.isMember(user)) {
+            scimContext.removeMember(user);
             dispatchOrganizationMemberDeleteEvent(scimContext, user);
             dispatchUserDeleteEvent(scimContext, user);
         } else {
             throw new NotFoundException("User is not a member of the organization");
         }
-    }
-
-    /**
-     * Returns the organization provider
-     *
-     * @param session Keycloak session
-     * @return Organization provider
-     */
-    private OrganizationProvider getOrganizationProvider(KeycloakSession session) {
-        KeycloakContext context = session.getContext();
-        if (context == null) {
-            throw new IllegalStateException("Keycloak context is not set");
-        }
-
-        return session.getProvider(OrganizationProvider.class);
     }
 
     /**
@@ -409,70 +363,6 @@ public class OrganizationUserController extends UsersController  {
     }
 
     /**
-     * Links user to identity provider
-     *
-     * @param organizationProvider organization provider
-     * @param organization organization
-     * @param session Keycloak session
-     * @param realm Keycloak realm
-     * @param user Keycloak user
-     * @param scimUserEmail SCIM user email
-     * @param scimUserName SCIM username
-     * @param scimExternalId SCIM user external ID
-     */
-    private void linkUserIdp(
-        OrganizationProvider organizationProvider,
-        OrganizationModel organization,
-        KeycloakSession session,
-        RealmModel realm,
-        UserModel user,
-        String scimUserEmail,
-        String scimUserName,
-        String scimExternalId
-    ) {
-        if (scimUserEmail == null) {
-            logger.warn("User email is not set. Cannot link user to identity provider");
-            return;
-        }
-
-        if (scimExternalId == null) {
-            logger.warn("User externalId is not set. Cannot link user to identity provider");
-            return;
-        }
-
-        String emailDomain = getEmailDomain(scimUserEmail);
-        if (emailDomain == null) {
-            logger.warn("User email domain is not set. Cannot link user to identity provider");
-            return;
-        }
-
-        IdentityProviderModel identityProvider = organizationProvider.getIdentityProviders(organization)
-            .filter(identityProviderModel -> {
-                String identityProviderDomain = identityProviderModel.getConfig().get("kc.org.domain");
-                return identityProviderDomain != null && identityProviderDomain.equals(emailDomain);
-            })
-            .findFirst()
-            .orElse(null);
-
-        if (identityProvider == null) {
-            logger.warn("No identity provider found for email domain: " + emailDomain + ". Cannot link user to identity provider");
-            return;
-        }
-
-        if (session.users().getFederatedIdentity(realm, user, identityProvider.getAlias()) == null) {
-            logger.info("Linking user to identity provider: " + identityProvider.getAlias());
-
-            FederatedIdentityModel identityModel = new FederatedIdentityModel(
-                identityProvider.getAlias(),
-                scimExternalId,
-                scimUserName
-            );
-
-            session.users().addFederatedIdentity(realm, user, identityModel);
-        }
-    }
-
-    /**
      * Dispatches an event when a user is added to the organization
      *
      * @param scimContext SCIM context
@@ -482,7 +372,6 @@ public class OrganizationUserController extends UsersController  {
         OrganizationScimContext scimContext,
         UserModel member
     ) {
-        OrganizationModel organization = scimContext.getOrganization();
         Map<String, String> eventDetails = new HashMap<>();
 
         if (member.getUsername() != null) {
@@ -497,8 +386,8 @@ public class OrganizationUserController extends UsersController  {
             scimContext,
             OperationType.CREATE,
             ResourceType.ORGANIZATION_MEMBERSHIP,
-            "organizations/" + organization.getId() + "/members",
-            ModelToRepresentation.toRepresentation(organization),
+            "organizations/" + scimContext.getOrganizationId() + "/members",
+            scimContext.toRepresentation(),
             eventDetails
         );
     }
@@ -513,7 +402,6 @@ public class OrganizationUserController extends UsersController  {
         OrganizationScimContext scimContext,
         UserModel member
     ) {
-        OrganizationModel organization = scimContext.getOrganization();
         Map<String, String> eventDetails = new HashMap<>();
 
         if (member.getUsername() != null) {
@@ -528,8 +416,8 @@ public class OrganizationUserController extends UsersController  {
             scimContext,
             OperationType.DELETE,
             ResourceType.ORGANIZATION_MEMBERSHIP,
-            "organizations/" + organization.getId() + "/members/" + member.getId(),
-            ModelToRepresentation.toRepresentation(organization),
+            "organizations/" + scimContext.getOrganizationId() + "/members/" + member.getId(),
+            scimContext.toRepresentation(),
             eventDetails
         );
     }

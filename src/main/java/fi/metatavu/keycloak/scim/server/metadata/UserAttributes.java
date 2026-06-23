@@ -33,6 +33,15 @@ public class UserAttributes {
     }
 
     /**
+     * Returns all configured user attributes.
+     *
+     * @return all user attributes
+     */
+    public List<UserAttribute<?>> list() {
+        return List.copyOf(attributeMap.values());
+    }
+
+    /**
      * Lists user attributes by source
      *
      * @param source source
@@ -42,6 +51,22 @@ public class UserAttributes {
         return attributeMap.values().stream()
             .filter(attribute -> attribute.getSource() == source)
             .collect(Collectors.toList());
+    }
+
+    /**
+     * Finds the first user attribute whose Keycloak source ID matches the given value.
+     *
+     * @param sourceId Keycloak attribute source ID
+     * @return matching attribute or null if none found
+     */
+    public UserAttribute<?> findBySourceId(String sourceId) {
+        if (sourceId == null) {
+            return null;
+        }
+        return attributeMap.values().stream()
+            .filter(attr -> sourceId.equals(attr.getSourceId()))
+            .findFirst()
+            .orElse(null);
     }
 
 }

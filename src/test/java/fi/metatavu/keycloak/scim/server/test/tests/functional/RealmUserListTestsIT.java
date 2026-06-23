@@ -12,6 +12,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.util.ArrayList;
 import java.util.List;
 
+import fi.metatavu.keycloak.scim.server.test.utils.ScimErrorAssertions;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -211,7 +212,7 @@ class RealmUserListTestsIT extends AbstractInternalAuthRealmScimTest {
             scimClient.listUsers("userName \"bob\"", 0, 10)
     );
 
-    assertEquals("listUsers call failed with: 400 - Invalid filter", exception.getMessage());
+    ScimErrorAssertions.assertScimError(exception, 400, "Invalid filter");
   }
 
   @Test
@@ -222,7 +223,7 @@ class RealmUserListTestsIT extends AbstractInternalAuthRealmScimTest {
             scimClient.listUsers("userName gt \"bob\"", 0, 10)
     );
 
-    assertEquals("listUsers call failed with: 400 - Invalid filter", exception.getMessage());
+    ScimErrorAssertions.assertScimError(exception, 400, "Invalid filter");
   }
 
   @Test
@@ -233,7 +234,7 @@ class RealmUserListTestsIT extends AbstractInternalAuthRealmScimTest {
             scimClient.listUsers("userName eq bob", 0, 10)
     );
 
-    assertEquals("listUsers call failed with: 400 - Invalid filter", exception.getMessage());
+    ScimErrorAssertions.assertScimError(exception, 400, "Invalid filter");
   }
 
   @Test
@@ -244,7 +245,7 @@ class RealmUserListTestsIT extends AbstractInternalAuthRealmScimTest {
             scimClient.listUsers("userName eq \"a\" and", 0, 10)
     );
 
-    assertEquals("listUsers call failed with: 400 - Invalid filter", exception.getMessage());
+    ScimErrorAssertions.assertScimError(exception, 400, "Invalid filter");
   }
 
   @Test

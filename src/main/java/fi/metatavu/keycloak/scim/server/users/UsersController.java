@@ -53,9 +53,11 @@ public class UsersController extends AbstractController {
         ScimContext scimContext,
         UserAttributes userAttributes,
         fi.metatavu.keycloak.scim.server.model.User scimUser
-    ) {
+    ) throws UserProfileValidationException {
         KeycloakSession session = scimContext.getSession();
         RealmModel realm = scimContext.getRealm();
+
+        UserProfileValidationService.validateForCreate(session, userAttributes, scimUser);
 
         UserModel user = session.users().addUser(realm, scimUser.getUserName());
         user.setEnabled(scimUser.getActive() == null || Boolean.TRUE.equals(scimUser.getActive()));
@@ -227,13 +229,19 @@ public class UsersController extends AbstractController {
         UserAttributes userAttributes,
         UserModel existing,
         User scimUser
-    ) {
+    ) throws UserProfileValidationException {
+        UserProfileValidationService.validateForUpdate(scimContext.getSession(), userAttributes, existing, scimUser);
+
         ((StringUserAttribute) userAttributes.findByScimPath("userName")).write(existing, scimUser.getUserName());
         ((BooleanUserAttribute) userAttributes.findByScimPath("active")).write(existing, scimUser.getActive() == null || Boolean.TRUE.equals(scimUser.getActive()));
 
         if (scimUser.getName() != null) {
-            ((StringUserAttribute) userAttributes.findByScimPath("name.givenName")).write(existing, scimUser.getName().getGivenName());
-            ((StringUserAttribute) userAttributes.findByScimPath("name.familyName")).write(existing, scimUser.getName().getFamilyName());
+            if (scimUser.getName().getGivenName() != null) {
+                ((StringUserAttribute) userAttributes.findByScimPath("name.givenName")).write(existing, scimUser.getName().getGivenName());
+            }
+            if (scimUser.getName().getFamilyName() != null) {
+                ((StringUserAttribute) userAttributes.findByScimPath("name.familyName")).write(existing, scimUser.getName().getFamilyName());
+            }
         }
 
         if (scimUser.getEmails() != null && !scimUser.getEmails().isEmpty()) {
@@ -294,45 +302,15 @@ public class UsersController extends AbstractController {
         UserAttributes userAttributes,
         UserModel existing,
         fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
-    ) throws UnsupportedPatchOperation {
-        for (var operation : patchRequest.getOperations()) {
-            PatchOperation op = PatchOperation.fromString(operation.getOp());
-            if (op == null) {
-                logger.warn("Invalid patch operation: " + operation.getOp());
-                throw new UnsupportedPatchOperation("Unsupported patch operation: " + operation.getOp());
-            }
+    ) throws UnsupportedPatchOperation, UserProfileValidationException {
+        UserProfileValidationService.validateForPatch(
+            scimContext.getSession(),
+            userAttributes,
+            existing,
+            collectPatchAttributesForValidation(userAttributes, patchRequest)
+        );
 
-            UserAttribute<?> userAttribute = userAttributes.findByScimPath(operation.getPath());
-            Object value = operation.getValue();
-
-            if (userAttribute == null) {
-                throw new UnsupportedUserPath("Unsupported attribute: " + operation.getPath());
-            }
-
-            switch (op) {
-                case REPLACE, ADD -> {
-                    switch (value) {
-                        case null:
-                            logger.warn("Value is null for patch operation: " + op);
-                            break;
-                        case String s when userAttribute instanceof StringUserAttribute:
-                            ((StringUserAttribute) userAttribute).write(existing, s);
-                            break;
-                        case String s when userAttribute instanceof BooleanUserAttribute:
-                            ((BooleanUserAttribute) userAttribute).write(existing, Boolean.parseBoolean(s));
-                            break;
-                        case Boolean b when userAttribute instanceof BooleanUserAttribute:
-                            ((BooleanUserAttribute) userAttribute).write(existing, b);
-                            break;
-                        default:
-                            logger.warn("Unsupported value type for patch operation: " + value.getClass() + " for SCIM path " + userAttribute.getScimPath());
-                            break;
-                    }
-
-                }
-                case REMOVE -> userAttribute.write(existing, null);
-            }
-        }
+        applyPatchOperations(userAttributes, existing, patchRequest);
 
         dispatchUserUpdateEvent(scimContext, existing);
 
@@ -349,6 +327,171 @@ public class UsersController extends AbstractController {
 
 
         return patchedUser;
+    }
+
+    /**
+     * Collects attributes affected by a PATCH request in Keycloak user profile format.
+     *
+     * @param userAttributes user attributes metadata
+     * @param patchRequest SCIM patch request
+     * @return patched attributes keyed by Keycloak user profile attribute name
+     * @throws UnsupportedPatchOperation when operation is unsupported
+     */
+    protected Map<String, Object> collectPatchAttributesForValidation(
+        UserAttributes userAttributes,
+        fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
+    ) throws UnsupportedPatchOperation {
+        Map<String, Object> result = new HashMap<>();
+
+        for (var operation : patchRequest.getOperations()) {
+            PatchOperation op = PatchOperation.fromString(operation.getOp());
+            if (op == null) {
+                logger.warn("Invalid patch operation: " + operation.getOp());
+                throw new UnsupportedPatchOperation("Unsupported patch operation: " + operation.getOp());
+            }
+
+            String path = operation.getPath();
+            Object value = operation.getValue();
+
+            if (path == null) {
+                if (!(value instanceof Map<?, ?> valueMap)) {
+                    throw new UnsupportedUserPath("PatchOp without 'path' requires a map-valued 'value'");
+                }
+
+                for (Map.Entry<?, ?> entry : valueMap.entrySet()) {
+                    String attrPath = String.valueOf(entry.getKey());
+                    collectPatchAttributeForValidation(result, userAttributes, op, attrPath, entry.getValue());
+                }
+                continue;
+            }
+
+            collectPatchAttributeForValidation(result, userAttributes, op, path, value);
+        }
+
+        return result;
+    }
+
+    private void collectPatchAttributeForValidation(
+        Map<String, Object> target,
+        UserAttributes userAttributes,
+        PatchOperation op,
+        String path,
+        Object value
+    ) {
+        if (isReadOnlyOrStructural(path)) {
+            return;
+        }
+
+        UserAttribute<?> userAttribute = userAttributes.findByScimPath(path);
+        if (userAttribute == null) {
+            throw new UnsupportedUserPath("Unsupported attribute: " + path);
+        }
+
+        Object validationValue = op == PatchOperation.REMOVE ? null : UserProfileValidationService.normalizeValue(value);
+        target.put(userAttribute.getSourceId(), validationValue);
+    }
+
+    /**
+     * Walk a PatchRequest's operations and apply each one to {@code existing}.
+     * Shared between {@link #patchUser} and
+     * {@link fi.metatavu.keycloak.scim.server.organization.OrganizationUserController#patchOrganizationUser}
+     * so the realm-scope and org-scope SCIM PATCH endpoints handle path-less /
+     * path-based shapes and read-only / structural attributes identically.
+     *
+     * @param userAttributes user attributes metadata
+     * @param existing       user being patched
+     * @param patchRequest   SCIM patch request
+     */
+    protected void applyPatchOperations(
+        UserAttributes userAttributes,
+        UserModel existing,
+        fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
+    ) throws UnsupportedPatchOperation {
+        for (var operation : patchRequest.getOperations()) {
+            PatchOperation op = PatchOperation.fromString(operation.getOp());
+            if (op == null) {
+                logger.warn("Invalid patch operation: " + operation.getOp());
+                throw new UnsupportedPatchOperation("Unsupported patch operation: " + operation.getOp());
+            }
+
+            String path = operation.getPath();
+            Object value = operation.getValue();
+
+            // RFC 7644 §3.5.2: when "path" is omitted, "value" carries a map of
+            // attribute -> value to apply to the resource. Okta's Deactivate User
+            // emits this shape: {"op":"replace","value":{"active":false}}.
+            if (path == null) {
+                if (!(value instanceof Map<?, ?> valueMap)) {
+                    throw new UnsupportedUserPath("PatchOp without 'path' requires a map-valued 'value'");
+                }
+                for (Map.Entry<?, ?> entry : valueMap.entrySet()) {
+                    String attrPath = String.valueOf(entry.getKey());
+                    if (isReadOnlyOrStructural(attrPath)) {
+                        // RFC 7644 §3.5.2 / §7.5: ignore read-only and
+                        // structural attributes (id, meta, schemas)
+                        // on PATCH. Clients (Okta) echo them back from a prior GET.
+                        continue;
+                    }
+                    UserAttribute<?> ua = userAttributes.findByScimPath(attrPath);
+                    if (ua == null) {
+                        throw new UnsupportedUserPath("Unsupported attribute: " + attrPath);
+                    }
+                    applyPatchValue(op, ua, existing, entry.getValue());
+                }
+                continue;
+            }
+
+            if (isReadOnlyOrStructural(path)) {
+                continue;
+            }
+
+            UserAttribute<?> userAttribute = userAttributes.findByScimPath(path);
+            if (userAttribute == null) {
+                throw new UnsupportedUserPath("Unsupported attribute: " + path);
+            }
+            applyPatchValue(op, userAttribute, existing, value);
+        }
+    }
+
+    /**
+     * Apply a single PATCH operation (REPLACE/ADD/REMOVE) against one
+     * resolved user attribute. Extracted so the path-less PatchOp shape
+     * (RFC 7644 §3.5.2, map-valued "value") and the with-path shape share
+     * the same write semantics.
+     *
+     * @param op       patch operation kind
+     * @param attr     resolved user attribute target
+     * @param existing user being patched
+     * @param value    raw operation value
+     */
+    protected void applyPatchValue(
+        PatchOperation op,
+        UserAttribute<?> attr,
+        UserModel existing,
+        Object value
+    ) {
+        switch (op) {
+            case REPLACE, ADD -> {
+                switch (value) {
+                    case null:
+                        logger.warn("Value is null for patch operation: " + op);
+                        break;
+                    case String s when attr instanceof StringUserAttribute:
+                        ((StringUserAttribute) attr).write(existing, s);
+                        break;
+                    case String s when attr instanceof BooleanUserAttribute:
+                        ((BooleanUserAttribute) attr).write(existing, Boolean.parseBoolean(s));
+                        break;
+                    case Boolean b when attr instanceof BooleanUserAttribute:
+                        ((BooleanUserAttribute) attr).write(existing, b);
+                        break;
+                    default:
+                        logger.warn("Unsupported value type for patch operation: " + value.getClass() + " for SCIM path " + attr.getScimPath());
+                        break;
+                }
+            }
+            case REMOVE -> attr.clear(existing);
+        }
     }
 
     /**
@@ -522,7 +665,9 @@ public class UsersController extends AbstractController {
                         .givenName(user.getFirstName())
                 );
 
-        List<UserAttribute<?>> customAttributes = userAttributes.listBySource(UserAttribute.Source.USER_PROFILE);
+        List<UserAttribute<?>> customAttributes = new ArrayList<>();
+        customAttributes.addAll(userAttributes.listBySource(UserAttribute.Source.USER_PROFILE));
+        customAttributes.addAll(userAttributes.listBySource(UserAttribute.Source.IDP_MAPPER));
         for (UserAttribute<?> userAttribute : customAttributes) {
             Object value = userAttribute.read(user);
             if (value != null) {
@@ -618,7 +763,7 @@ public class UsersController extends AbstractController {
      * @param email email address
      * @return email domain
      */
-    protected String getEmailDomain(String email) {
+    public static String getEmailDomain(String email) {
         if (email != null && email.contains("@")) {
             return email.substring(email.indexOf('@') + 1);
         }

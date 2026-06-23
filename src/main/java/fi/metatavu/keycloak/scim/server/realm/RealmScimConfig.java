@@ -48,8 +48,6 @@ public class RealmScimConfig implements ScimConfig {
             throw new ConfigurationError("SCIM_AUTHENTICATION_MODE is not set");
         }
 
-        logger.debugf("Realm SCIM authentication mode: %s", mode);
-
         boolean isSharedSecretPresent = getSharedSecret() != null && !getSharedSecret().isBlank();
         boolean isBasicAuthUsernamePresent = getBasicAuthUsername() != null && !getBasicAuthUsername().isBlank();
         boolean isBasicAuthPasswordPresent = getBasicAuthPassword() != null && !getBasicAuthPassword().isBlank();

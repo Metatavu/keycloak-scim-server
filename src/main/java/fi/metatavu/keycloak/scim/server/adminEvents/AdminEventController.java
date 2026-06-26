@@ -102,15 +102,17 @@ public class AdminEventController extends AbstractController {
             }
         }
 
-        session.getKeycloakSessionFactory()
+        List<EventListenerProvider> listeners = session.getKeycloakSessionFactory()
                 .getProviderFactoriesStream(EventListenerProvider.class)
                 .filter(providerFactory -> realmListenerIds.contains(providerFactory.getId()) || ((EventListenerProviderFactory) providerFactory).isGlobal())
                 .map(providerFactory -> providerFactory.create(session))
-                .forEach(provider -> {
-                    if (provider instanceof EventListenerProvider eventListenerProvider) {
-                        logger.debugf("Sending admin event: %s %s %s", operationType, resourceType, resourcePath);
-                        eventListenerProvider.onEvent(event, includeRepresentation);
-                    }
-                });
+                .filter(EventListenerProvider.class::isInstance)
+                .map(EventListenerProvider.class::cast)
+                .toList();
+
+        if (!listeners.isEmpty()) {
+            logger.debugf("Sending admin event to %d listener(s): %s %s %s", listeners.size(), operationType, resourceType, resourcePath);
+            listeners.forEach(listener -> listener.onEvent(event, includeRepresentation));
+        }
     }
 }

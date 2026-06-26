@@ -37,7 +37,8 @@ This project provides a **SCIM 2.0-compliant extension** for [Keycloak](https://
 | Plugin Version | Keycloak Version        | Status |
 |---|-------------------------|---|
 | 1.5.0 | 26.3.x (tested: 26.3.5) | Stable |
-| 1.6.0 | 26.6.x (tested: 26.6.3) | In development |
+| 1.6.0 | 26.3.x (tested: 26.3.5) | Stable |
+| 2.0.0 | 26.6.x (tested: 26.6.3) | In development |
 
 > **Note:** Organization-level SCIM APIs require Keycloak **26+** with the Organizations feature enabled.
 

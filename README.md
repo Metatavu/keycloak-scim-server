@@ -173,8 +173,6 @@ Authorization: Bearer <keycloak-access-token>
 
 Validates a JWT bearer token issued by an external identity provider. The token signature is verified against public keys fetched from the configured JWKS endpoint, and the issuer and audience claims are validated.
 
-When `SCIM_AUTHENTICATION_MODE=EXTERNAL`, the JWT can be provided via `Authorization: Bearer <jwt-token>` or `X-API-Key: <jwt-token>`.
-
 **Required settings:**
 
 | Setting                    | Value                                      |
@@ -192,8 +190,6 @@ Authorization: Bearer <jwt-token>
 ### External Shared Secret (Bearer Token) Authentication
 
 Validates a static bearer token against a pre-configured hash. The client sends the raw secret as a bearer token, and the server verifies it against the stored hash using Keycloak's password hashing infrastructure.
-
-When `SCIM_AUTHENTICATION_MODE=EXTERNAL`, the same raw secret can also be sent using `X-API-Key` instead of the `Authorization` header.
 
 **Required settings:**
 
@@ -213,11 +209,6 @@ SCIM_EXTERNAL_SHARED_SECRET=$argon2id$v=19$m=16,t=2,p=1$<salt>$<hash>
 The client then sends the raw secret:
 ```
 Authorization: Bearer my-secret-token
-```
-
-Or, alternatively:
-```
-X-API-Key: my-secret-token
 ```
 
 ### External Basic Auth Authentication

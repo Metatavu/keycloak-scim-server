@@ -1,33 +1,12 @@
 services:
   keycloak:
     hostname: scim-keycloak
-#   image: quay.io/keycloak/keycloak:26.3.5
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: quay.io/keycloak/keycloak:26.3.5
     environment:
-      - KC_BOOTSTRAP_ADMIN_USERNAME=${KC_BOOTSTRAP_ADMIN_USERNAME:-temp-admin}
-      - KC_BOOTSTRAP_ADMIN_PASSWORD=${KC_BOOTSTRAP_ADMIN_PASSWORD}
-      - KC_PROXY_HEADERS=xforwarded
-      - KC_HOSTNAME=https://keycloak.${DOMAIN}
-      - SCIM_AUTHENTICATION_MODE=EXTERNAL
-      - SCIM_EXTERNAL_SHARED_SECRET=${SCIM_EXTERNAL_SHARED_SECRET}
-      - SCIM_LOG_INCOMING_REQUESTS=${SCIM_LOG_INCOMING_REQUESTS:-false}
-      - SCIM_LOG_SENSITIVE_HEADERS=${SCIM_LOG_SENSITIVE_HEADERS:-false}
-    # ports:
-    #   - "8080:8080"
-    networks:
-      - external
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.keycloak.entrypoints=https"
-      - "traefik.http.routers.keycloak.rule=Host(`keycloak.${DOMAIN}`) && PathPrefix(`/`)"
-      - "traefik.http.routers.keycloak.priority=10"
-      - "traefik.http.routers.keycloak.service=keycloak"
-      - "traefik.http.routers.keycloak.tls=true"
-      - "traefik.http.routers.keycloak.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-le}"
-      - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
-      - "traefik.http.services.keycloak.loadbalancer.server.scheme=http"
+      - KC_BOOTSTRAP_ADMIN_USERNAME=admin
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=admin
+    ports:
+      - "8080:8080"
     command:
       - start-dev
       - --import-realm
@@ -35,49 +14,9 @@ services:
       - ./src/test/resources/kc-test.json:/opt/keycloak/data/import/kc-test.json
       - ./src/test/resources/kc-external.json:/opt/keycloak/data/import/kc-external .json
       - ./src/test/resources/kc-organizations.json:/opt/keycloak/data/import/kc-organizations.json
-
-  keycloak-admin-init:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    depends_on:
-      keycloak:
-        condition: service_started
-    environment:
-      - KEYCLOAK_URL=http://scim-keycloak:8080
-      - KEYCLOAK_ADMIN_USERNAME=${KEYCLOAK_ADMIN_USERNAME:-admin}
-      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
-      - KC_BOOTSTRAP_ADMIN_USERNAME=${KC_BOOTSTRAP_ADMIN_USERNAME:-temp-admin}
-      - KC_BOOTSTRAP_ADMIN_PASSWORD=${KC_BOOTSTRAP_ADMIN_PASSWORD}
-    entrypoint: ["/bin/sh", "/opt/keycloak/scripts/bootstrap-permanent-keycloak-admin.sh"]
-    volumes:
-      - ./scripts/bootstrap-permanent-keycloak-admin.sh:/opt/keycloak/scripts/bootstrap-permanent-keycloak-admin.sh:ro
-    networks:
-      - external
-    restart: "no"
-
+      - ./build/libs/:/opt/keycloak/providers/
   scim2-compliance-test:
-#   image: suvera/scim2-compliance-test-utility:1.0.2
-    build:
-      context: scim2-compliance-test-utility
-      dockerfile: Dockerfile
+    image: suvera/scim2-compliance-test-utility:1.0.2
     hostname: scim2-compliance-test
-    # ports:
-    #   - "8081:8081"
-    networks:
-      - external
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.scim2-compliance-test.entrypoints=https"
-      - "traefik.http.routers.scim2-compliance-test.rule=Host(`scim2-compliance-test.${DOMAIN}`) && PathPrefix(`/`)"
-      - "traefik.http.routers.scim2-compliance-test.priority=10"
-      - "traefik.http.routers.scim2-compliance-test.service=scim2-compliance-test"
-      - "traefik.http.routers.scim2-compliance-test.tls=true"
-      - "traefik.http.routers.scim2-compliance-test.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-le}"
-      - "traefik.http.services.scim2-compliance-test.loadbalancer.server.port=8081"
-      - "traefik.http.services.scim2-compliance-test.loadbalancer.server.scheme=http"
-
-networks:
-  external:
-    external: true
-    name: ${TRAEFIK_NETWORK:-external}
+    ports:
+      - "8081:8081"

@@ -1,6 +1,7 @@
 package fi.metatavu.keycloak.scim.server.test.tests;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dasniko.testcontainers.keycloak.KeycloakContainer;
@@ -575,10 +576,14 @@ public abstract class AbstractScimTest {
             File[] files = testData.toFile().listFiles();
             assertNotNull(files, "Admin events directory is empty or not accessible");
 
+
+            ObjectMapper adminEventMapper = new ObjectMapper()
+                    .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
             return Arrays.stream(files)
                 .map(file -> {
                     try (FileInputStream fileInputStream = new FileInputStream(file)) {
-                        return JsonSerialization.readValue(fileInputStream, AdminEvent.class);
+                        return adminEventMapper.readValue(fileInputStream, AdminEvent.class);
                     } catch (IOException e) {
                         throw new RuntimeException("Failed to read admin event from file: " + file.getAbsolutePath(), e);
                     }

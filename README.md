@@ -9,6 +9,7 @@ This project provides a **SCIM 2.0-compliant extension** for [Keycloak](https://
 
 ## Table of Contents
 
+- [Version Compatibility](#version-compatibility)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
   - [Option 1: Include from GitHub Release](#option-1-include-it-directly-from-github-release)
@@ -31,9 +32,19 @@ This project provides a **SCIM 2.0-compliant extension** for [Keycloak](https://
 - [SCIM-Managed Users](#scim-managed-users)
 - [License](#license)
 
+## Version Compatibility
+
+| Plugin Version | Keycloak Version        | Status |
+|---|-------------------------|---|
+| 1.5.0 | 26.3.x (tested: 26.3.5) | Stable |
+| 1.6.0 | 26.3.x (tested: 26.3.5) | Stable |
+| 1.7.0 | 26.6.x (tested: 26.6.3) | In development |
+
+> **Note:** Organization-level SCIM APIs require Keycloak **26+** with the Organizations feature enabled.
+
 ## Prerequisites
 
-- **Keycloak**: This extension is developed for Keycloak **26.3.5**. It may work with other versions, but compatibility is not guaranteed.
+- **Keycloak**: See the [Version Compatibility](#version-compatibility) matrix above for supported versions.
 - **Java**: Java **21** is required to build the project.
 
 ## Installation

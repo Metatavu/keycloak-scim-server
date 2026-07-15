@@ -284,6 +284,18 @@ public class MetadataController extends AbstractController {
                 UserModel::isEnabled,
                 UserModel::setEnabled,
                 user -> user.setEnabled(false)
+            ),
+            new StringUserAttribute(
+                UserAttribute.Source.USER_PROFILE,
+                "externalId",
+                "externalId",
+                "Client-defined identifier for correlation with an external system",
+                SchemaAttribute.TypeEnum.STRING,
+                SchemaAttribute.MutabilityEnum.READWRITE,
+                SchemaAttribute.UniquenessEnum.NONE,
+                user -> user.getFirstAttribute("externalId"),
+                (user, value) -> user.setSingleAttribute("externalId", value),
+                user -> user.removeAttribute("externalId")
             )
         );
 
@@ -292,7 +304,8 @@ public class MetadataController extends AbstractController {
             UserModel.EMAIL,
             UserModel.FIRST_NAME,
             UserModel.LAST_NAME,
-            UserModel.ENABLED
+            UserModel.ENABLED,
+            "externalId"
         );
 
         List<UserAttribute<String>> customAttributes = new ArrayList<>();
@@ -362,6 +375,18 @@ public class MetadataController extends AbstractController {
      */
     private List<fi.metatavu.keycloak.scim.server.model.SchemaAttribute> getGroupSchemaAttributes() {
         return List.of(
+            new SchemaAttribute()
+                .name(GroupAttribute.EXTERNAL_ID.getScimPath())
+                .description("Client-defined identifier for correlation with an external system")
+                .type(SchemaAttribute.TypeEnum.STRING)
+                .multiValued(false)
+                .required(false)
+                .caseExact(true)
+                .mutability(SchemaAttribute.MutabilityEnum.READWRITE)
+                .returned(SchemaAttribute.ReturnedEnum.DEFAULT)
+                .referenceTypes(null)
+                .subAttributes(Collections.emptyList())
+                .uniqueness(SchemaAttribute.UniquenessEnum.NONE),
             new SchemaAttribute()
                 .name(GroupAttribute.DISPLAY_NAME.getScimPath())
                 .description(GroupAttribute.DISPLAY_NAME.getScimPath())

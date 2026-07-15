@@ -99,7 +99,7 @@ public class RealmUserPatchTestsIT extends AbstractInternalAuthRealmScimTest {
 
         User created = scimClient.createUser(user);
         assertNotNull(created);
-        assertNull(created.getAdditionalProperty("externalId"));
+        assertNull(getUserExternalId(created));
         assertNull(created.getAdditionalProperty("displayName"));
         assertNull(created.getAdditionalProperty("preferredLanguage"));
         assertNull(created.getAdditionalProperty("job"));
@@ -124,7 +124,7 @@ public class RealmUserPatchTestsIT extends AbstractInternalAuthRealmScimTest {
         );
 
         assertNotNull(patched);
-        assertEquals("external-1234", patched.getAdditionalProperty("externalId"));
+        assertEquals("external-1234", getUserExternalId(patched));
         assertEquals("Display Name", patched.getAdditionalProperty("displayName"));
         assertEquals("fi_FI", patched.getAdditionalProperty("preferredLanguage"));
 
@@ -151,7 +151,7 @@ public class RealmUserPatchTestsIT extends AbstractInternalAuthRealmScimTest {
             ))
         );
 
-        assertEquals("external-5678", patchedAgain.getAdditionalProperty("externalId"));
+        assertEquals("external-5678", getUserExternalId(patchedAgain));
         assertEquals("Updated Display", patchedAgain.getAdditionalProperty("displayName"));
         assertEquals("en_US", patchedAgain.getAdditionalProperty("preferredLanguage"));
         assertEquals("pilot", patchedAgain.getAdditionalProperty("job"));
@@ -233,7 +233,7 @@ public class RealmUserPatchTestsIT extends AbstractInternalAuthRealmScimTest {
 
             // Before this fix: attr.write(user, null) -> List.of(null) -> NPE -> HTTP 500.
             User after = scimClient.patchUser(u.getId(), patch);
-            assertNull(after.getAdditionalProperty("externalId"));
+            assertNull(getUserExternalId(after));
         } finally {
             deleteRealmUser(TestConsts.TEST_REALM, u.getId());
         }

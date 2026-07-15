@@ -152,7 +152,7 @@ public class OrganizationUserPatchTestsIT extends AbstractOrganizationScimTest {
 
         User created = scimClient.createUser(user);
         assertNotNull(created);
-        assertNull(created.getAdditionalProperty("externalId"));
+        assertNull(getUserExternalId(created));
         assertNull(created.getAdditionalProperty("displayName"));
         assertNull(created.getAdditionalProperty("preferredLanguage"));
 
@@ -176,7 +176,7 @@ public class OrganizationUserPatchTestsIT extends AbstractOrganizationScimTest {
         );
 
         assertNotNull(patched);
-        assertEquals("external-1234", patched.getAdditionalProperty("externalId"));
+        assertEquals("external-1234", getUserExternalId(patched));
         assertEquals("Display Name", patched.getAdditionalProperty("displayName"));
         assertEquals("fi_FI", patched.getAdditionalProperty("preferredLanguage"));
 
@@ -199,7 +199,7 @@ public class OrganizationUserPatchTestsIT extends AbstractOrganizationScimTest {
             ))
         );
 
-        assertEquals("external-5678", patchedAgain.getAdditionalProperty("externalId"));
+        assertEquals("external-5678", getUserExternalId(patchedAgain));
         assertEquals("Updated Display", patchedAgain.getAdditionalProperty("displayName"));
         assertEquals("en_US", patchedAgain.getAdditionalProperty("preferredLanguage"));
 
@@ -232,7 +232,7 @@ public class OrganizationUserPatchTestsIT extends AbstractOrganizationScimTest {
 
             // Before this fix: applyOrgPatchValue called attr.write(user, null) -> NPE -> HTTP 500.
             User after = scimClient.patchUser(u.getId(), patch);
-            assertNull(after.getAdditionalProperty("externalId"));
+            assertNull(getUserExternalId(after));
         } finally {
             deleteRealmUser(TestConsts.ORGANIZATIONS_REALM, u.getId());
         }

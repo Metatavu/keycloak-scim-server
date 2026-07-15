@@ -29,10 +29,10 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
 
     User user = createUser(scimClient, "list-me", "List", "Me");
 
-    UsersList usersList = scimClient.listUsers(null, 0, 10);
+    UsersList usersList = scimClient.listUsers(null, 1, 10);
 
     assertEquals(1, usersList.getTotalResults());
-    assertEquals(0, usersList.getStartIndex());
+    assertEquals(1, usersList.getStartIndex());
     assertEquals(10, usersList.getItemsPerPage());
 
     List<User> users = usersList.getResources();
@@ -49,7 +49,7 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
 
     List<User> users = createUsers(scimClient, "list-me", "List", "Me", 5);
 
-    UsersList usersList = scimClient.listUsers("userName eq \"list-me-1\"", 0, 10);
+    UsersList usersList = scimClient.listUsers("userName eq \"list-me-1\"", 1, 10);
 
     assertEquals(1, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -65,7 +65,7 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
     ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
     List<User> users = createUsers(scimClient, "list-me", "List", "Me", 5);
 
-    UsersList usersList = scimClient.listUsers("email eq \"list-me-1@example.com\"", 0, 10);
+    UsersList usersList = scimClient.listUsers("email eq \"list-me-1@example.com\"", 1, 10);
 
     assertEquals(1, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -82,7 +82,7 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
   void testFilterByGivenName() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
     List<User> users = createUsers(scimClient, "list-me", "List", "Me", 5);
-    UsersList usersList = scimClient.listUsers("name.givenName eq \"List-1\"", 0, 10);
+    UsersList usersList = scimClient.listUsers("name.givenName eq \"List-1\"", 1, 10);
 
     assertEquals(1, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -98,7 +98,7 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
   void testFilterByFamilyName() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
     List<User> users = createUsers(scimClient, "list-me", "List", "Me", 5);
-    UsersList usersList = scimClient.listUsers("name.familyName eq \"Me-1\"", 0, 10);
+    UsersList usersList = scimClient.listUsers("name.familyName eq \"Me-1\"", 1, 10);
 
     assertEquals(1, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -124,7 +124,7 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
                   .value(Boolean.FALSE)
         )));
 
-    UsersList usersList = scimClient.listUsers("active eq true", 0, 10);
+    UsersList usersList = scimClient.listUsers("active eq true", 1, 10);
 
     assertEquals(4, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -143,7 +143,7 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
   @Test
   void testFilterByActiveFalseReturnsEmpty() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
-    UsersList usersList = scimClient.listUsers("active eq false", 0, 10);
+    UsersList usersList = scimClient.listUsers("active eq false", 1, 10);
 
     assertEquals(0, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -165,7 +165,7 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
                 .value(Boolean.FALSE)
         )));
 
-    UsersList usersList = scimClient.listUsers("userName eq \"list-me-1\" and active eq true", 0, 10);
+    UsersList usersList = scimClient.listUsers("userName eq \"list-me-1\" and active eq true", 1, 10);
 
     assertEquals(1, usersList.getTotalResults());
     deleteRealmUsers(TestConsts.ORGANIZATIONS_REALM, users);
@@ -174,7 +174,7 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
   @Test
   void testFilterByUserNameNoMatch() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
-    UsersList usersList = scimClient.listUsers("userName eq \"nonexistent\"", 0, 10);
+    UsersList usersList = scimClient.listUsers("userName eq \"nonexistent\"", 1, 10);
 
     assertEquals(0, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -184,7 +184,7 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
   @Test
   void testFilterByEmailNoMatch() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
-    UsersList usersList = scimClient.listUsers("email eq \"nope@example.com\"", 0, 10);
+    UsersList usersList = scimClient.listUsers("email eq \"nope@example.com\"", 1, 10);
 
     assertEquals(0, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -194,7 +194,7 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
   @Test
   void testFilterByGivenNameNoMatch() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
-    UsersList usersList = scimClient.listUsers("name.givenName eq \"NoSuchName\"", 0, 10);
+    UsersList usersList = scimClient.listUsers("name.givenName eq \"NoSuchName\"", 1, 10);
 
     assertEquals(0, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -204,7 +204,7 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
   @Test
   void testFilterByFamilyNameNoMatch() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
-    UsersList usersList = scimClient.listUsers("name.familyName eq \"Ghost\"", 0, 10);
+    UsersList usersList = scimClient.listUsers("name.familyName eq \"Ghost\"", 1, 10);
 
     assertEquals(0, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -214,7 +214,7 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
   @Test
   void testFilterByActiveFalseNoMatch() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
-    UsersList usersList = scimClient.listUsers("active eq false", 0, 10);
+    UsersList usersList = scimClient.listUsers("active eq false", 1, 10);
 
     assertEquals(0, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -226,7 +226,7 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
     ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
 
     ApiException exception = assertThrows(ApiException.class, () ->
-            scimClient.listUsers("userName \"bob\"", 0, 10)
+            scimClient.listUsers("userName \"bob\"", 1, 10)
     );
 
     ScimErrorAssertions.assertScimError(exception, 400, "Invalid filter");
@@ -237,7 +237,7 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
     ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
 
     ApiException exception = assertThrows(ApiException.class, () ->
-            scimClient.listUsers("userName gt \"bob\"", 0, 10)
+            scimClient.listUsers("userName gt \"bob\"", 1, 10)
     );
 
     ScimErrorAssertions.assertScimError(exception, 400, "Invalid filter");
@@ -248,7 +248,7 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
     ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
 
     ApiException exception = assertThrows(ApiException.class, () ->
-            scimClient.listUsers("userName eq bob", 0, 10)
+            scimClient.listUsers("userName eq bob", 1, 10)
     );
 
     ScimErrorAssertions.assertScimError(exception, 400, "Invalid filter");
@@ -259,7 +259,7 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
     ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
 
     ApiException exception = assertThrows(ApiException.class, () ->
-            scimClient.listUsers("userName eq \"a\" and", 0, 10)
+            scimClient.listUsers("userName eq \"a\" and", 1, 10)
     );
 
     ScimErrorAssertions.assertScimError(exception, 400, "Invalid filter");
@@ -271,7 +271,7 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
 
     List<User> users = createUsers(scimClient, "filter-me", "Filter", "Me", 5);
 
-    UsersList usersList = scimClient.listUsers("userName sw \"filter-me-\"", 0, 10);
+    UsersList usersList = scimClient.listUsers("userName sw \"filter-me-\"", 1, 10);
 
     assertEquals(5, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -286,7 +286,7 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
 
     List<User> users = createUsers(scimClient, "filter-me", "Filter", "Me", 5);
 
-    UsersList usersList = scimClient.listUsers("userName ew \"-me-1\"", 0, 10);
+    UsersList usersList = scimClient.listUsers("userName ew \"-me-1\"", 1, 10);
 
     assertEquals(1, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -302,7 +302,7 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
 
     List<User> users = createUsers(scimClient, "filter-me", "Filter", "Me", 5);
 
-    UsersList usersList = scimClient.listUsers("name.familyName pr", 0, 10);
+    UsersList usersList = scimClient.listUsers("name.familyName pr", 1, 10);
 
     assertEquals(5, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -317,7 +317,7 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
 
     List<User> users = createUsers(scimClient, "filter-me", "Filter", "Me", 5);
 
-    UsersList usersList = scimClient.listUsers("userName eq \"filter-me-1\" or userName eq \"filter-me-2\"", 0, 10);
+    UsersList usersList = scimClient.listUsers("userName eq \"filter-me-1\" or userName eq \"filter-me-2\"", 1, 10);
 
     assertEquals(2, usersList.getTotalResults());
     assertNotNull(usersList.getResources());
@@ -336,26 +336,26 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
       createdUsers.add(createUser(scimClient, "paginated-user-" + i, "Paginated", "User" + i));
     }
 
-    // Page 1: count=2, startIndex=0
-    UsersList page1 = scimClient.listUsers("name.givenName eq \"Paginated\"", 0, 2);
+    // Page 1: count=2, startIndex=1
+    UsersList page1 = scimClient.listUsers("name.givenName eq \"Paginated\"", 1, 2);
     assertEquals(2, page1.getItemsPerPage());
-    assertEquals(0, page1.getStartIndex());
+    assertEquals(1, page1.getStartIndex());
     assertEquals(5, page1.getTotalResults());
     assertNotNull(page1.getResources());
     assertEquals(2, page1.getResources().size());
 
-    // Page 2: count=2, startIndex=2
-    UsersList page2 = scimClient.listUsers("name.givenName eq \"Paginated\"", 2, 2);
+    // Page 2: count=2, startIndex=3
+    UsersList page2 = scimClient.listUsers("name.givenName eq \"Paginated\"", 3, 2);
     assertEquals(2, page2.getItemsPerPage());
-    assertEquals(2, page2.getStartIndex());
+    assertEquals(3, page2.getStartIndex());
     assertEquals(5, page2.getTotalResults());
     assertNotNull(page2.getResources());
     assertEquals(2, page2.getResources().size());
 
-    // Page 3: count=2, startIndex=4 (only one user expected)
-    UsersList page3 = scimClient.listUsers("name.givenName eq \"Paginated\"", 4, 2);
+    // Page 3: count=2, startIndex=5 (only one user expected)
+    UsersList page3 = scimClient.listUsers("name.givenName eq \"Paginated\"", 5, 2);
     assertEquals(2, page3.getItemsPerPage());
-    assertEquals(4, page3.getStartIndex());
+    assertEquals(5, page3.getStartIndex());
     assertEquals(5, page3.getTotalResults());
     assertNotNull(page3.getResources());
     assertTrue(page3.getResources().size() <= 2);
@@ -368,7 +368,7 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
   void testListUsersEmailAsUsername() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_EMAIL_AS_USERNAME_ID);
 
-    UsersList usersList = scimClient.listUsers(null, 0, 10);
+    UsersList usersList = scimClient.listUsers(null, 1, 10);
     assertNotNull(usersList);
     assertNotNull(usersList.getResources());
     assertEquals(1, usersList.getTotalResults());
@@ -379,12 +379,12 @@ class OrganizationUserListTestsIT extends AbstractOrganizationScimTest {
   void testFilterUsersEmailAsUsername() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_EMAIL_AS_USERNAME_ID);
 
-    UsersList usersByUsername = scimClient.listUsers("userName eq \"existing-user\"", 0, 10);
+    UsersList usersByUsername = scimClient.listUsers("userName eq \"existing-user\"", 1, 10);
     assertNotNull(usersByUsername);
     assertNotNull(usersByUsername.getResources());
     assertEquals(0, usersByUsername.getTotalResults());
 
-    UsersList usersByEmail = scimClient.listUsers("userName eq \"existing-user@example.com\"", 0, 10);
+    UsersList usersByEmail = scimClient.listUsers("userName eq \"existing-user@example.com\"", 1, 10);
     assertNotNull(usersByEmail);
     assertNotNull(usersByEmail.getResources());
     assertEquals(1, usersByEmail.getTotalResults());

@@ -2,6 +2,7 @@ package fi.metatavu.keycloak.scim.server.users;
 
 import fi.metatavu.keycloak.scim.server.AbstractController;
 import fi.metatavu.keycloak.scim.server.ScimContext;
+import fi.metatavu.keycloak.scim.server.ScimPagination;
 import fi.metatavu.keycloak.scim.server.adminEvents.AdminEventController;
 import fi.metatavu.keycloak.scim.server.consts.Schemas;
 import fi.metatavu.keycloak.scim.server.consts.ScimRoles;
@@ -40,6 +41,7 @@ import java.util.*;
 public class UsersController extends AbstractController {
 
     private static final Logger logger = Logger.getLogger(UsersController.class);
+    protected static final String EXTERNAL_ID_ATTRIBUTE = "externalId";
     private final AdminEventController adminEventController = new AdminEventController();
 
     /**
@@ -76,6 +78,8 @@ public class UsersController extends AbstractController {
         if (scimRole != null) {
             user.grantRole(scimRole);
         }
+
+        applyExternalId(user, userAttributes, scimUser);
 
         Map<String, Object> additionalProperties = scimUser.getAdditionalProperties();
         if (additionalProperties != null) {
@@ -156,7 +160,7 @@ public class UsersController extends AbstractController {
      *
      * @param scimContext SCIM context
      * @param scimFilter SCIM filter
-     * @param firstResult first result
+     * @param startIndex 1-based SCIM start index
      * @param maxResults max results
      * @return users list
      */
@@ -164,9 +168,12 @@ public class UsersController extends AbstractController {
         ScimContext scimContext,
         ScimFilter scimFilter,
         UserAttributes userAttributes,
-        Integer firstResult,
+        Integer startIndex,
         Integer maxResults
     ) {
+        int scimStartIndex = ScimPagination.normalizeStartIndex(startIndex);
+        int offset = ScimPagination.toZeroBasedOffset(startIndex);
+
         UsersList result = new UsersList();
         RealmModel realm = scimContext.getRealm();
         KeycloakSession session = scimContext.getSession();
@@ -202,14 +209,14 @@ public class UsersController extends AbstractController {
             .toList();
 
         List<User> users = filteredUsers.stream()
-            .skip(firstResult)
+            .skip(offset)
             .limit(maxResults)
             .map(user -> translateUser(scimContext, userAttributes, user))
             .toList();
 
         result.setTotalResults(filteredUsers.size());
         result.setResources(users);
-        result.setStartIndex(firstResult);
+        result.setStartIndex(scimStartIndex);
         result.setItemsPerPage(maxResults);
 
         return result;
@@ -247,6 +254,8 @@ public class UsersController extends AbstractController {
         if (scimUser.getEmails() != null && !scimUser.getEmails().isEmpty()) {
             ((StringUserAttribute) userAttributes.findByScimPath("email")).write(existing, scimUser.getEmails().getFirst().getValue());
         }
+
+        applyExternalId(existing, userAttributes, scimUser);
 
         Map<String, Object> additionalProperties = scimUser.getAdditionalProperties();
         if (additionalProperties != null) {
@@ -652,6 +661,7 @@ public class UsersController extends AbstractController {
 
         fi.metatavu.keycloak.scim.server.model.User result = new fi.metatavu.keycloak.scim.server.model.User()
                 .id(user.getId())
+                .externalId(user.getFirstAttribute(EXTERNAL_ID_ATTRIBUTE))
                 .userName(emailAsUsername ? user.getEmail() : user.getUsername())
                 .active(user.isEnabled())
                 .emails(Collections.singletonList(new fi.metatavu.keycloak.scim.server.model.UserEmailsInner()
@@ -669,6 +679,9 @@ public class UsersController extends AbstractController {
         customAttributes.addAll(userAttributes.listBySource(UserAttribute.Source.USER_PROFILE));
         customAttributes.addAll(userAttributes.listBySource(UserAttribute.Source.IDP_MAPPER));
         for (UserAttribute<?> userAttribute : customAttributes) {
+            if (EXTERNAL_ID_ATTRIBUTE.equals(userAttribute.getScimPath())) {
+                continue;
+            }
             Object value = userAttribute.read(user);
             if (value != null) {
                 result.putAdditionalProperty(userAttribute.getScimPath(), value);
@@ -700,17 +713,33 @@ public class UsersController extends AbstractController {
      * @param scimUser SCIM user
      * @return external ID or null if not set
      */
-    private String getExternalId(User scimUser) {
+    protected String getExternalId(User scimUser) {
+        if (scimUser.getExternalId() != null && !scimUser.getExternalId().isBlank()) {
+            return scimUser.getExternalId();
+        }
+
         if (scimUser.getAdditionalProperties() == null) {
             return null;
         }
 
-        Object externalIdObj = scimUser.getAdditionalProperty("externalId");
+        Object externalIdObj = scimUser.getAdditionalProperty(EXTERNAL_ID_ATTRIBUTE);
         if (!(externalIdObj instanceof String externalId)) {
             return null;
         }
 
         return externalId;
+    }
+
+    protected void applyExternalId(UserModel user, UserAttributes userAttributes, User scimUser) {
+        String externalId = getExternalId(scimUser);
+        if (externalId == null || externalId.isBlank()) {
+            return;
+        }
+
+        UserAttribute<?> userAttribute = userAttributes.findByScimPath(EXTERNAL_ID_ATTRIBUTE);
+        if (userAttribute instanceof StringUserAttribute stringUserAttribute) {
+            stringUserAttribute.write(user, externalId);
+        }
     }
 
     /**

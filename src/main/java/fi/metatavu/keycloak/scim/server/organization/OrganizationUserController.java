@@ -1,5 +1,6 @@
 package fi.metatavu.keycloak.scim.server.organization;
 
+import fi.metatavu.keycloak.scim.server.ScimPagination;
 import fi.metatavu.keycloak.scim.server.adminEvents.AdminEventController;
 import fi.metatavu.keycloak.scim.server.config.ScimConfig;
 import fi.metatavu.keycloak.scim.server.consts.ScimRoles;
@@ -73,6 +74,8 @@ public class OrganizationUserController extends UsersController  {
         if (scimRole != null) {
             user.grantRole(scimRole);
         }
+
+        applyExternalId(user, userAttributes, scimUser);
 
         Map<String, Object> additionalProperties = scimUser.getAdditionalProperties();
         if (additionalProperties != null) {
@@ -151,6 +154,8 @@ public class OrganizationUserController extends UsersController  {
         if (scimUser.getEmails() != null && !scimUser.getEmails().isEmpty()) {
             ((StringUserAttribute) userAttributes.findByScimPath("email")).write(existing, scimUser.getEmails().getFirst().getValue());
         }
+
+        applyExternalId(existing, userAttributes, scimUser);
 
         Map<String, Object> additionalProperties = scimUser.getAdditionalProperties();
         if (additionalProperties != null) {
@@ -271,7 +276,7 @@ public class OrganizationUserController extends UsersController  {
      *
      * @param scimContext SCIM context
      * @param scimFilter SCIM filter
-     * @param firstResult first result
+     * @param startIndex 1-based SCIM start index
      * @param maxResults max results
      * @return users list
      */
@@ -279,9 +284,12 @@ public class OrganizationUserController extends UsersController  {
         OrganizationScimContext scimContext,
         ScimFilter scimFilter,
         UserAttributes userAttributes,
-        Integer firstResult,
+        Integer startIndex,
         Integer maxResults
     ) {
+        int scimStartIndex = ScimPagination.normalizeStartIndex(startIndex);
+        int offset = ScimPagination.toZeroBasedOffset(startIndex);
+
         fi.metatavu.keycloak.scim.server.model.UsersList result = new fi.metatavu.keycloak.scim.server.model.UsersList();
         RealmModel realm = scimContext.getRealm();
         KeycloakSession session = scimContext.getSession();
@@ -297,14 +305,14 @@ public class OrganizationUserController extends UsersController  {
             .toList();
 
         List<fi.metatavu.keycloak.scim.server.model.User> users = filteredUsers.stream()
-            .skip(firstResult)
+            .skip(offset)
             .limit(maxResults)
             .map(user -> translateUser(scimContext, userAttributes, user))
             .toList();
 
         result.setTotalResults(filteredUsers.size());
         result.setResources(users);
-        result.setStartIndex(firstResult);
+        result.setStartIndex(scimStartIndex);
         result.setItemsPerPage(maxResults);
 
         return result;
@@ -341,25 +349,6 @@ public class OrganizationUserController extends UsersController  {
         }
 
         return scimUser.getEmails() != null && !scimUser.getEmails().isEmpty() ? scimUser.getEmails().getFirst().getValue() : null;
-    }
-
-    /**
-     * Gets the external ID from SCIM user
-     *
-     * @param scimUser SCIM user
-     * @return external ID or null if not set
-     */
-    private String getExternalId(fi.metatavu.keycloak.scim.server.model.User scimUser) {
-        if (scimUser.getAdditionalProperties() == null) {
-            return null;
-        }
-
-        Object externalIdObj = scimUser.getAdditionalProperty("externalId");
-        if (!(externalIdObj instanceof String externalId)) {
-            return null;
-        }
-
-        return externalId;
     }
 
     /**

@@ -87,7 +87,8 @@ public class RealmSchemasTestsIT extends AbstractInternalAuthRealmScimTest {
         assertEquals("Group", schema.getName());
         assertNotNull(schema.getDescription());
         assertNotNull(schema.getAttributes());
-        assertEquals(2, schema.getAttributes().size());
+        assertEquals(3, schema.getAttributes().size());
+        assertGroupAttribute(schema.getAttributes(), "externalId", SchemaAttribute.TypeEnum.STRING);
         assertGroupAttribute(schema.getAttributes(), "displayName", SchemaAttribute.TypeEnum.STRING);
         assertGroupAttribute(schema.getAttributes(), "members", SchemaAttribute.TypeEnum.COMPLEX);
     }

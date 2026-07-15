@@ -90,6 +90,28 @@ public class RealmUserCreateTestsIT extends AbstractInternalAuthRealmScimTest {
     }
 
     @Test
+    void testCreateUserWithTopLevelExternalId() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+
+        User user = new User();
+        user.setUserName("external-id-user");
+        user.setActive(true);
+        user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
+        user.setName(getName("External", "Id"));
+        user.setEmails(getEmails("external.id@example.com"));
+        user.setExternalId("top-level-external-id");
+
+        User created = scimClient.createUser(user);
+
+        assertEquals("top-level-external-id", created.getExternalId());
+
+        UserRepresentation realmUser = findRealmUser(TestConsts.TEST_REALM, created.getId());
+        assertEquals("top-level-external-id", realmUser.getAttributes().get("externalId").getFirst());
+
+        deleteRealmUser(TestConsts.TEST_REALM, realmUser.getId());
+    }
+
+    @Test
     void testCreateUserWithoutUsernameReturnsBadRequest() {
         ScimClient scimClient = getAuthenticatedScimClient();
 

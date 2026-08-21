@@ -345,7 +345,19 @@
       } ]
     }
   },
-  "groups" : [ ],
+  "groups" : [ {
+    "name" : "scim-default",
+    "path" : "/scim-default",
+    "subGroups" : [ ]
+  }, {
+    "name" : "customers",
+    "path" : "/customers",
+    "subGroups" : [ {
+      "name" : "org-a",
+      "path" : "/customers/org-a",
+      "subGroups" : [ ]
+    } ]
+  } ],
   "defaultRole" : {
     "id" : "8e926cfb-b54f-4d49-84a1-46b3c7dc7a9f",
     "name" : "default-roles-organizations",
@@ -2217,6 +2229,23 @@
     },
     "domains" : [ {
       "name" : "org5.example.com",
+      "verified" : false
+    } ]
+  }, {
+    "id" : "f849d141-ebb7-4078-b4aa-52094f043126",
+    "name" : "defaultgroupsorg",
+    "alias" : "defaultgroupsorg",
+    "enabled" : true,
+    "description" : "",
+    "attributes" : {
+      "SCIM_EXTERNAL_JWKS_URI" : [ "http://localhost:8080/realms/external/protocol/openid-connect/certs" ],
+      "SCIM_EXTERNAL_ISSUER" : [ "*" ],
+      "SCIM_EXTERNAL_AUDIENCE" : [ "account" ],
+      "SCIM_AUTHENTICATION_MODE" : [ "EXTERNAL" ],
+      "SCIM_DEFAULT_GROUPS" : [ "/scim-default, /customers/org-a, /does-not-exist" ]
+    },
+    "domains" : [ {
+      "name" : "defaultgroupsorg.example.com",
       "verified" : false
     } ]
   } ],

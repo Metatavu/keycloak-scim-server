@@ -257,6 +257,22 @@ public abstract class AbstractScimTest {
     }
 
     /**
+     * Lists user group memberships
+     *
+     * @param realm realm name
+     * @param userId user ID
+     * @return user group memberships
+     */
+    protected List<GroupRepresentation> getUserGroups(String realm, String userId) {
+        return getKeycloakContainer().getKeycloakAdminClient()
+            .realms()
+            .realm(realm)
+            .users()
+            .get(userId)
+            .groups();
+    }
+
+    /**
      * Lists user realm role mappings
      *
      * @param userId user ID

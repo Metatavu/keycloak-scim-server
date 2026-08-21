@@ -68,6 +68,11 @@ public class KeycloakOrganizationScimConfig implements OrganizationScimConfig {
     }
 
     @Override
+    public String getDefaultGroups() {
+        return getAttribute(SCIM_DEFAULT_GROUPS);
+    }
+
+    @Override
     public String getBasicAuthUsername() {
         return getAttribute(SCIM_BASIC_AUTH_USERNAME);
     }

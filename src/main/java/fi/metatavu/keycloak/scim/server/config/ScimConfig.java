@@ -75,6 +75,13 @@ public interface ScimConfig {
      * @return true if email should be used as username
      */
     boolean getEmailAsUsername();
+
+    /**
+     * Returns comma-separated list of realm group paths that provisioned users automatically join
+     *
+     * @return comma-separated group paths or null if not configured
+     */
+    String getDefaultGroups();
     
     /**
      * Gets the basic auth username (if using EXTERNAL mode with Basic auth)

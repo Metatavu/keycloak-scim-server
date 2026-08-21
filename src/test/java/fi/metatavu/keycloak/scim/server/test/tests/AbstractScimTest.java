@@ -612,16 +612,26 @@ public abstract class AbstractScimTest {
 
     /**
      * Clears admin events recorded during the test execution
+     * <p>
+     * The container exec is retried once because the first exec against a loaded
+     * Docker daemon can fail with a dropped connection
      */
     protected void clearAdminEvents() throws IOException {
-        try {
-            getKeycloakContainer().execInContainer(
-                "sh", "-c",
-                "rm -rf /tmp/testdata/admin-events"
-            );
-        } catch (Exception e) {
-            throw new IOException("Failed to clear admin events", e);
+        Exception lastException = null;
+
+        for (int attempt = 0; attempt < 2; attempt++) {
+            try {
+                getKeycloakContainer().execInContainer(
+                    "sh", "-c",
+                    "rm -rf /tmp/testdata/admin-events"
+                );
+                return;
+            } catch (Exception e) {
+                lastException = e;
+            }
         }
+
+        throw new IOException("Failed to clear admin events", lastException);
     }
 
     /**

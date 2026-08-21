@@ -156,6 +156,7 @@ Configuration on organization level is done by defining organization attributes 
 | `SCIM_BASIC_AUTH_PASSWORD`   | Password hash in PHC String Format for HTTP Basic authentication.                                                                                   |
 | `SCIM_LINK_IDP`              | Enables support for linking organization identity provider with user.                                                                               |
 | `SCIM_EMAIL_AS_USERNAME`     | Forces server to use email as username instead of actual username. When enabled, username will be unaffected by update operations. Organization-level only. |
+| `SCIM_DEFAULT_GROUPS`        | Comma-separated list of realm group paths (e.g. `/customers/acme`) that provisioned users automatically join. Unknown paths are skipped with a warning. Organization-level only. |
 
 ## Authentication
 

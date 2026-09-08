@@ -38,6 +38,7 @@ val keycloakVersion: String by project
 val testContainersVersion: String by project
 val testContainersKeycloakVersion: String by project
 val junitVersion: String by project
+val junitPlatformVersion: String by project
 val mockitoVersion: String by project
 val awaitilityVersion: String by project
 val seleniumRemoteDriverVersion: String by project
@@ -65,6 +66,20 @@ dependencies {
     testImplementation("org.seleniumhq.selenium:selenium-java:$seleniumVersion")
 
     jacocoRuntime("org.jacoco:org.jacoco.agent:$jacocoVersion:runtime")
+}
+
+configurations.all {
+    resolutionStrategy {
+        force("org.junit.jupiter:junit-jupiter-api:$junitVersion")
+        force("org.junit.jupiter:junit-jupiter-engine:$junitVersion")
+        force("org.junit.jupiter:junit-jupiter-params:$junitVersion")
+        force("org.junit.platform:junit-platform-commons:$junitPlatformVersion")
+        force("org.junit.platform:junit-platform-engine:$junitPlatformVersion")
+        force("org.junit.platform:junit-platform-launcher:$junitPlatformVersion")
+        force("org.testcontainers:testcontainers:$testContainersVersion")
+        force("org.testcontainers:junit-jupiter:$testContainersVersion")
+        force("org.testcontainers:selenium:$testContainersVersion")
+    }
 }
 
 group = "fi.metatavu.keycloak.scim.server"

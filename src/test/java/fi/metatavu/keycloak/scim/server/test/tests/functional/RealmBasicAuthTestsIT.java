@@ -12,6 +12,11 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+/**
+ * Tests realm-level SCIM access using HTTP Basic authentication in EXTERNAL authentication mode
+ * (e.g. Okta SCIM provisioning), covering successful auth as well as wrong-password and
+ * wrong-username failure cases.
+ */
 @Testcontainers
 public class RealmBasicAuthTestsIT extends AbstractRealmScimTest {
 

@@ -2,6 +2,7 @@ package fi.metatavu.keycloak.scim.server.organization;
 
 import fi.metatavu.keycloak.scim.server.AbstractScimServer;
 import fi.metatavu.keycloak.scim.server.ScimErrors;
+import fi.metatavu.keycloak.scim.server.attributes.AttributeSelection;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
 import fi.metatavu.keycloak.scim.server.jacoco.ExcludeFromJacocoGeneratedReport;
 import fi.metatavu.keycloak.scim.server.metadata.UserAttributes;
@@ -185,14 +186,14 @@ public abstract class OrganizationScimServer extends AbstractScimServer<Organiza
 
     @Override
     @ExcludeFromJacocoGeneratedReport
-    public Response listGroups(OrganizationScimContext scimContext, ScimFilter filter, int startIndex, int count) {
+    public Response listGroups(OrganizationScimContext scimContext, ScimFilter filter, int startIndex, int count, AttributeSelection attributeSelection) {
         // TODO: Organization Groups are not supported yet by the Keycloak
         return Response.status(Response.Status.NOT_IMPLEMENTED).build();
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
-    public Response findGroup(OrganizationScimContext scimContext, String id) {
+    public Response findGroup(OrganizationScimContext scimContext, String id, AttributeSelection attributeSelection) {
         // TODO: Organization Groups are not supported yet by the Keycloak
         return Response.status(Response.Status.NOT_IMPLEMENTED).build();
     }
@@ -206,7 +207,7 @@ public abstract class OrganizationScimServer extends AbstractScimServer<Organiza
 
     @Override
     @ExcludeFromJacocoGeneratedReport
-    public Response patchGroup(OrganizationScimContext scimContext, String groupId, PatchRequest patchRequest) {
+    public Response patchGroup(OrganizationScimContext scimContext, String groupId, PatchRequest patchRequest, AttributeSelection attributeSelection) {
         // TODO: Organization Groups are not supported yet by the Keycloak
         return Response.status(Response.Status.NOT_IMPLEMENTED).build();
     }

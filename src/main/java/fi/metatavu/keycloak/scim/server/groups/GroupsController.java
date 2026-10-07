@@ -3,6 +3,7 @@ package fi.metatavu.keycloak.scim.server.groups;
 import fi.metatavu.keycloak.scim.server.AbstractController;
 import fi.metatavu.keycloak.scim.server.ScimContext;
 import fi.metatavu.keycloak.scim.server.adminEvents.AdminEventController;
+import fi.metatavu.keycloak.scim.server.attributes.AttributeSelection;
 import fi.metatavu.keycloak.scim.server.filter.ComparisonFilter;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
 import fi.metatavu.keycloak.scim.server.metadata.GroupAttribute;
@@ -75,11 +76,13 @@ public class GroupsController extends AbstractController {
      *
      * @param scimContext SCIM context
      * @param groupId group ID
+     * @param attributeSelection attributes the response may carry
      * @return found group
      */
     public Group findGroup(
             ScimContext scimContext,
-            String groupId
+            String groupId,
+            AttributeSelection attributeSelection
     ) {
         KeycloakSession session = scimContext.getSession();
         RealmModel realm = scimContext.getRealm();
@@ -88,7 +91,7 @@ public class GroupsController extends AbstractController {
             return null;
         }
 
-        return translateGroup(scimContext, group);
+        return translateGroup(scimContext, group, attributeSelection);
     }
 
     /**
@@ -97,13 +100,15 @@ public class GroupsController extends AbstractController {
      * @param scimContext SCIM context
      * @param startIndex start index
      * @param count count
+     * @param attributeSelection attributes the response may carry
      * @return groups list
      */
     public GroupsList listGroups(
             ScimContext scimContext,
             ScimFilter scimFilter,
             int startIndex,
-            int count
+            int count,
+            AttributeSelection attributeSelection
     ) {
         KeycloakSession session = scimContext.getSession();
         RealmModel realm = scimContext.getRealm();
@@ -124,7 +129,7 @@ public class GroupsController extends AbstractController {
         List<Group> groups = filteredGroups.stream()
             .skip(startIndex)
             .limit(count)
-            .map(group -> translateGroup(scimContext, group))
+            .map(group -> translateGroup(scimContext, group, attributeSelection))
             .collect(Collectors.toList());
 
         result.setTotalResults(filteredGroups.size());
@@ -207,12 +212,14 @@ public class GroupsController extends AbstractController {
      * @param scimContext SCIM context
      * @param existing existing group
      * @param patchRequest patch request
-     * @return patched group
+     * @param attributeSelection attributes the response may carry
+     * @return patched group, or null when the caller asked for no body
      */
     public fi.metatavu.keycloak.scim.server.model.Group patchGroup(
             ScimContext scimContext,
             GroupModel existing,
-            fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
+            fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest,
+            AttributeSelection attributeSelection
     ) throws UnsupportedGroupPath, UnsupportedPatchOperation, InvalidGroupMemberReference {
         for (var operation : patchRequest.getOperations()) {
             PatchOperation op = PatchOperation.fromString(operation.getOp());
@@ -288,7 +295,14 @@ public class GroupsController extends AbstractController {
             applyGroupPatch(scimContext, op, groupAttribute, path, effectiveValue, existing);
         }
 
-        return translateGroup(scimContext, existing);
+        // RFC 7644 §3.5.2: a successful PATCH may answer 204 No Content, and
+        // MUST answer 200 with the resource when "attributes" was specified.
+        // Only the latter costs a representation, so only the latter builds one.
+        if (!attributeSelection.isExplicit()) {
+            return null;
+        }
+
+        return translateGroup(scimContext, existing, attributeSelection);
     }
 
     /**
@@ -447,28 +461,63 @@ public class GroupsController extends AbstractController {
      * Translates Keycloak group to SCIM group
      *
      * @param group group
-     * @return SCIM group
+     * @return SCIM group with the full member list
      */
     private Group translateGroup(
             ScimContext scimContext,
             GroupModel group
     ) {
+        return translateGroup(scimContext, group, AttributeSelection.DEFAULT);
+    }
+
+    /**
+     * Translates Keycloak group to SCIM group, honouring the client's attribute
+     * selection.
+     *
+     * <p>The member list is only loaded when it is actually going to be
+     * serialised. {@code members} is "returned": "default" in the core Group
+     * schema (RFC 7643 §8.7.1), so a plain read still pays for the whole
+     * membership — but a client that sends {@code excludedAttributes=members}
+     * (as Microsoft Entra ID does on every group read) now costs a constant
+     * amount of work instead of O(group size). Omitting the attribute rather
+     * than nulling it is deliberate: RFC 7643 §2.5 treats null and the empty
+     * array as equivalent to unassigned, so {@code "members": null} would
+     * wrongly assert that the group is empty.
+     *
+     * @param scimContext SCIM context
+     * @param group group
+     * @param attributeSelection attributes the response may carry
+     * @return SCIM group
+     */
+    private Group translateGroup(
+            ScimContext scimContext,
+            GroupModel group,
+            AttributeSelection attributeSelection
+    ) {
         RealmModel realm = scimContext.getRealm();
         KeycloakSession session = scimContext.getSession();
 
-        List<GroupMembersInner> members = session.users().getGroupMembersStream(realm, group)
-                .map(member -> new GroupMembersInner()
-                        .value(member.getId())
-                        .display(member.getUsername())
-                )
-                .toList();
-
-        return new Group()
+        // id, schemas and meta are the minimum attribute set (RFC 7644 §3.9):
+        // they are returned whatever the client selected.
+        Group result = new Group()
                 .id(group.getId())
-                .displayName(group.getName())
-                .members(members)
                 .schemas(Collections.singletonList(Schemas.GROUP_SCHEMA))
                 .meta(getMeta(scimContext, "Group", String.format("Groups/%s", group.getId())));
+
+        if (attributeSelection.includes(GroupAttribute.DISPLAY_NAME.getScimPath())) {
+            result.setDisplayName(group.getName());
+        }
+
+        if (attributeSelection.includes(GroupAttribute.MEMBERS.getScimPath())) {
+            result.setMembers(session.users().getGroupMembersStream(realm, group)
+                    .map(member -> new GroupMembersInner()
+                            .value(member.getId())
+                            .display(member.getUsername())
+                    )
+                    .toList());
+        }
+
+        return result;
     }
 
     /**

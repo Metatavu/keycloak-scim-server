@@ -1,5 +1,6 @@
 package fi.metatavu.keycloak.scim.server;
 
+import fi.metatavu.keycloak.scim.server.attributes.AttributeSelection;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
 import jakarta.ws.rs.core.Response;
 
@@ -92,18 +93,20 @@ public interface ScimServer <T extends ScimContext> {
      * @param scimFilter  SCIM filter
      * @param startIndex  start index
      * @param count       count
+     * @param attributeSelection attributes the response may carry
      * @return response
      */
-    Response listGroups(T scimContext, ScimFilter scimFilter, int startIndex, int count);
+    Response listGroups(T scimContext, ScimFilter scimFilter, int startIndex, int count, AttributeSelection attributeSelection);
 
     /**
      * Finds a group by ID
      *
      * @param scimContext SCIM context
      * @param id          group ID
+     * @param attributeSelection attributes the response may carry
      * @return response
      */
-    Response findGroup(T scimContext, String id);
+    Response findGroup(T scimContext, String id, AttributeSelection attributeSelection);
 
     /**
      * Updates a group
@@ -121,9 +124,10 @@ public interface ScimServer <T extends ScimContext> {
      * @param scimContext SCIM context
      * @param groupId     group ID
      * @param patchRequest patch request
+     * @param attributeSelection attributes the response may carry
      * @return response
      */
-    Response patchGroup(T scimContext, String groupId, fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest);
+    Response patchGroup(T scimContext, String groupId, fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest, AttributeSelection attributeSelection);
 
     /**
      * Deletes a group

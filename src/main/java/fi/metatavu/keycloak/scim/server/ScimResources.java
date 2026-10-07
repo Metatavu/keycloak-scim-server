@@ -1,5 +1,7 @@
 package fi.metatavu.keycloak.scim.server;
 
+import fi.metatavu.keycloak.scim.server.attributes.AttributeSelection;
+import fi.metatavu.keycloak.scim.server.attributes.ConflictingAttributeSelection;
 import fi.metatavu.keycloak.scim.server.consts.ContentTypes;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilterParser;
@@ -202,11 +204,20 @@ public class ScimResources {
             @Context KeycloakSession session,
             @QueryParam("filter") String filter,
             @QueryParam("startIndex") @DefaultValue("0") int startIndex,
-            @QueryParam("count") @DefaultValue("100") int count
+            @QueryParam("count") @DefaultValue("100") int count,
+            @QueryParam("attributes") String attributes,
+            @QueryParam("excludedAttributes") String excludedAttributes
     ) {
         logger.debugf("GET /v2/Groups filter=%s startIndex=%d count=%d", filter, startIndex, count);
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
         realmScimServer.verifyPermissions(scimContext);
+
+        AttributeSelection attributeSelection;
+        try {
+            attributeSelection = AttributeSelection.parse(attributes, excludedAttributes);
+        } catch (ConflictingAttributeSelection e) {
+            return ScimErrors.invalidValue(e.getMessage());
+        }
 
         ScimFilter scimFilter;
         try {
@@ -220,7 +231,8 @@ public class ScimResources {
                 scimContext,
                 scimFilter,
                 startIndex,
-                count
+                count,
+                attributeSelection
         );
     }
 
@@ -230,15 +242,25 @@ public class ScimResources {
     @SuppressWarnings("unused")
     public Response findRealmGroup(
             @Context KeycloakSession session,
-            @PathParam("id") String id
+            @PathParam("id") String id,
+            @QueryParam("attributes") String attributes,
+            @QueryParam("excludedAttributes") String excludedAttributes
     ) {
         logger.debugf("GET /v2/Groups/%s", id);
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
         realmScimServer.verifyPermissions(scimContext);
 
+        AttributeSelection attributeSelection;
+        try {
+            attributeSelection = AttributeSelection.parse(attributes, excludedAttributes);
+        } catch (ConflictingAttributeSelection e) {
+            return ScimErrors.invalidValue(e.getMessage());
+        }
+
         return realmScimServer.findGroup(
                 scimContext,
-                id
+                id,
+                attributeSelection
         );
     }
 
@@ -271,16 +293,28 @@ public class ScimResources {
     public Response patchRealmGroup(
             @Context KeycloakSession session,
             @PathParam("id") String groupId,
+            @QueryParam("attributes") String attributes,
             fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
     ) {
         logger.debugf("PATCH /v2/Groups/%s", groupId);
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
         realmScimServer.verifyPermissions(scimContext);
 
+        // Only "attributes" is read here: RFC 7644 §3.9 scopes
+        // "excludedAttributes" to resource retrieval, and §3.5.2 keys the
+        // 200-versus-204 decision on "attributes" alone.
+        AttributeSelection attributeSelection;
+        try {
+            attributeSelection = AttributeSelection.parse(attributes, null);
+        } catch (ConflictingAttributeSelection e) {
+            return ScimErrors.invalidValue(e.getMessage());
+        }
+
         return realmScimServer.patchGroup(
                 scimContext,
                 groupId,
-                patchRequest
+                patchRequest,
+                attributeSelection
         );
     }
 
@@ -561,7 +595,8 @@ public class ScimResources {
             scimContext,
             scimFilter,
             startIndex,
-            count
+            count,
+            AttributeSelection.DEFAULT
         );
     }
 
@@ -580,7 +615,8 @@ public class ScimResources {
 
         return getOrganizationScimServer().findGroup(
             scimContext,
-            id
+            id,
+            AttributeSelection.DEFAULT
         );
     }
 
@@ -624,7 +660,8 @@ public class ScimResources {
         return getOrganizationScimServer().patchGroup(
                 scimContext,
                 groupId,
-                patchRequest
+                patchRequest,
+                AttributeSelection.DEFAULT
         );
     }
 

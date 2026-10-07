@@ -29,6 +29,7 @@ This project provides a **SCIM 2.0-compliant extension** for [Keycloak](https://
   - [Okta](#okta)
 - [Identity Provider Linking](#identity-provider-linking)
   - [Identity Provider Linking with Azure Entra ID](#identity-provider-linking-with-azure-entra-id)
+- [Group responses and large groups](#group-responses-and-large-groups)
 - [SCIM-Managed Users](#scim-managed-users)
 - [License](#license)
 
@@ -38,9 +39,31 @@ This project provides a **SCIM 2.0-compliant extension** for [Keycloak](https://
 |---|-------------------------|---|
 | 1.5.0 | 26.3.x (tested: 26.3.5) | Stable |
 | 1.6.0 | 26.3.x (tested: 26.3.5) | Stable |
-| 1.7.0 | 26.6.x (tested: 26.6.3) | In development |
+| 1.7.0 | 26.6.x (tested: 26.6.3) | Stable |
+| 1.8.0 | 26.6.x (tested: 26.6.3) | In development |
 
 > **Note:** Organization-level SCIM APIs require Keycloak **26+** with the Organizations feature enabled.
+
+### Upgrading to 1.8.0
+
+`PATCH /Groups/{id}` now returns **`204 No Content`** instead of `200` with the
+full group representation. This is a breaking change for any client that read
+the member list out of the PATCH response.
+
+The reason is cost: group membership is provisioned one member at a time, so
+returning the whole group on every request made provisioning a group O(n²) and
+could exhaust the heap of a Keycloak serving a large group.
+
+If you need the updated resource back, name the attributes you want and the
+server answers `200` with a body, as RFC 7644 §3.5.2 requires:
+
+```http
+PATCH /Groups/{id}?attributes=members
+```
+
+Group reads also now honour `attributes` and `excludedAttributes` (RFC 7644
+§3.9). A plain `GET /Groups/{id}` is unchanged and still returns the full
+membership. See [Group responses and large groups](#group-responses-and-large-groups).
 
 ## Prerequisites
 

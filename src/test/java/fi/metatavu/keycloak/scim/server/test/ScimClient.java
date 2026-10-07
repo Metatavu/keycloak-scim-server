@@ -7,13 +7,24 @@ import fi.metatavu.keycloak.scim.server.test.client.api.MetadataApi;
 import fi.metatavu.keycloak.scim.server.test.client.api.UsersApi;
 import fi.metatavu.keycloak.scim.server.test.client.model.*;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.io.IOException;
 import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
 /**
  * SCIM client
  */
 public class ScimClient {
+
+    private static final HttpClient HTTP_CLIENT = HttpClient.newHttpClient();
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final URI scimUri;
     private final String authorizationHeader;
@@ -124,7 +135,28 @@ public class ScimClient {
      * @throws ApiException thrown when API call fails
      */
     public GroupsList listGroups(String filter, Integer startIndex, Integer count) throws ApiException {
-        return getGroupsApi().listGroups(filter, startIndex, count);
+        return listGroups(filter, startIndex, count, null, null);
+    }
+
+    /**
+     * Lists groups, selecting which attributes the response should carry
+     *
+     * @param filter filter
+     * @param startIndex start index
+     * @param count count
+     * @param attributes attributes to return, overriding the default set
+     * @param excludedAttributes attributes to omit from the default set
+     * @return groups list
+     * @throws ApiException thrown when API call fails
+     */
+    public GroupsList listGroups(
+            String filter,
+            Integer startIndex,
+            Integer count,
+            String attributes,
+            String excludedAttributes
+    ) throws ApiException {
+        return getGroupsApi().listGroups(filter, startIndex, count, attributes, excludedAttributes);
     }
 
     /**
@@ -146,7 +178,20 @@ public class ScimClient {
      * @throws ApiException thrown when API call fails
      */
     public Group findGroup(String id) throws ApiException {
-        return getGroupsApi().getGroup(id);
+        return findGroup(id, null, null);
+    }
+
+    /**
+     * Finds a group, selecting which attributes the response should carry
+     *
+     * @param id group ID
+     * @param attributes attributes to return, overriding the default set
+     * @param excludedAttributes attributes to omit from the default set
+     * @return found group
+     * @throws ApiException thrown when API call fails
+     */
+    public Group findGroup(String id, String attributes, String excludedAttributes) throws ApiException {
+        return getGroupsApi().getGroup(id, attributes, excludedAttributes);
     }
 
     /**
@@ -162,15 +207,64 @@ public class ScimClient {
     }
 
     /**
-     * Patches a group
+     * Patches a group.
+     *
+     * <p>Returns the raw response rather than a parsed group: a successful
+     * group PATCH answers 204 No Content (RFC 7644 §3.5.2), so there is
+     * nothing to deserialise. Use {@link #patchGroup(String, PatchRequest, String)}
+     * when the test needs the updated resource back.
      *
      * @param id group ID
      * @param patchRequest patch request
+     * @return raw SCIM response
+     * @throws ApiException thrown when API call fails
+     */
+    public ScimResponse patchGroup(String id, PatchRequest patchRequest) throws ApiException {
+        return request("PATCH", String.format("Groups/%s", id), null, patchRequest);
+    }
+
+    /**
+     * Patches a group and asks for the updated resource back.
+     *
+     * <p>Supplying "attributes" obliges the server to answer 200 with a body
+     * (RFC 7644 §3.5.2) carrying the minimum attribute set plus the attributes
+     * named.
+     *
+     * @param id group ID
+     * @param patchRequest patch request
+     * @param attributes comma-separated attribute names to return
      * @return patched group
      * @throws ApiException thrown when API call fails
      */
-    public Group patchGroup(String id, PatchRequest patchRequest) throws ApiException {
-        return getGroupsApi().patchGroup(id, patchRequest);
+    public Group patchGroup(String id, PatchRequest patchRequest, String attributes) throws ApiException {
+        return getGroupsApi().patchGroup(id, patchRequest, attributes);
+    }
+
+    /**
+     * Finds a group and returns the response unparsed.
+     *
+     * <p>Lets a test assert on the literal JSON — specifically that an
+     * excluded attribute is absent rather than serialised as null, which RFC
+     * 7643 §2.5 would read as "this group has no members".
+     *
+     * @param id group ID
+     * @param query raw query string, without the leading "?", or null
+     * @return raw SCIM response
+     * @throws ApiException thrown when API call fails
+     */
+    public ScimResponse findGroupRaw(String id, String query) throws ApiException {
+        return request("GET", String.format("Groups/%s", id), query, null);
+    }
+
+    /**
+     * Lists groups and returns the response unparsed.
+     *
+     * @param query raw query string, without the leading "?", or null
+     * @return raw SCIM response
+     * @throws ApiException thrown when API call fails
+     */
+    public ScimResponse listGroupsRaw(String query) throws ApiException {
+        return request("GET", "Groups", query, null);
     }
 
     /**
@@ -257,6 +351,92 @@ public class ScimClient {
      *
      * @return initialized API client
      */
+    /**
+     * Issues a SCIM request without the generated client, so that the status
+     * code and the response body can be asserted exactly as the server sent
+     * them.
+     *
+     * @param method HTTP method
+     * @param path path relative to the SCIM base URI
+     * @param query raw query string without the leading "?", or null
+     * @param body request body to serialise, or null
+     * @return raw SCIM response
+     * @throws ApiException thrown when the request cannot be made
+     */
+    private ScimResponse request(String method, String path, String query, Object body) throws ApiException {
+        try {
+            String base = scimUri.toString();
+            if (!base.endsWith("/")) {
+                base = base + "/";
+            }
+
+            URI uri = URI.create(base + path + (query == null || query.isBlank() ? "" : "?" + query));
+
+            HttpRequest.BodyPublisher bodyPublisher = body == null
+                    ? HttpRequest.BodyPublishers.noBody()
+                    : HttpRequest.BodyPublishers.ofString(OBJECT_MAPPER.writeValueAsString(body), StandardCharsets.UTF_8);
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(uri)
+                    .header("Authorization", authorizationHeader)
+                    .header("Accept", "application/scim+json")
+                    .header("Content-Type", "application/scim+json")
+                    .method(method, bodyPublisher)
+                    .build();
+
+            HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+
+            // Mirror the generated client: a non-2xx surfaces as ApiException
+            // carrying the status and the SCIM Error body, so error assertions
+            // work the same whichever path a test took to get here.
+            if (response.statusCode() / 100 != 2) {
+                throw new ApiException(
+                        response.statusCode(),
+                        String.format("%s %s call failed", method, path),
+                        response.headers(),
+                        response.body()
+                );
+            }
+
+            return new ScimResponse(response.statusCode(), response.body());
+        } catch (JsonProcessingException e) {
+            throw new ApiException(e);
+        } catch (IOException e) {
+            throw new ApiException(e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ApiException(e);
+        }
+    }
+
+    /**
+     * A SCIM response as it came off the wire.
+     *
+     * @param status HTTP status code
+     * @param body response body, empty when the server returned no content
+     */
+    public record ScimResponse(int status, String body) {
+
+        /**
+         * Whether the body contains the given attribute as a JSON property.
+         *
+         * @param attributeName attribute name
+         * @return true if the property is present
+         */
+        public boolean hasAttribute(String attributeName) {
+            return body != null && body.contains("\"" + attributeName + "\"");
+        }
+
+        /**
+         * Size of the response body in bytes.
+         *
+         * @return byte count
+         */
+        public int size() {
+            return body == null ? 0 : body.getBytes(StandardCharsets.UTF_8).length;
+        }
+    }
+
     private ApiClient getApiClient() {
         ApiClient result = new ApiClient();
         String path = scimUri.getPath();

@@ -487,6 +487,55 @@ SCIM_IDENTITY_PROVIDER_ALIAS=<your-idp-alias>
 
 This ensures that when a user is provisioned via SCIM, a corresponding Identity Provider link is created automatically based on the `externalId` / `oid`.
 
+## Group responses and large groups
+
+Group membership is provisioned one member at a time: an identity provider that
+adds 10,000 users to a group sends 10,000 separate `PATCH /Groups/{id}`
+requests. Returning the whole group on each of those makes the cost of
+provisioning a group quadratic in its size, which is enough to exhaust a
+Keycloak container's heap on a group of a few tens of thousands.
+
+Group responses are therefore kept proportional to what the client asked for:
+
+### `PATCH /Groups/{id}` answers `204 No Content`
+
+A successful group PATCH returns no body. RFC 7644 §3.5.2 allows this
+explicitly, and Microsoft Entra ID documents it as the response it expects
+("Returning a body with a list of all the members isn't advisable"). Okta
+accepts it as well.
+
+To get the updated resource back, name the attributes you want:
+
+```http
+PATCH /Groups/{id}?attributes=members
+```
+
+That returns `200 OK` with a body carrying `id`, `schemas`, `meta` and the
+attributes named — which RFC 7644 §3.5.2 requires whenever `attributes` is
+supplied.
+
+### Group reads honour `attributes` and `excludedAttributes`
+
+`GET /Groups` and `GET /Groups/{id}` both support the two attribute-selection
+parameters from RFC 7644 §3.9. The useful one for large groups is:
+
+```http
+GET /Groups/{id}?excludedAttributes=members
+GET /Groups?excludedAttributes=members&filter=displayName eq "Engineering"
+```
+
+Both return the group without its membership, at a cost independent of how many
+members it has. Entra ID sends this form on every group read.
+
+The parameters are mutually exclusive; supplying both returns `400` with a SCIM
+Error body.
+
+Note that a plain `GET /Groups/{id}` with neither parameter still returns the
+full membership: `members` is `"returned": "default"` in the core Group schema
+(RFC 7643 §8.7.1), so omitting it by default would be non-conformant. Clients
+reading very large groups should pass `excludedAttributes=members`.
+
+
 ## SCIM-Managed Users
 
 By default, the SCIM server only exposes users who are explicitly assigned the `scim-managed` role within the realm. This ensures that only users intended to be managed through SCIM are returned or modifiable via SCIM API operations.

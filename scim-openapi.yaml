@@ -224,6 +224,24 @@ paths:
           in: query
           schema:
             type: integer
+        - name: attributes
+          in: query
+          description: >
+            Comma-separated attribute names to return, overriding the default
+            attribute set (RFC 7644 3.9). Mutually exclusive with
+            excludedAttributes.
+          required: false
+          schema:
+            type: string
+        - name: excludedAttributes
+          in: query
+          description: >
+            Comma-separated attribute names to omit from the default attribute
+            set (RFC 7644 3.9). Pass `members` to read groups without paying
+            for the membership list. Mutually exclusive with attributes.
+          required: false
+          schema:
+            type: string
       responses:
         '200':
           description: List of groups
@@ -274,6 +292,24 @@ paths:
         - name: id
           in: path
           required: true
+          schema:
+            type: string
+        - name: attributes
+          in: query
+          description: >
+            Comma-separated attribute names to return, overriding the default
+            attribute set (RFC 7644 3.9). Mutually exclusive with
+            excludedAttributes.
+          required: false
+          schema:
+            type: string
+        - name: excludedAttributes
+          in: query
+          description: >
+            Comma-separated attribute names to omit from the default attribute
+            set (RFC 7644 3.9). Pass `members` to read groups without paying
+            for the membership list. Mutually exclusive with attributes.
+          required: false
           schema:
             type: string
       responses:
@@ -341,6 +377,16 @@ paths:
       description: >
         Updates a group using SCIM PATCH semantics.
 
+        Answers `204 No Content` by default. A membership change costs one
+        member either way, so serialising the whole group — which for a
+        directory-sync client means every member, on every request — is work
+        no client asked for. RFC 7644 3.5.2 permits 204 for exactly this
+        reason, and Microsoft Entra ID documents it as the expected response.
+
+        Pass `attributes` to get a body instead: that turns the response into
+        `200 OK` carrying the minimum attribute set plus the attributes named,
+        as RFC 7644 3.5.2 requires.
+
         Requires:
         - OAuth2 access token (Bearer token)
         - The service account must have the realm role `scim-access`
@@ -352,6 +398,14 @@ paths:
           required: true
           schema:
             type: string
+        - name: attributes
+          in: query
+          description: >
+            Comma-separated attribute names to return. Supplying this forces a
+            200 response carrying the named attributes (RFC 7644 3.5.2).
+          required: false
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -359,8 +413,10 @@ paths:
             schema:
               $ref: '#/components/schemas/PatchRequest'
       responses:
+        '204':
+          description: Group updated, no body returned
         '200':
-          description: Group updated
+          description: Group updated, returned because `attributes` was specified
           content:
             application/scim+json:
               schema:

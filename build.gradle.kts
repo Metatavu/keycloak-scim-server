@@ -118,7 +118,13 @@ val generateModelsCode = tasks.register("generateModelsCode", GenerateTask::clas
     this.configOptions.put("enumPropertyNaming", "UPPERCASE")
     this.configOptions.put("openApiNullable", "false")
     this.configOptions.put("useJakartaEe", "true")
-    this.configOptions.put("additionalModelTypeAnnotations", "@com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)")
+    // NON_NULL is what makes attribute selection expressible. RFC 7643 2.5 treats
+    // null, an empty array and an absent attribute as the same "unassigned" state,
+    // so serialising "members": null in response to excludedAttributes=members would
+    // claim the group is empty rather than that the membership was not returned.
+    // Omission is also explicitly sanctioned there: unassigned attributes "MAY be
+    // omitted for compactness".
+    this.configOptions.put("additionalModelTypeAnnotations", "@com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true);@com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)")
 }
 
 val scimModelsOutputDir = layout.projectDirectory.dir("build/generated/scim-models/src/main/java")

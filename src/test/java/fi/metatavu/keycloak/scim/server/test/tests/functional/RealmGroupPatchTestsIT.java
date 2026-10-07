@@ -47,12 +47,17 @@ public class RealmGroupPatchTestsIT extends AbstractInternalAuthRealmScimTest {
 
         patchRequest.setOperations(List.of(operation));
 
-        Group patched = scimClient.patchGroup(group.getId(), patchRequest);
+        // A successful group PATCH answers 204 No Content (RFC 7644 §3.5.2);
+        // membership is verified with a follow-up read.
+        ScimClient.ScimResponse patched = scimClient.patchGroup(group.getId(), patchRequest);
+        assertEquals(204, patched.status());
+        assertTrue(patched.body() == null || patched.body().isEmpty());
 
         // Verify the user is a member of the group
-        assertNotNull(patched.getMembers());
-        assertEquals(1, patched.getMembers().size());
-        assertEquals(user.getId(), patched.getMembers().get(0).getValue());
+        Group after = scimClient.findGroup(group.getId());
+        assertNotNull(after.getMembers());
+        assertEquals(1, after.getMembers().size());
+        assertEquals(user.getId(), after.getMembers().get(0).getValue());
 
         // Clean up
         deleteRealmUser(TestConsts.TEST_REALM, user.getId());
@@ -92,10 +97,11 @@ public class RealmGroupPatchTestsIT extends AbstractInternalAuthRealmScimTest {
 
         removeRequest.setOperations(List.of(removeOperation));
 
-        Group patched = scimClient.patchGroup(group.getId(), removeRequest);
+        assertEquals(204, scimClient.patchGroup(group.getId(), removeRequest).status());
 
         // Verify the user is no longer a member of the group
-        assertTrue(patched.getMembers() == null || patched.getMembers().isEmpty());
+        Group after = scimClient.findGroup(group.getId());
+        assertTrue(after.getMembers() == null || after.getMembers().isEmpty());
 
         // Clean up
         deleteRealmUser(TestConsts.TEST_REALM, user.getId());
@@ -458,7 +464,9 @@ public class RealmGroupPatchTestsIT extends AbstractInternalAuthRealmScimTest {
 
             patchRequest.setOperations(List.of(op));
 
-            Group patched = scimClient.patchGroup(group.getId(), patchRequest);
+            // Asking for "members" obliges the server to answer 200 with a
+            // body carrying that attribute (RFC 7644 §3.5.2).
+            Group patched = scimClient.patchGroup(group.getId(), patchRequest, "members");
 
             assertNotNull(patched);
             assertNotNull(patched.getMembers());
@@ -515,9 +523,10 @@ public class RealmGroupPatchTestsIT extends AbstractInternalAuthRealmScimTest {
         removeOperation.setPath("members[value eq \"" + user.getId() + "\"]");
         removeRequest.setOperations(List.of(removeOperation));
 
-        Group patched = scimClient.patchGroup(group.getId(), removeRequest);
+        assertEquals(204, scimClient.patchGroup(group.getId(), removeRequest).status());
 
-        assertTrue(patched.getMembers() == null || patched.getMembers().isEmpty());
+        Group after = scimClient.findGroup(group.getId());
+        assertTrue(after.getMembers() == null || after.getMembers().isEmpty());
 
         deleteRealmUser(TestConsts.TEST_REALM, user.getId());
         deleteRealmGroup(TestConsts.TEST_REALM, group.getId());

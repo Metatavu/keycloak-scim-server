@@ -3,6 +3,7 @@ package fi.metatavu.keycloak.scim.server.realm;
 import fi.metatavu.keycloak.scim.server.AbstractScimServer;
 import fi.metatavu.keycloak.scim.server.ScimErrors;
 import fi.metatavu.keycloak.scim.server.config.ConfigurationError;
+import fi.metatavu.keycloak.scim.server.attributes.AttributeSelection;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
 import fi.metatavu.keycloak.scim.server.groups.InvalidGroupMemberReference;
 import fi.metatavu.keycloak.scim.server.groups.UnsupportedGroupPath;
@@ -192,14 +193,14 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
     }
 
     @Override
-    public Response listGroups(RealmScimContext scimContext, ScimFilter filter, int startIndex, int count) {
-        fi.metatavu.keycloak.scim.server.model.GroupsList groupList = groupsController.listGroups(scimContext, filter, startIndex, count);
+    public Response listGroups(RealmScimContext scimContext, ScimFilter filter, int startIndex, int count, AttributeSelection attributeSelection) {
+        fi.metatavu.keycloak.scim.server.model.GroupsList groupList = groupsController.listGroups(scimContext, filter, startIndex, count, attributeSelection);
         return Response.ok(groupList).build();
     }
 
     @Override
-    public Response findGroup(RealmScimContext scimContext, String id) {
-        fi.metatavu.keycloak.scim.server.model.Group group = groupsController.findGroup(scimContext, id);
+    public Response findGroup(RealmScimContext scimContext, String id, AttributeSelection attributeSelection) {
+        fi.metatavu.keycloak.scim.server.model.Group group = groupsController.findGroup(scimContext, id, attributeSelection);
         if (group == null) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -230,7 +231,7 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
     }
 
     @Override
-    public Response patchGroup(RealmScimContext scimContext, String groupId, fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest) {
+    public Response patchGroup(RealmScimContext scimContext, String groupId, fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest, AttributeSelection attributeSelection) {
         KeycloakSession session = scimContext.getSession();
 
         GroupModel existing = session.groups().getGroupById(scimContext.getRealm(), groupId);
@@ -243,7 +244,16 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
         }
 
         try {
-            fi.metatavu.keycloak.scim.server.model.Group updated = groupsController.patchGroup(scimContext, existing, patchRequest);
+            fi.metatavu.keycloak.scim.server.model.Group updated = groupsController.patchGroup(scimContext, existing, patchRequest, attributeSelection);
+
+            // RFC 7644 §3.5.2: 204 No Content is a valid success response, and the
+            // one Microsoft Entra ID asks for ("Returning a body with a list of all
+            // the members isn't advisable"). A body is only produced — and only
+            // required — when the client named the attributes it wants.
+            if (updated == null) {
+                return Response.noContent().build();
+            }
+
             return Response.ok(updated).build();
         } catch (InvalidGroupMemberReference e) {
             return ScimErrors.invalidValue(e.getMessage());

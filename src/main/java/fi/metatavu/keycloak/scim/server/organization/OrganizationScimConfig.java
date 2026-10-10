@@ -18,6 +18,7 @@ public interface OrganizationScimConfig extends ScimConfig {
     public static final String SCIM_EXTERNAL_ISSUER = "SCIM_EXTERNAL_ISSUER";
     public static final String SCIM_AUTHENTICATION_MODE = "SCIM_AUTHENTICATION_MODE";
     public static final String SCIM_EMAIL_AS_USERNAME = "SCIM_EMAIL_AS_USERNAME";
+    public static final String SCIM_DEFAULT_GROUPS = "SCIM_DEFAULT_GROUPS";
     public static final String SCIM_BASIC_AUTH_USERNAME = "SCIM_BASIC_AUTH_USERNAME";
     public static final String SCIM_BASIC_AUTH_PASSWORD = "SCIM_BASIC_AUTH_PASSWORD";
 

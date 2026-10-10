@@ -9,9 +9,7 @@ import fi.metatavu.keycloak.scim.server.metadata.StringUserAttribute;
 import fi.metatavu.keycloak.scim.server.metadata.UserAttribute;
 import fi.metatavu.keycloak.scim.server.metadata.UserAttributes;
 import fi.metatavu.keycloak.scim.server.model.User;
-import fi.metatavu.keycloak.scim.server.patch.PatchOperation;
 import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
-import fi.metatavu.keycloak.scim.server.users.UnsupportedUserPath;
 import fi.metatavu.keycloak.scim.server.users.UserProfileValidationException;
 import fi.metatavu.keycloak.scim.server.users.UserProfileValidationService;
 import fi.metatavu.keycloak.scim.server.users.UsersController;
@@ -19,13 +17,13 @@ import jakarta.ws.rs.NotFoundException;
 import org.jboss.logging.Logger;
 import org.keycloak.events.admin.OperationType;
 import org.keycloak.events.admin.ResourceType;
+import org.keycloak.models.GroupModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.RoleModel;
 import org.keycloak.models.UserModel;
-import org.keycloak.models.utils.ModelToRepresentation;
+import org.keycloak.models.utils.KeycloakModelUtils;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -113,6 +111,8 @@ public class OrganizationUserController extends UsersController  {
             scimContext.linkUserIdp(user, scimUserEmail, scimUserName, externalId);
         }
 
+        joinDefaultGroups(scimContext, user);
+
         dispatchUserCreateEvent(scimContext, user);
         dispatchOrganizationMemberAddEvent(scimContext, user);
 
@@ -189,6 +189,8 @@ public class OrganizationUserController extends UsersController  {
             scimContext.linkUserIdp(existing, scimUserEmail, scimUserName, externalId);
         }
 
+        joinDefaultGroups(scimContext, existing);
+
         dispatchUserUpdateEvent(scimContext, existing);
 
         return updatedUser;
@@ -234,6 +236,8 @@ public class OrganizationUserController extends UsersController  {
             String externalId = getExternalId(patchedUser);
             scimContext.linkUserIdp(existing, scimUserEmail, scimUserName, externalId);
         }
+
+        joinDefaultGroups(scimContext, existing);
 
         dispatchUserUpdateEvent(scimContext, existing);
 
@@ -360,6 +364,33 @@ public class OrganizationUserController extends UsersController  {
         }
 
         return externalId;
+    }
+
+    /**
+     * Joins the user to the organization's default groups
+     * <p>
+     * Default groups are resolved by realm group path from the organization's
+     * SCIM_DEFAULT_GROUPS attribute. Unknown group paths are skipped with a warning
+     * so that a misconfigured group does not block user provisioning.
+     *
+     * @param scimContext SCIM context
+     * @param user user to join to the default groups
+     */
+    private void joinDefaultGroups(OrganizationScimContext scimContext, UserModel user) {
+        String defaultGroups = scimContext.getConfig().getDefaultGroups();
+        if (defaultGroups == null || defaultGroups.isBlank()) {
+            return;
+        }
+
+        for (String groupPath : defaultGroups.split(",")) {
+            GroupModel group = KeycloakModelUtils.findGroupByPath(scimContext.getSession(), scimContext.getRealm(), groupPath.trim());
+            if (group == null) {
+                logger.warn("Default group not found: " + groupPath.trim() + ". Cannot join user to group");
+            } else if (!user.isMemberOf(group)) {
+                logger.info("Joining user to default group: " + group.getName());
+                user.joinGroup(group);
+            }
+        }
     }
 
     /**

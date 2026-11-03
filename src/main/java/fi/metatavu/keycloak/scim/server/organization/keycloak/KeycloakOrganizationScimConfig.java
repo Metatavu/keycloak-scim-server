@@ -68,6 +68,11 @@ public class KeycloakOrganizationScimConfig implements OrganizationScimConfig {
     }
 
     @Override
+    public boolean getManageAllUsers() {
+        return "true".equalsIgnoreCase(getAttribute(SCIM_MANAGE_ALL_USERS));
+    }
+
+    @Override
     public String getBasicAuthUsername() {
         return getAttribute(SCIM_BASIC_AUTH_USERNAME);
     }

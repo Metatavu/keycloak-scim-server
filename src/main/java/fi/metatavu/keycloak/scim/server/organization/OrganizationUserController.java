@@ -14,6 +14,7 @@ import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
 import fi.metatavu.keycloak.scim.server.users.UnsupportedUserPath;
 import fi.metatavu.keycloak.scim.server.users.UserProfileValidationException;
 import fi.metatavu.keycloak.scim.server.users.UserProfileValidationService;
+import fi.metatavu.keycloak.scim.server.users.ScimManagedUsers;
 import fi.metatavu.keycloak.scim.server.users.UsersController;
 import jakarta.ws.rs.NotFoundException;
 import org.jboss.logging.Logger;
@@ -29,6 +30,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 public class OrganizationUserController extends UsersController  {
 
@@ -283,17 +285,12 @@ public class OrganizationUserController extends UsersController  {
         Integer maxResults
     ) {
         fi.metatavu.keycloak.scim.server.model.UsersList result = new fi.metatavu.keycloak.scim.server.model.UsersList();
-        RealmModel realm = scimContext.getRealm();
-        KeycloakSession session = scimContext.getSession();
 
-        RoleModel scimManagedRole = realm.getRole(ScimRoles.SCIM_MANAGED_ROLE);
-        if (scimManagedRole == null) {
-            throw new IllegalStateException("SCIM managed role not found");
-        }
+        Predicate<UserModel> isManaged = ScimManagedUsers.predicate(scimContext);
 
         List<UserModel> filteredUsers = scimContext.getMembersStream(null, null)
             .filter(user -> matchScimFilter(user, userAttributes, scimFilter))
-            .filter(user -> user.hasRole(scimManagedRole))
+            .filter(isManaged)
             .toList();
 
         List<fi.metatavu.keycloak.scim.server.model.User> users = filteredUsers.stream()
@@ -319,12 +316,22 @@ public class OrganizationUserController extends UsersController  {
     public void deleteOrganizationUser(OrganizationScimContext scimContext, UserModel user) {
         KeycloakSession session = scimContext.getSession();
 
-        if (scimContext.isMember(user)) {
-            scimContext.removeMember(user);
-            dispatchOrganizationMemberDeleteEvent(scimContext, user);
-            dispatchUserDeleteEvent(scimContext, user);
-        } else {
+        boolean managedMember = scimContext.isManagedMember(user);
+        boolean removableMember = managedMember
+            || (scimContext.getConfig().getManageAllUsers() && scimContext.isMember(user));
+
+        if (!removableMember) {
             throw new NotFoundException("User is not a member of the organization");
+        }
+
+        // Keycloak deletes the account of a managed member, but only drops the membership of an unmanaged one
+        if (!scimContext.removeMember(user)) {
+            throw new NotFoundException("User is not a member of the organization");
+        }
+
+        dispatchOrganizationMemberDeleteEvent(scimContext, user);
+        if (managedMember) {
+            dispatchUserDeleteEvent(scimContext, user);
         }
     }
 

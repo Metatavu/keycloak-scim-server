@@ -27,6 +27,7 @@ public class RealmScimConfig implements ScimConfig {
     public static final String SCIM_EMAIL_AS_USERNAME = "scim.email.as.username";
     public static final String SCIM_BASIC_AUTH_USERNAME = "scim.basic.auth.username";
     public static final String SCIM_BASIC_AUTH_PASSWORD = "scim.basic.auth.password";
+    public static final String SCIM_MANAGE_ALL_USERS = "scim.manage.all.users";
     private final Config config;
     private final RealmModel realm;
 
@@ -165,6 +166,17 @@ public class RealmScimConfig implements ScimConfig {
         return readRealmAttribute(SCIM_EMAIL_AS_USERNAME)
             .map(Boolean::parseBoolean)
             .or(() -> config.getOptionalValue(SCIM_EMAIL_AS_USERNAME, Boolean.class))
+            .orElse(false);
+    }
+
+    /**
+     * Returns whether all realm users are exposed through SCIM, not only SCIM-created ones.
+     */
+    @Override
+    public boolean getManageAllUsers() {
+        return readRealmAttribute(SCIM_MANAGE_ALL_USERS)
+            .map(Boolean::parseBoolean)
+            .or(() -> config.getOptionalValue(SCIM_MANAGE_ALL_USERS, Boolean.class))
             .orElse(false);
     }
 

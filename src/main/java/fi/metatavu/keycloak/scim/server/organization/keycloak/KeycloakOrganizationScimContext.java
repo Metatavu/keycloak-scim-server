@@ -48,6 +48,11 @@ public class KeycloakOrganizationScimContext extends OrganizationScimContext {
   
   @Override
   public boolean isMember(UserModel user) {
+    return getSession().getProvider(OrganizationProvider.class).isMember(organization, user);
+  }
+
+  @Override
+  public boolean isManagedMember(UserModel user) {
     return getSession().getProvider(OrganizationProvider.class).isManagedMember(organization, user);
   }
 

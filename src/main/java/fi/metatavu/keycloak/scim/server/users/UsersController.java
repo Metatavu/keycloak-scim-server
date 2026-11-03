@@ -33,6 +33,7 @@ import org.keycloak.models.utils.ModelToRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 
 import java.util.*;
+import java.util.function.Predicate;
 
 /**
  * Users controller
@@ -168,7 +169,6 @@ public class UsersController extends AbstractController {
         Integer maxResults
     ) {
         UsersList result = new UsersList();
-        RealmModel realm = scimContext.getRealm();
         KeycloakSession session = scimContext.getSession();
 
         Map<String, String> searchParams = new HashMap<>();
@@ -188,17 +188,12 @@ public class UsersController extends AbstractController {
             }
         }
 
-        RoleModel scimManagedRole = realm.getRole(ScimRoles.SCIM_MANAGED_ROLE);
-        if (scimManagedRole == null) {
-            throw new IllegalStateException("SCIM managed role not found");
-        }
-
-        
+        Predicate<UserModel> isManaged = ScimManagedUsers.predicate(scimContext);
 
         List<UserModel> filteredUsers = session.users()
             .searchForUserStream(scimContext.getRealm(), searchParams)
             .filter(user -> !searchParams.isEmpty() || matchScimFilter(user, userAttributes, scimFilter))
-            .filter(user -> user.hasRole(scimManagedRole))
+            .filter(isManaged)
             .toList();
 
         List<User> users = filteredUsers.stream()

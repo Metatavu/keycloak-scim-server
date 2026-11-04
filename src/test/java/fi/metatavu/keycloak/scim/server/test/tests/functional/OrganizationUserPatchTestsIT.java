@@ -7,6 +7,7 @@ import fi.metatavu.keycloak.scim.server.test.client.ApiException;
 import fi.metatavu.keycloak.scim.server.test.client.model.PatchRequest;
 import fi.metatavu.keycloak.scim.server.test.client.model.PatchRequestOperationsInner;
 import fi.metatavu.keycloak.scim.server.test.client.model.User;
+import fi.metatavu.keycloak.scim.server.test.client.model.UserEmailsInner;
 import org.junit.jupiter.api.Test;
 import org.keycloak.events.admin.AdminEvent;
 import org.keycloak.events.admin.OperationType;
@@ -332,4 +333,44 @@ public class OrganizationUserPatchTestsIT extends AbstractOrganizationScimTest {
         deleteRealmUser(TestConsts.ORGANIZATIONS_REALM, created.getId());
     }
 
+    /**
+     * Entra ID sends email updates as a PATCH on the filtered multi-valued path
+     * {@code emails[type eq "work"].value}. The server stores a single email, so the
+     * path must map onto it instead of being rejected with scimType=invalidPath.
+     */
+    @Test
+    void testPatchEmailWithFilteredEmailsPath() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
+
+        User user = new User();
+        user.setUserName("patch-emails-filter-user");
+        user.setActive(true);
+        user.setEmails(List.of(new UserEmailsInner().value("before@example.com").primary(true)));
+        user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
+
+        User created = scimClient.createUser(user);
+        assertNotNull(created);
+
+        try {
+            User patched = scimClient.patchUser(created.getId(), new PatchRequest()
+                .schemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"))
+                .operations(List.of(
+                    new PatchRequestOperationsInner()
+                        .op("Replace")
+                        .path("emails[type eq \"work\"].value")
+                        .value("joseph-daniel.taylor@example.com")
+                )));
+
+            assertNotNull(patched);
+            assertNotNull(patched.getEmails());
+            assertEquals(1, patched.getEmails().size());
+            assertEquals("joseph-daniel.taylor@example.com", patched.getEmails().getFirst().getValue());
+
+            UserRepresentation realmUser = findRealmUser(TestConsts.ORGANIZATIONS_REALM, created.getId());
+            assertNotNull(realmUser);
+            assertEquals("joseph-daniel.taylor@example.com", realmUser.getEmail());
+        } finally {
+            deleteRealmUser(TestConsts.ORGANIZATIONS_REALM, created.getId());
+        }
+    }
 }

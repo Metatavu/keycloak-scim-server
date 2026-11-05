@@ -168,6 +168,15 @@ public class RealmScimConfig implements ScimConfig {
             .orElse(false);
     }
 
+    /**
+     * Returns the configured default groups. Default groups are only supported
+     * at the organization level, so realm configuration always returns null.
+     */
+    @Override
+    public String getDefaultGroups() {
+        return null;
+    }
+
     @Override
     public String getBasicAuthUsername() {
         return readRealmAttribute(SCIM_BASIC_AUTH_USERNAME)

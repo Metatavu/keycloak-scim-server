@@ -7,10 +7,12 @@ import fi.metatavu.keycloak.scim.server.organization.*;
 import org.keycloak.models.FederatedIdentityModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.IdentityProviderModel;
+import org.keycloak.models.OrganizationDomainModel;
 import org.keycloak.models.OrganizationModel;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.organization.OrganizationProvider;
+import org.keycloak.organization.utils.Organizations;
 import org.keycloak.models.utils.ModelToRepresentation;
 import java.net.URI;
 import java.util.Collections;
@@ -74,12 +76,13 @@ public class KeycloakOrganizationScimContext extends OrganizationScimContext {
       return false;
     }
 
+    // Since Keycloak 26.8 the identity provider is linked on the organization domain, not in the identity provider config
+    OrganizationDomainModel organizationDomain = Organizations.getMatchingDomain(emailDomain, organization);
+    String identityProviderAlias = organizationDomain != null ? organizationDomain.getIdentityProviderAlias() : null;
+
     IdentityProviderModel identityProvider =
         getSession().getProvider(OrganizationProvider.class).getIdentityProviders(organization)
-        .filter(identityProviderModel -> {
-            String identityProviderDomain = identityProviderModel.getConfig().get("kc.org.domain");
-            return identityProviderDomain != null && identityProviderDomain.equals(emailDomain);
-          })
+        .filter(identityProviderModel -> identityProviderModel.getAlias().equals(identityProviderAlias))
         .findFirst()
         .orElse(null);
 

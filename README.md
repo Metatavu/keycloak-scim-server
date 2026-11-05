@@ -40,9 +40,24 @@ This project provides a **SCIM 2.0-compliant extension** for [Keycloak](https://
 | 1.5.0 | 26.3.x (tested: 26.3.5) | Stable |
 | 1.6.0 | 26.3.x (tested: 26.3.5) | Stable |
 | 1.7.0 | 26.6.x (tested: 26.6.3) | Stable |
-| 1.8.0 | 26.6.x (tested: 26.6.3) | In development |
+| 1.8.0 | 26.6.x (tested: 26.6.3) | Stable |
+| 1.9.0 | 26.6.x (tested: 26.6.3) | In development |
 
 > **Note:** Organization-level SCIM APIs require Keycloak **26+** with the Organizations feature enabled.
+
+### Upgrading to 1.9.0
+
+`DELETE /Users/{id}` now fails closed when the `scim-managed` realm role does
+not exist: every delete is rejected with `403` until the role is created. Before
+1.9.0 a missing role let every delete through. Realms that provision users
+through SCIM already have the role, since the server grants it on every SCIM
+create, so this only affects realms where the role was removed by hand.
+
+1.9.0 also adds the opt-in `SCIM_MANAGE_ALL_USERS` setting, which lets SCIM list
+and delete users that were not created through SCIM (see
+[Which users SCIM can see](#which-users-scim-can-see)), and accepts the
+filtered `emails[type eq "work"].value` PATCH paths that Microsoft Entra ID
+sends for email updates.
 
 ### Upgrading to 1.8.0
 

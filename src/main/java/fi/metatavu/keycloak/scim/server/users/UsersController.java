@@ -34,6 +34,7 @@ import org.keycloak.representations.idm.UserRepresentation;
 
 import java.util.*;
 import java.util.function.Predicate;
+import java.util.regex.Pattern;
 
 /**
  * Users controller
@@ -41,6 +42,17 @@ import java.util.function.Predicate;
 public class UsersController extends AbstractController {
 
     private static final Logger logger = Logger.getLogger(UsersController.class);
+
+    /**
+     * SCIM path shapes a client may use to address the user's email. This server
+     * stores a single email and exposes it under the flat {@code email} path, but
+     * SCIM clients address the standard multi-valued {@code emails} attribute:
+     * Entra ID sends {@code emails[type eq "work"].value}, and RFC 7644 §3.5.2
+     * also allows {@code emails[filter]} with a complex value, {@code emails.value},
+     * and plain {@code emails} with the whole list as value.
+     */
+    private static final Pattern EMAILS_PATH = Pattern.compile("^emails(\\[[^\\]]*])?(\\.value)?$", Pattern.CASE_INSENSITIVE);
+
     private final AdminEventController adminEventController = new AdminEventController();
 
     /**
@@ -373,16 +385,18 @@ public class UsersController extends AbstractController {
         String path,
         Object value
     ) {
-        if (isReadOnlyOrStructural(path)) {
+        PatchTarget patchTarget = resolvePatchTarget(path, value);
+
+        if (isReadOnlyOrStructural(patchTarget.scimPath())) {
             return;
         }
 
-        UserAttribute<?> userAttribute = userAttributes.findByScimPath(path);
+        UserAttribute<?> userAttribute = userAttributes.findByScimPath(patchTarget.scimPath());
         if (userAttribute == null) {
             throw new UnsupportedUserPath("Unsupported attribute: " + path);
         }
 
-        Object validationValue = op == PatchOperation.REMOVE ? null : UserProfileValidationService.normalizeValue(value);
+        Object validationValue = op == PatchOperation.REMOVE ? null : UserProfileValidationService.normalizeValue(patchTarget.value());
         target.put(userAttribute.getSourceId(), validationValue);
     }
 
@@ -421,31 +435,85 @@ public class UsersController extends AbstractController {
                 }
                 for (Map.Entry<?, ?> entry : valueMap.entrySet()) {
                     String attrPath = String.valueOf(entry.getKey());
-                    if (isReadOnlyOrStructural(attrPath)) {
+                    PatchTarget patchTarget = resolvePatchTarget(attrPath, entry.getValue());
+                    if (isReadOnlyOrStructural(patchTarget.scimPath())) {
                         // RFC 7644 §3.5.2 / §7.5: ignore read-only and
                         // structural attributes (id, meta, schemas)
                         // on PATCH. Clients (Okta) echo them back from a prior GET.
                         continue;
                     }
-                    UserAttribute<?> ua = userAttributes.findByScimPath(attrPath);
+                    UserAttribute<?> ua = userAttributes.findByScimPath(patchTarget.scimPath());
                     if (ua == null) {
                         throw new UnsupportedUserPath("Unsupported attribute: " + attrPath);
                     }
-                    applyPatchValue(op, ua, existing, entry.getValue());
+                    applyPatchValue(op, ua, existing, patchTarget.value());
                 }
                 continue;
             }
 
-            if (isReadOnlyOrStructural(path)) {
+            PatchTarget patchTarget = resolvePatchTarget(path, value);
+
+            if (isReadOnlyOrStructural(patchTarget.scimPath())) {
                 continue;
             }
 
-            UserAttribute<?> userAttribute = userAttributes.findByScimPath(path);
+            UserAttribute<?> userAttribute = userAttributes.findByScimPath(patchTarget.scimPath());
             if (userAttribute == null) {
                 throw new UnsupportedUserPath("Unsupported attribute: " + path);
             }
-            applyPatchValue(op, userAttribute, existing, value);
+            applyPatchValue(op, userAttribute, existing, patchTarget.value());
         }
+    }
+
+    /**
+     * Resolved PATCH target: the flat SCIM path this server knows, and the
+     * scalar value to write to it.
+     *
+     * @param scimPath flat SCIM attribute path
+     * @param value    value to apply
+     */
+    private record PatchTarget(String scimPath, Object value) {
+    }
+
+    /**
+     * Maps a PATCH operation path (and its value) onto the flat attribute path
+     * this server supports. Paths other than the multi-valued {@code emails}
+     * shapes are returned unchanged.
+     * <p>
+     * Because Keycloak stores a single email, the filter inside {@code emails[...]}
+     * is not evaluated: every {@code emails} operation targets that one address.
+     *
+     * @param path  PATCH operation path
+     * @param value PATCH operation value
+     * @return resolved target
+     */
+    private PatchTarget resolvePatchTarget(String path, Object value) {
+        if (path != null && EMAILS_PATH.matcher(path).matches()) {
+            return new PatchTarget("email", unwrapEmailValue(value));
+        }
+
+        return new PatchTarget(path, value);
+    }
+
+    /**
+     * Extracts the email address from the value of an {@code emails} PATCH
+     * operation. Accepts a bare string, a complex email object, or a list of
+     * complex email objects. For a list the first entry is used, matching how
+     * POST and PUT read {@code emails}.
+     *
+     * @param value raw operation value
+     * @return email address, or the value unchanged when it has no known shape
+     */
+    private static Object unwrapEmailValue(Object value) {
+        if (value instanceof Map<?, ?> email) {
+            return email.get("value");
+        }
+
+        if (value instanceof List<?> emails) {
+            return emails.isEmpty() ? null : unwrapEmailValue(emails.getFirst());
+        }
+
+        return value;
     }
 
     /**

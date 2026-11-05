@@ -10,6 +10,7 @@ import fi.metatavu.keycloak.scim.server.groups.UnsupportedGroupPath;
 import fi.metatavu.keycloak.scim.server.metadata.UserAttributes;
 import fi.metatavu.keycloak.scim.server.model.User;
 import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
+import fi.metatavu.keycloak.scim.server.users.ScimManagedUsers;
 import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
@@ -20,7 +21,6 @@ import org.jboss.logging.Logger;
 import org.keycloak.models.GroupModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
-import org.keycloak.models.RoleModel;
 import org.keycloak.models.UserModel;
 
 /**
@@ -163,9 +163,8 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        RoleModel scimManagedRole = realm.getRole("scim-managed");
-        if (scimManagedRole != null && !user.hasRole(scimManagedRole)) {
-            logger.warn(String.format("User is not SCIM-managed: %s", userId));
+        if (!ScimManagedUsers.isManaged(scimContext, user)) {
+            logger.warnf("Refusing to delete user %s: not managed by SCIM (scim.manage.all.users=%s)", userId, scimContext.getConfig().getManageAllUsers());
             return ScimErrors.forbidden("User is not managed by SCIM");
         }
 

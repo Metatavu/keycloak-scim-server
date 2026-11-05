@@ -61,11 +61,19 @@ public abstract class OrganizationScimContext extends ScimContext {
   public abstract boolean addMember(UserModel user);
 
   /**
-   * Checks if the user is a member of this organization
+   * Checks if the user is a member of this organization, managed or not
    *
    * @return true if the user is a member
    */
   public abstract boolean isMember(UserModel user);
+
+  /**
+   * Checks if the user is a managed member of this organization, i.e. a member whose
+   * account is owned by the organization and removed together with the membership
+   *
+   * @return true if the user is a managed member
+   */
+  public abstract boolean isManagedMember(UserModel user);
 
   /**
    * Remove a member from this organization

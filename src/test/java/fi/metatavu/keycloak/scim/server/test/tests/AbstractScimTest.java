@@ -21,6 +21,10 @@ import org.keycloak.events.admin.ResourceType;
 import org.keycloak.representations.idm.FederatedIdentityRepresentation;
 import org.keycloak.representations.idm.GroupRepresentation;
 import org.keycloak.representations.idm.MemberRepresentation;
+import org.keycloak.admin.client.resource.OrganizationResource;
+import org.keycloak.admin.client.resource.RealmResource;
+import org.keycloak.representations.idm.OrganizationRepresentation;
+import org.keycloak.representations.idm.RealmRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.keycloak.util.JsonSerialization;
@@ -272,6 +276,92 @@ public abstract class AbstractScimTest {
     }
 
     /**
+     * Creates a user directly through the Keycloak admin API, bypassing SCIM.
+     * The created user does not get the scim-managed role.
+     *
+     * @param realm realm name
+     * @param newUser user representation
+     * @return created user ID
+     */
+    protected String createRealmUser(String realm, UserRepresentation newUser) {
+        try (Response response = getKeycloakContainer()
+                .getKeycloakAdminClient()
+                .realm(realm)
+                .users()
+                .create(newUser)) {
+            assertEquals(201, response.getStatus());
+
+            String location = response.getHeaderString("Location");
+            return location.substring(location.lastIndexOf("/") + 1);
+        }
+    }
+
+    /**
+     * Creates an enabled user directly through the Keycloak admin API, bypassing SCIM.
+     *
+     * @param realm realm name
+     * @param username username
+     * @param firstName first name
+     * @param lastName last name
+     * @return created user ID
+     */
+    protected String createRealmUser(String realm, String username, String firstName, String lastName) {
+        UserRepresentation newUser = new UserRepresentation();
+        newUser.setUsername(username);
+        newUser.setFirstName(firstName);
+        newUser.setLastName(lastName);
+        newUser.setEmail(String.format("%s@example.com", username));
+        newUser.setEnabled(true);
+        return createRealmUser(realm, newUser);
+    }
+
+    /**
+     * Sets (or removes, when value is null) a realm attribute through the admin API
+     *
+     * @param realm realm name
+     * @param key attribute key
+     * @param value attribute value or null to remove
+     */
+    protected void setRealmAttribute(String realm, String key, String value) {
+        RealmResource realmResource = getKeycloakContainer().getKeycloakAdminClient().realm(realm);
+        RealmRepresentation representation = realmResource.toRepresentation();
+        Map<String, String> attributes = new HashMap<>(Optional.ofNullable(representation.getAttributes()).orElse(Map.of()));
+        if (value == null) {
+            attributes.remove(key);
+        } else {
+            attributes.put(key, value);
+        }
+        representation.setAttributes(attributes);
+        realmResource.update(representation);
+    }
+
+    /**
+     * Sets (or removes, when value is null) an organization attribute through the admin API
+     *
+     * @param realm realm name
+     * @param organizationId organization ID
+     * @param key attribute key
+     * @param value attribute value or null to remove
+     */
+    protected void setOrganizationAttribute(String realm, String organizationId, String key, String value) {
+        OrganizationResource organizationResource = getKeycloakContainer().getKeycloakAdminClient()
+            .realm(realm)
+            .organizations()
+            .get(organizationId);
+        OrganizationRepresentation representation = organizationResource.toRepresentation();
+        Map<String, List<String>> attributes = new HashMap<>(Optional.ofNullable(representation.getAttributes()).orElse(Map.of()));
+        if (value == null) {
+            attributes.remove(key);
+        } else {
+            attributes.put(key, List.of(value));
+        }
+        representation.setAttributes(attributes);
+        try (Response response = organizationResource.update(representation)) {
+            assertEquals(204, response.getStatus());
+        }
+    }
+
+    /**
      * Creates a new organization member in Keycloak
      *
      * @param realm realm name
@@ -285,18 +375,7 @@ public abstract class AbstractScimTest {
             String organizationId,
             UserRepresentation newUser
     ) {
-        String userId;
-
-        try (Response response = getKeycloakContainer()
-                .getKeycloakAdminClient()
-                .realm(realm)
-                .users()
-                .create(newUser)) {
-            assertEquals(201, response.getStatus());
-
-            String location = response.getHeaderString("Location");
-            userId = location.substring(location.lastIndexOf("/") + 1);
-        }
+        String userId = createRealmUser(realm, newUser);
 
         try (Response response = getKeycloakContainer()
                 .getKeycloakAdminClient()
@@ -323,6 +402,20 @@ public abstract class AbstractScimTest {
             .users()
             .get(userId)
             .remove();
+    }
+
+    /**
+     * Deletes user from Keycloak, ignoring the case where it is already gone
+     *
+     * @param realm realm name
+     * @param userId user ID
+     */
+    protected void deleteRealmUserIfExists(String realm, String userId) {
+        try {
+            deleteRealmUser(realm, userId);
+        } catch (jakarta.ws.rs.NotFoundException ignored) {
+            // already deleted
+        }
     }
 
     /**

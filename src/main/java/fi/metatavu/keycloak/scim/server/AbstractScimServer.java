@@ -211,7 +211,7 @@ public abstract class AbstractScimServer <T extends ScimContext> implements Scim
             logger.warn("Unsupported user path: " + e.getMessage());
             return ScimErrors.invalidPath("Unsupported user path");
         } catch (UserProfileValidationException e) {
-            logger.warn("User profile validation failed: " + e.getMessage());
+            logger.warn(e.getMessage());
             return ScimErrors.invalidValue(formatValidationErrors(e));
         }
     }

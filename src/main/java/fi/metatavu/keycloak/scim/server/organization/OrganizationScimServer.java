@@ -9,6 +9,7 @@ import fi.metatavu.keycloak.scim.server.metadata.UserAttributes;
 import fi.metatavu.keycloak.scim.server.model.Group;
 import fi.metatavu.keycloak.scim.server.model.PatchRequest;
 import fi.metatavu.keycloak.scim.server.model.User;
+import fi.metatavu.keycloak.scim.server.users.ScimManagedUsers;
 import jakarta.ws.rs.core.Response;
 import org.jboss.logging.Logger;
 import org.keycloak.models.*;
@@ -166,9 +167,8 @@ public abstract class OrganizationScimServer extends AbstractScimServer<Organiza
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        RoleModel scimManagedRole = realm.getRole("scim-managed");
-        if (scimManagedRole != null && !user.hasRole(scimManagedRole)) {
-            logger.warn(String.format("User is not SCIM-managed: %s", userId));
+        if (!ScimManagedUsers.isManaged(scimContext, user)) {
+            logger.warnf("Refusing to delete user %s: not managed by SCIM (SCIM_MANAGE_ALL_USERS=%s)", userId, scimContext.getConfig().getManageAllUsers());
             return ScimErrors.forbidden("User is not managed by SCIM");
         }
 

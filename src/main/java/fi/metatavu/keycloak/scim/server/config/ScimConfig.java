@@ -77,6 +77,16 @@ public interface ScimConfig {
     boolean getEmailAsUsername();
     
     /**
+     * Returns whether the SCIM API exposes every user instead of only users created through SCIM.
+     *
+     * When enabled, the user list includes users without the scim-managed role and such users
+     * may also be deleted through SCIM.
+     *
+     * @return true if all users are managed through SCIM
+     */
+    boolean getManageAllUsers();
+
+    /**
      * Gets the basic auth username (if using EXTERNAL mode with Basic auth)
      *
      * @return basic auth username or null if not configured

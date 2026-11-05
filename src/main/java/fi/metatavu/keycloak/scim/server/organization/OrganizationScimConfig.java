@@ -20,6 +20,7 @@ public interface OrganizationScimConfig extends ScimConfig {
     public static final String SCIM_EMAIL_AS_USERNAME = "SCIM_EMAIL_AS_USERNAME";
     public static final String SCIM_BASIC_AUTH_USERNAME = "SCIM_BASIC_AUTH_USERNAME";
     public static final String SCIM_BASIC_AUTH_PASSWORD = "SCIM_BASIC_AUTH_PASSWORD";
+    public static final String SCIM_MANAGE_ALL_USERS = "SCIM_MANAGE_ALL_USERS";
 
     default void validateConfig() throws ConfigurationError {
         AuthenticationMode mode = getAuthenticationMode();

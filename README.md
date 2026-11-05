@@ -141,6 +141,7 @@ Configuration on instance level is done by defining environment variables on the
 | `SCIM_BASIC_AUTH_PASSWORD`   | Password hash in [PHC String Format](https://github.com/P-H-C/phc-string-format/blob/master/phc-sf-spec.md) for HTTP Basic authentication.                                                                                |
 | `SCIM_LINK_IDP`              | Enables support for linking realm identity provider with user.                                                                                                                                                             |
 | `SCIM_IDENTITY_PROVIDER_ALIAS`| Alias of Identity Provider to be linked to the user.                                                                                                                                                                      |
+| `SCIM_MANAGE_ALL_USERS`      | Exposes every realm user through SCIM instead of only users created through SCIM. See [Which users SCIM can see](#which-users-scim-can-see). Defaults to `false`.                                                          |
 
 ### Configuration on Realm level
 
@@ -159,7 +160,8 @@ PUT `/admin/realms/{realm}`
     "scim.basic.auth.username": "string",
     "scim.basic.auth.password": "string",
     "scim.link.idp": "true|false",
-    "scim.identity.provider.alias": "string"
+    "scim.identity.provider.alias": "string",
+    "scim.manage.all.users": "true|false"
   }
 }
 ```
@@ -179,6 +181,35 @@ Configuration on organization level is done by defining organization attributes 
 | `SCIM_BASIC_AUTH_PASSWORD`   | Password hash in PHC String Format for HTTP Basic authentication.                                                                                   |
 | `SCIM_LINK_IDP`              | Enables support for linking organization identity provider with user.                                                                               |
 | `SCIM_EMAIL_AS_USERNAME`     | Forces server to use email as username instead of actual username. When enabled, username will be unaffected by update operations. Organization-level only. |
+| `SCIM_MANAGE_ALL_USERS`      | Exposes every organization member through SCIM instead of only members created through SCIM. See [Which users SCIM can see](#which-users-scim-can-see). Defaults to `false`.|
+
+### Which users SCIM can see
+
+By default the SCIM API only works with users it created itself. Every user created through SCIM is granted the
+`scim-managed` realm role, and users without that role are hidden from `GET /Users` and rejected with `403` on
+`DELETE /Users/{id}`. Users that already existed in Keycloak, or that were created through the admin console, are
+therefore not listed and cannot be deleted through SCIM. They can still be fetched and updated by id, since
+`GET`, `PUT` and `PATCH` on `/Users/{id}` are not filtered by the role.
+
+Set `SCIM_MANAGE_ALL_USERS` (or the `scim.manage.all.users` realm attribute) to `true` to let the SCIM client see and
+manage those users as well:
+
+* `GET /Users` lists every user in the realm (or every member of the organization), with filters and paging applied as usual.
+* `GET`, `PUT` and `PATCH` on `/Users/{id}` work for any user, as they already did without the setting.
+* `DELETE /Users/{id}` is accepted for any user. In realm mode the user is deleted. In organization mode the user is removed
+  from the organization: Keycloak deletes the account of a member the organization owns (created through SCIM or an
+  organization identity provider) and only drops the membership of a member that was added from the realm.
+* Service account users of clients are never listed or deleted through SCIM, regardless of this setting.
+
+> **Caution:** with this setting enabled, a deprovisioning rule on the identity provider side can delete any realm user,
+> including administrators and users from federated user storage such as LDAP (the delete is passed on to the storage
+> provider). Make sure the SCIM client's user assignment is scoped correctly before enabling it.
+
+The organization attribute is read independently of the realm attribute and the environment variable: enabling the setting
+on a realm does not enable it for the organizations in that realm.
+
+Users created through SCIM still receive the `scim-managed` role, so switching the setting back to `false` restores the
+default scoping.
 
 ## Authentication
 
@@ -568,12 +599,15 @@ This prevents accidental exposure or modification of users that were:
 - imported from external identity providers
 - or otherwise not intended to be managed through SCIM
 
-If you want to expose all users (i.e., bypass filtering), you can simply assign the `scim-managed` role to every user. This effectively disables the filter, making the SCIM behavior equivalent to an unfiltered list.
+If you want to expose all users, set `SCIM_MANAGE_ALL_USERS` (or the `scim.manage.all.users` realm attribute) to `true` as
+described in [Which users SCIM can see](#which-users-scim-can-see). Alternatively, assign the `scim-managed` role to every
+user that should be reachable through SCIM.
 
-This role-based filtering applies to all SCIM operations, including:
+This role-based filtering applies to:
 - `GET /Users`
-- `PATCH /Users/{id}`
 - `DELETE /Users/{id}`
+
+The `scim-managed` role must exist in the realm. Without it, `GET /Users` fails and `DELETE /Users/{id}` is rejected for every user.
 
 Users without the `scim-managed` role will be invisible to SCIM clients -- they won't be listed, updated, or removed through SCIM.
 

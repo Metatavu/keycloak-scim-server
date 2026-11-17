@@ -7,6 +7,7 @@ import fi.metatavu.keycloak.scim.server.organization.*;
 import org.keycloak.models.FederatedIdentityModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.IdentityProviderModel;
+import org.keycloak.models.OrganizationDomainModel;
 import org.keycloak.models.OrganizationModel;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
@@ -14,6 +15,7 @@ import org.keycloak.organization.OrganizationProvider;
 import org.keycloak.models.utils.ModelToRepresentation;
 import java.net.URI;
 import java.util.Collections;
+import java.util.Objects;
 import java.util.stream.Stream;
 import org.jboss.logging.Logger;
 
@@ -79,12 +81,20 @@ public class KeycloakOrganizationScimContext extends OrganizationScimContext {
       return false;
     }
 
+    // Since Keycloak 26.8 the domain-to-identity-provider routing lives on the organization domain
+    // (OrganizationDomainModel#getIdentityProviderAlias), not in the identity provider's kc.org.domain config.
+    String domainIdpAlias = organization.getDomains()
+        .filter(domain -> emailDomain.equalsIgnoreCase(domain.getName()))
+        .map(OrganizationDomainModel::getIdentityProviderAlias)
+        .filter(Objects::nonNull)
+        .findFirst()
+        .orElse(null);
+
     IdentityProviderModel identityProvider =
         getSession().getProvider(OrganizationProvider.class).getIdentityProviders(organization)
-        .filter(identityProviderModel -> {
-            String identityProviderDomain = identityProviderModel.getConfig().get("kc.org.domain");
-            return identityProviderDomain != null && identityProviderDomain.equals(emailDomain);
-          })
+        .filter(identityProviderModel -> domainIdpAlias != null
+            ? domainIdpAlias.equals(identityProviderModel.getAlias())
+            : emailDomain.equals(identityProviderModel.getConfig().get("kc.org.domain")))
         .findFirst()
         .orElse(null);
 

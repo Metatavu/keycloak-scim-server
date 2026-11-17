@@ -41,9 +41,21 @@ This project provides a **SCIM 2.0-compliant extension** for [Keycloak](https://
 | 1.6.0 | 26.3.x (tested: 26.3.5) | Stable |
 | 1.7.0 | 26.6.x (tested: 26.6.3) | Stable |
 | 1.8.0 | 26.6.x (tested: 26.6.3) | Stable |
-| 1.9.0 | 26.6.x (tested: 26.6.3) | In development |
+| 1.9.0 | 26.6.x (tested: 26.6.3) | Stable |
+| 1.9.1 | 26.8.x (tested: 26.8.2) | In development |
 
 > **Note:** Organization-level SCIM APIs require Keycloak **26+** with the Organizations feature enabled.
+
+### Upgrading to 1.9.1
+
+1.9.1 adds support for Keycloak 26.8. Keycloak 26.8 moved the domain-to-identity-provider
+mapping from the identity provider's `kc.org.domain` config to the organization domain
+itself, which broke organization-level identity provider linking for SCIM-provisioned
+users (`linkUserIdp` logged `No identity provider found for email domain` and the user
+landed on the "Account already exists" page). The server now resolves the identity
+provider through the organization domain and falls back to `kc.org.domain` on older
+Keycloak versions, so no configuration changes are needed. The Docker image and the
+test suite now target Keycloak 26.8.2.
 
 ### Upgrading to 1.9.0
 

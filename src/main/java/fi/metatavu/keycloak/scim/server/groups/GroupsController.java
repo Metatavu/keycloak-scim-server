@@ -2,8 +2,10 @@ package fi.metatavu.keycloak.scim.server.groups;
 
 import fi.metatavu.keycloak.scim.server.AbstractController;
 import fi.metatavu.keycloak.scim.server.ScimContext;
+import fi.metatavu.keycloak.scim.server.ScimPagination;
 import fi.metatavu.keycloak.scim.server.adminEvents.AdminEventController;
 import fi.metatavu.keycloak.scim.server.attributes.AttributeSelection;
+import fi.metatavu.keycloak.scim.server.consts.ScimRoles;
 import fi.metatavu.keycloak.scim.server.filter.ComparisonFilter;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
 import fi.metatavu.keycloak.scim.server.metadata.GroupAttribute;
@@ -13,6 +15,7 @@ import fi.metatavu.keycloak.scim.server.model.Group;
 import fi.metatavu.keycloak.scim.server.model.GroupMembersInner;
 import fi.metatavu.keycloak.scim.server.model.GroupsList;
 import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
+import fi.metatavu.keycloak.scim.server.users.ScimManagedUsers;
 import org.jboss.logging.Logger;
 import org.keycloak.events.admin.OperationType;
 import org.keycloak.events.admin.ResourceType;
@@ -31,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
@@ -56,11 +60,13 @@ public class GroupsController extends AbstractController {
         RealmModel realm = scimContext.getRealm();
 
         GroupModel group = session.groups().createGroup(realm, scimGroup.getDisplayName());
+        Predicate<UserModel> isManaged = getManagedUserPredicate(scimContext);
 
         if (scimGroup.getMembers() != null) {
             for (GroupMembersInner member : scimGroup.getMembers()) {
+                // Users outside the SCIM-managed set are dropped like unknown ids
                 UserModel user = session.users().getUserById(realm, member.getValue());
-                if (user != null) {
+                if (user != null && isManaged.test(user)) {
                     user.joinGroup(group);
                 }
             }
@@ -68,7 +74,7 @@ public class GroupsController extends AbstractController {
 
         dispatchGroupCreateEvent(scimContext, group);
 
-        return translateGroup(scimContext, group);
+        return translateGroup(scimContext, group, AttributeSelection.DEFAULT, isManaged);
     }
 
     /**
@@ -91,23 +97,24 @@ public class GroupsController extends AbstractController {
             return null;
         }
 
-        return translateGroup(scimContext, group, attributeSelection);
+        return translateGroup(scimContext, group, attributeSelection, getManagedUserPredicate(scimContext));
     }
 
     /**
      * Lists groups
      *
      * @param scimContext SCIM context
-     * @param startIndex start index
-     * @param count count
+     * @param scimFilter SCIM filter
+     * @param firstResult zero-based offset of the first group on the page
+     * @param maxResults page size
      * @param attributeSelection attributes the response may carry
      * @return groups list
      */
     public GroupsList listGroups(
             ScimContext scimContext,
             ScimFilter scimFilter,
-            int startIndex,
-            int count,
+            int firstResult,
+            int maxResults,
             AttributeSelection attributeSelection
     ) {
         KeycloakSession session = scimContext.getSession();
@@ -121,20 +128,23 @@ public class GroupsController extends AbstractController {
         if(scimFilter instanceof ComparisonFilter(
                 String attribute, ScimFilter.Operator operator, String value
         ) && operator == ScimFilter.Operator.EQ && attribute.equals(GroupAttribute.DISPLAY_NAME.getScimPath())){
-            filteredGroups = session.groups().searchForGroupByNameStream(realm, value, true, startIndex, count).toList();
+            // Not paged here: the page is cut once below, and paging the query too applied the offset twice
+            filteredGroups = session.groups().searchForGroupByNameStream(realm, value, true, null, null).toList();
         }else{
             filteredGroups = session.groups().getGroupsStream(realm).toList();
         }
 
+        // Resolved once for the whole page rather than once per group
+        Predicate<UserModel> isManaged = getManagedUserPredicate(scimContext);
         List<Group> groups = filteredGroups.stream()
-            .skip(startIndex)
-            .limit(count)
-            .map(group -> translateGroup(scimContext, group, attributeSelection))
+            .skip(firstResult)
+            .limit(maxResults)
+            .map(group -> translateGroup(scimContext, group, attributeSelection, isManaged))
             .collect(Collectors.toList());
 
         result.setTotalResults(filteredGroups.size());
-        result.setStartIndex(startIndex);
-        result.setItemsPerPage(count);
+        result.setStartIndex(ScimPagination.startIndex(firstResult));
+        result.setItemsPerPage(groups.size());
         result.setResources(groups);
         result.setSchemas(Collections.singletonList("urn:ietf:params:scim:api:messages:2.0:ListResponse"));
 
@@ -157,8 +167,12 @@ public class GroupsController extends AbstractController {
             existing.setName(group.getDisplayName());
         }
 
+        Predicate<UserModel> isManaged = getManagedUserPredicate(scimContext);
+
         // SCIM PUT is a full replace of the resource — reconcile members against the request.
         // Okta's Group Push uses PUT (not PATCH) with the desired final member list.
+        // Only SCIM-managed users take part: members outside that set are invisible to the
+        // client, so they are neither removed nor added here.
         List<GroupMembersInner> requestedMembers = group.getMembers();
         if (requestedMembers != null) {
             Set<String> desiredIds = requestedMembers.stream()
@@ -176,9 +190,9 @@ public class GroupsController extends AbstractController {
 
             UserCache userCache = session.getProvider(UserCache.class);
 
-            // Remove members no longer in the desired set
+            // Remove managed members no longer in the desired set
             for (UserModel user : currentMembers) {
-                if (!desiredIds.contains(user.getId())) {
+                if (!desiredIds.contains(user.getId()) && isManaged.test(user)) {
                     user.leaveGroup(existing);
                     if (userCache != null) {
                         userCache.evict(realm, user);
@@ -193,7 +207,7 @@ public class GroupsController extends AbstractController {
                     continue;
                 }
                 UserModel user = session.users().getUserById(realm, id);
-                if (user != null) {
+                if (user != null && isManaged.test(user)) {
                     user.joinGroup(existing);
                     if (userCache != null) {
                         userCache.evict(realm, user);
@@ -203,7 +217,7 @@ public class GroupsController extends AbstractController {
             }
         }
 
-        return translateGroup(scimContext, existing);
+        return translateGroup(scimContext, existing, AttributeSelection.DEFAULT, isManaged);
     }
 
     /**
@@ -221,6 +235,8 @@ public class GroupsController extends AbstractController {
             fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest,
             AttributeSelection attributeSelection
     ) throws UnsupportedGroupPath, UnsupportedPatchOperation, InvalidGroupMemberReference {
+        Predicate<UserModel> isManaged = getManagedUserPredicate(scimContext);
+
         for (var operation : patchRequest.getOperations()) {
             PatchOperation op = PatchOperation.fromString(operation.getOp());
             String path = operation.getPath();
@@ -254,7 +270,7 @@ public class GroupsController extends AbstractController {
                     if (attr == null) {
                         throw new UnsupportedGroupPath("Unsupported attribute: " + attrPath);
                     }
-                    applyGroupPatch(scimContext, op, attr, attrPath, entry.getValue(), existing);
+                    applyGroupPatch(scimContext, op, attr, attrPath, entry.getValue(), existing, isManaged);
                 }
                 continue;
             }
@@ -292,7 +308,7 @@ public class GroupsController extends AbstractController {
                 }
             }
 
-            applyGroupPatch(scimContext, op, groupAttribute, path, effectiveValue, existing);
+            applyGroupPatch(scimContext, op, groupAttribute, path, effectiveValue, existing, isManaged);
         }
 
         // RFC 7644 §3.5.2: a successful PATCH may answer 204 No Content, and
@@ -302,7 +318,7 @@ public class GroupsController extends AbstractController {
             return null;
         }
 
-        return translateGroup(scimContext, existing, attributeSelection);
+        return translateGroup(scimContext, existing, attributeSelection, isManaged);
     }
 
     /**
@@ -317,6 +333,9 @@ public class GroupsController extends AbstractController {
      * first unresolved ID raises {@link InvalidGroupMemberReference}, so the
      * group's membership stays intact for that operation.
      *
+     * <p>Only SCIM-managed users can be added or removed; a REPLACE leaves
+     * members outside that set in place.
+     *
      * <p>Used by both the path-less and path-based PatchOp branches of
      * {@link #patchGroup}.
      */
@@ -326,7 +345,8 @@ public class GroupsController extends AbstractController {
             GroupAttribute attr,
             String attrPath,
             Object value,
-            GroupModel existing
+            GroupModel existing,
+            Predicate<UserModel> isManaged
     ) throws InvalidGroupMemberReference, UnsupportedGroupPath {
         KeycloakSession session = scimContext.getSession();
         RealmModel realm = scimContext.getRealm();
@@ -341,9 +361,10 @@ public class GroupsController extends AbstractController {
                         existing.setName(s);
                     }
                     case MEMBERS -> {
-                        List<UserModel> resolved = resolveMembers(session, realm, value);
+                        List<UserModel> resolved = resolveMembers(session, realm, value, isManaged);
                         if (op == PatchOperation.REPLACE) {
                             session.users().getGroupMembersStream(realm, existing)
+                                    .filter(isManaged)
                                     .forEach(u -> {
                                         u.leaveGroup(existing);
                                         dispatchGroupMembershipLeaveEvent(scimContext, existing, u);
@@ -364,7 +385,7 @@ public class GroupsController extends AbstractController {
                         // member id surfaces as 400 InvalidGroupMemberReference rather than a
                         // silent no-op. SCIM clients with stale state get an actionable error
                         // instead of believing the membership change went through.
-                        List<UserModel> resolved = resolveMembers(session, realm, value);
+                        List<UserModel> resolved = resolveMembers(session, realm, value, isManaged);
                         for (UserModel u : resolved) {
                             u.leaveGroup(existing);
                             dispatchGroupMembershipLeaveEvent(scimContext, existing, u);
@@ -390,11 +411,23 @@ public class GroupsController extends AbstractController {
      * <p>REMOVE uses this same path: an unknown member ID returns 400 rather
      * than silently no-oping, so SCIM clients with stale state receive an
      * actionable error instead of a false success.
+     *
+     * <p>A user outside the SCIM-managed set is reported exactly like an
+     * unknown ID, so the client can neither change such a user's memberships
+     * nor learn that the user exists.
+     *
+     * @param session Keycloak session
+     * @param realm realm
+     * @param value PatchOp value
+     * @param isManaged predicate selecting SCIM-managed users
+     * @return resolved users
+     * @throws InvalidGroupMemberReference when an ID is unknown or not SCIM-managed
      */
     private List<UserModel> resolveMembers(
             KeycloakSession session,
             RealmModel realm,
-            Object value
+            Object value,
+            Predicate<UserModel> isManaged
     ) throws InvalidGroupMemberReference {
         List<UserModel> out = new ArrayList<>();
         if (!(value instanceof List<?> list)) {
@@ -413,7 +446,7 @@ public class GroupsController extends AbstractController {
                 continue;
             }
             UserModel user = session.users().getUserById(realm, memberId);
-            if (user == null) {
+            if (user == null || !isManaged.test(user)) {
                 throw new InvalidGroupMemberReference(memberId);
             }
             out.add(user);
@@ -458,19 +491,6 @@ public class GroupsController extends AbstractController {
     }
 
     /**
-     * Translates Keycloak group to SCIM group
-     *
-     * @param group group
-     * @return SCIM group with the full member list
-     */
-    private Group translateGroup(
-            ScimContext scimContext,
-            GroupModel group
-    ) {
-        return translateGroup(scimContext, group, AttributeSelection.DEFAULT);
-    }
-
-    /**
      * Translates Keycloak group to SCIM group, honouring the client's attribute
      * selection.
      *
@@ -484,15 +504,19 @@ public class GroupsController extends AbstractController {
      * array as equivalent to unassigned, so {@code "members": null} would
      * wrongly assert that the group is empty.
      *
+     * <p>Only SCIM-managed members are listed, matching what GET /Users exposes.
+     *
      * @param scimContext SCIM context
      * @param group group
      * @param attributeSelection attributes the response may carry
+     * @param isManaged predicate selecting SCIM-managed users
      * @return SCIM group
      */
     private Group translateGroup(
             ScimContext scimContext,
             GroupModel group,
-            AttributeSelection attributeSelection
+            AttributeSelection attributeSelection,
+            Predicate<UserModel> isManaged
     ) {
         RealmModel realm = scimContext.getRealm();
         KeycloakSession session = scimContext.getSession();
@@ -510,6 +534,7 @@ public class GroupsController extends AbstractController {
 
         if (attributeSelection.includes(GroupAttribute.MEMBERS.getScimPath())) {
             result.setMembers(session.users().getGroupMembersStream(realm, group)
+                    .filter(isManaged)
                     .map(member -> new GroupMembersInner()
                             .value(member.getId())
                             .display(member.getUsername())
@@ -518,6 +543,25 @@ public class GroupsController extends AbstractController {
         }
 
         return result;
+    }
+
+    /**
+     * Returns the predicate selecting users that group operations may see and modify.
+     *
+     * Same rule as {@link ScimManagedUsers#predicate}, but fails closed like
+     * {@link ScimManagedUsers#isManaged}: when the scim-managed role is missing and the
+     * manage-all-users setting is off, no user is treated as managed.
+     *
+     * @param scimContext SCIM context
+     * @return predicate that is true for SCIM-managed users
+     */
+    private Predicate<UserModel> getManagedUserPredicate(ScimContext scimContext) {
+        if (!scimContext.getConfig().getManageAllUsers()
+                && scimContext.getRealm().getRole(ScimRoles.SCIM_MANAGED_ROLE) == null) {
+            return user -> false;
+        }
+
+        return ScimManagedUsers.predicate(scimContext);
     }
 
     /**

@@ -5,13 +5,18 @@ import fi.metatavu.keycloak.scim.server.test.ScimClient;
 import fi.metatavu.keycloak.scim.server.test.TestConsts;
 import fi.metatavu.keycloak.scim.server.test.client.ApiException;
 import fi.metatavu.keycloak.scim.server.test.client.model.Group;
+import fi.metatavu.keycloak.scim.server.test.client.model.GroupMembersInner;
+import fi.metatavu.keycloak.scim.server.test.client.model.User;
 import fi.metatavu.keycloak.scim.server.test.client.model.GroupsList;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Stream;
 
 import fi.metatavu.keycloak.scim.server.test.utils.ScimErrorAssertions;
 import static org.junit.jupiter.api.Assertions.*;
@@ -36,8 +41,9 @@ class RealmGroupListTestsIT extends AbstractInternalAuthRealmScimTest {
 
             assertNotNull(groupsList);
             assertEquals(3, groupsList.getTotalResults());
-            assertEquals(0, groupsList.getStartIndex());
-            assertEquals(10, groupsList.getItemsPerPage());
+            // A startIndex below 1 is treated as 1 (RFC 7644 3.4.2.4)
+            assertEquals(1, groupsList.getStartIndex());
+            assertEquals(3, groupsList.getItemsPerPage());
 
             List<Group> groups = groupsList.getResources();
             assertNotNull(groups);
@@ -74,6 +80,26 @@ class RealmGroupListTestsIT extends AbstractInternalAuthRealmScimTest {
             // Cleanup
             deleteGroup(scimClient, group1.getId());
             deleteGroup(scimClient, group2.getId());
+        }
+    }
+
+    @Test
+    void testFilterByDisplayNameFromStartIndexOne() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+
+        Group group = createGroup(scimClient, "lookup-group");
+
+        try {
+            // Clients such as SailPoint look a group up by name from startIndex=1, the first page in SCIM terms
+            GroupsList groupsList = scimClient.listGroups("displayName eq \"lookup-group\"", 1, 10);
+
+            assertEquals(1, groupsList.getTotalResults());
+            assertEquals(1, groupsList.getStartIndex());
+            assertEquals(1, groupsList.getItemsPerPage());
+            assertEquals(1, groupsList.getResources().size());
+            assertEquals(group.getId(), groupsList.getResources().getFirst().getId());
+        } finally {
+            deleteGroup(scimClient, group.getId());
         }
     }
 
@@ -157,29 +183,34 @@ class RealmGroupListTestsIT extends AbstractInternalAuthRealmScimTest {
                 createdGroups.add(group);
             }
 
-            // Page 1: count=2, startIndex=0
-            GroupsList page1 = scimClient.listGroups(null, 0, 2);
+            // Page 1: count=2, startIndex=1 (SCIM start indexes are 1-based)
+            GroupsList page1 = scimClient.listGroups(null, 1, 2);
             assertEquals(2, page1.getItemsPerPage());
-            assertEquals(0, page1.getStartIndex());
+            assertEquals(1, page1.getStartIndex());
             assertEquals(5, page1.getTotalResults());
             assertNotNull(page1.getResources());
             assertEquals(2, page1.getResources().size());
 
-            // Page 2: count=2, startIndex=2
-            GroupsList page2 = scimClient.listGroups(null, 2, 2);
+            // Page 2: count=2, startIndex=3
+            GroupsList page2 = scimClient.listGroups(null, 3, 2);
             assertEquals(2, page2.getItemsPerPage());
-            assertEquals(2, page2.getStartIndex());
+            assertEquals(3, page2.getStartIndex());
             assertEquals(5, page2.getTotalResults());
             assertNotNull(page2.getResources());
             assertEquals(2, page2.getResources().size());
 
-            // Page 3: count=2, startIndex=4 (only one group expected)
-            GroupsList page3 = scimClient.listGroups(null, 4, 2);
-            assertEquals(2, page3.getItemsPerPage());
-            assertEquals(4, page3.getStartIndex());
+            // Page 3: count=2, startIndex=5 (only one group expected)
+            GroupsList page3 = scimClient.listGroups(null, 5, 2);
+            assertEquals(1, page3.getItemsPerPage());
+            assertEquals(5, page3.getStartIndex());
             assertEquals(5, page3.getTotalResults());
             assertNotNull(page3.getResources());
-            assertTrue(page3.getResources().size() <= 2);
+            assertEquals(1, page3.getResources().size());
+
+            // Together the pages hold every resource once: none is skipped at a page boundary
+            Set<String> pagedIds = new HashSet<>();
+            Stream.of(page1, page2, page3).forEach(page -> page.getResources().forEach(resource -> pagedIds.add(resource.getId())));
+            assertEquals(5, pagedIds.size());
 
         } finally {
             // Cleanup
@@ -296,6 +327,38 @@ class RealmGroupListTestsIT extends AbstractInternalAuthRealmScimTest {
         assertEquals(displayName, created.getDisplayName());
 
         return created;
+    }
+
+    /**
+     * Group reads only list SCIM-managed members, matching what GET /Users exposes:
+     * an admin-added user and a service account in the group stay hidden.
+     */
+    @Test
+    void testGroupMembersHideUnmanagedUsers() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+        User managed = createUser(scimClient, "list-managed-member", "List", "Managed");
+        String unmanagedUserId = createRealmUser(TestConsts.TEST_REALM, "list-unmanaged-member", "List", "Unmanaged");
+        Group group = createGroup(scimClient, "hidden-members-group");
+
+        try {
+            addRealmUserToGroup(TestConsts.TEST_REALM, managed.getId(), group.getId());
+            addRealmUserToGroup(TestConsts.TEST_REALM, unmanagedUserId, group.getId());
+            addRealmUserToGroup(TestConsts.TEST_REALM, "7437c9e2-f7de-4bb1-b52f-6a6a61a598ab", group.getId());
+
+            Group found = scimClient.findGroup(group.getId());
+            assertNotNull(found.getMembers());
+            assertEquals(List.of(managed.getId()), found.getMembers().stream().map(GroupMembersInner::getValue).toList());
+
+            GroupsList groupsList = scimClient.listGroups("displayName eq \"hidden-members-group\"", 0, 10);
+            assertEquals(1, groupsList.getTotalResults());
+            Group listed = groupsList.getResources().getFirst();
+            assertNotNull(listed.getMembers());
+            assertEquals(List.of(managed.getId()), listed.getMembers().stream().map(GroupMembersInner::getValue).toList());
+        } finally {
+            deleteRealmUser(TestConsts.TEST_REALM, managed.getId());
+            deleteRealmUser(TestConsts.TEST_REALM, unmanagedUserId);
+            deleteGroup(scimClient, group.getId());
+        }
     }
 
     /**

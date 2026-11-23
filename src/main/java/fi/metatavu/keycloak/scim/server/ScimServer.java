@@ -28,15 +28,15 @@ public interface ScimServer <T extends ScimContext> {
      *
      * @param scimContext SCIM context
      * @param scimFilter  SCIM filter
-     * @param startIndex  start index
-     * @param count       count
+     * @param firstResult zero-based offset of the first resource on the page
+     * @param maxResults  page size
      * @return response
      */
     Response listUsers(
         T scimContext,
         ScimFilter scimFilter,
-        Integer startIndex,
-        Integer count
+        Integer firstResult,
+        Integer maxResults
     );
 
     /**
@@ -91,12 +91,12 @@ public interface ScimServer <T extends ScimContext> {
      *
      * @param scimContext SCIM context
      * @param scimFilter  SCIM filter
-     * @param startIndex  start index
-     * @param count       count
+     * @param firstResult zero-based offset of the first resource on the page
+     * @param maxResults  page size
      * @param attributeSelection attributes the response may carry
      * @return response
      */
-    Response listGroups(T scimContext, ScimFilter scimFilter, int startIndex, int count, AttributeSelection attributeSelection);
+    Response listGroups(T scimContext, ScimFilter scimFilter, int firstResult, int maxResults, AttributeSelection attributeSelection);
 
     /**
      * Finds a group by ID

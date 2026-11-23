@@ -74,7 +74,6 @@ public class OrganizationLinkIdpTestsIT extends AbstractOrganizationSeleniumScim
         newUser.setFirstName("Test");
         newUser.setLastName("User 1");
         newUser.setEmail("test.user1@org1.example.com");
-        newUser.setRealmRoles(List.of("scim-managed"));
 
         // Create a new user in the organization without external identity provider. This simulates a user that was created before SCIM was enabled.
 
@@ -83,6 +82,9 @@ public class OrganizationLinkIdpTestsIT extends AbstractOrganizationSeleniumScim
             TestConsts.ORGANIZATION_1_ID,
             newUser
         );
+
+        // The admin API ignores realmRoles on create, so grant the role that puts the user in SCIM's scope explicitly
+        grantRealmRole(TestConsts.ORGANIZATIONS_REALM, userId, "scim-managed");
 
         // Update the user using SCIM with externalId. This should link the user to the external identity provider.
 
@@ -123,7 +125,6 @@ public class OrganizationLinkIdpTestsIT extends AbstractOrganizationSeleniumScim
         newUser.setFirstName("Test");
         newUser.setLastName("User 1");
         newUser.setEmail("test.user1@org1.example.com");
-        newUser.setRealmRoles(List.of("scim-managed"));
 
         // Create a new user in the organization without external identity provider. This simulates a user that was created before SCIM was enabled.
 
@@ -132,6 +133,9 @@ public class OrganizationLinkIdpTestsIT extends AbstractOrganizationSeleniumScim
             TestConsts.ORGANIZATION_1_ID,
             newUser
         );
+
+        // The admin API ignores realmRoles on create, so grant the role that puts the user in SCIM's scope explicitly
+        grantRealmRole(TestConsts.ORGANIZATIONS_REALM, userId, "scim-managed");
 
         // Patch the user using SCIM with externalId. This should link the user to the external identity provider.
 

@@ -2,6 +2,7 @@ package fi.metatavu.keycloak.scim.server.users;
 
 import fi.metatavu.keycloak.scim.server.AbstractController;
 import fi.metatavu.keycloak.scim.server.ScimContext;
+import fi.metatavu.keycloak.scim.server.ScimPagination;
 import fi.metatavu.keycloak.scim.server.adminEvents.AdminEventController;
 import fi.metatavu.keycloak.scim.server.consts.Schemas;
 import fi.metatavu.keycloak.scim.server.consts.ScimRoles;
@@ -169,8 +170,8 @@ public class UsersController extends AbstractController {
      *
      * @param scimContext SCIM context
      * @param scimFilter SCIM filter
-     * @param firstResult first result
-     * @param maxResults max results
+     * @param firstResult zero-based offset of the first user on the page
+     * @param maxResults page size
      * @return users list
      */
     public UsersList listUsers(
@@ -218,8 +219,8 @@ public class UsersController extends AbstractController {
 
         result.setTotalResults(filteredUsers.size());
         result.setResources(users);
-        result.setStartIndex(firstResult);
-        result.setItemsPerPage(maxResults);
+        result.setStartIndex(ScimPagination.startIndex(firstResult));
+        result.setItemsPerPage(users.size());
 
         return result;
     }

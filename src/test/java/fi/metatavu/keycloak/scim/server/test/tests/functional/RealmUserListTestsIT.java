@@ -10,7 +10,10 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Stream;
 
 import fi.metatavu.keycloak.scim.server.test.utils.ScimErrorAssertions;
 import static org.junit.jupiter.api.Assertions.*;
@@ -28,8 +31,9 @@ class RealmUserListTestsIT extends AbstractInternalAuthRealmScimTest {
     UsersList usersList = scimClient.listUsers(null, 0, 10);
 
     assertEquals(1, usersList.getTotalResults());
-    assertEquals(0, usersList.getStartIndex());
-    assertEquals(10, usersList.getItemsPerPage());
+    // A startIndex below 1 is treated as 1 (RFC 7644 3.4.2.4)
+    assertEquals(1, usersList.getStartIndex());
+    assertEquals(1, usersList.getItemsPerPage());
 
     List<User> users = usersList.getResources();
     assertNotNull(users);
@@ -326,29 +330,34 @@ class RealmUserListTestsIT extends AbstractInternalAuthRealmScimTest {
       createdUsers.add(created);
     }
 
-    // Page 1: count=2, startIndex=0
-    UsersList page1 = scimClient.listUsers("name.givenName eq \"Paginated\"", 0, 2);
+    // Page 1: count=2, startIndex=1 (SCIM start indexes are 1-based)
+    UsersList page1 = scimClient.listUsers("name.givenName eq \"Paginated\"", 1, 2);
     assertEquals(2, page1.getItemsPerPage());
-    assertEquals(0, page1.getStartIndex());
+    assertEquals(1, page1.getStartIndex());
     assertEquals(5, page1.getTotalResults());
     assertNotNull(page1.getResources());
     assertEquals(2, page1.getResources().size());
 
-    // Page 2: count=2, startIndex=2
-    UsersList page2 = scimClient.listUsers("name.givenName eq \"Paginated\"", 2, 2);
+    // Page 2: count=2, startIndex=3
+    UsersList page2 = scimClient.listUsers("name.givenName eq \"Paginated\"", 3, 2);
     assertEquals(2, page2.getItemsPerPage());
-    assertEquals(2, page2.getStartIndex());
+    assertEquals(3, page2.getStartIndex());
     assertEquals(5, page2.getTotalResults());
     assertNotNull(page2.getResources());
     assertEquals(2, page2.getResources().size());
 
-    // Page 3: count=2, startIndex=4 (only one user expected)
-    UsersList page3 = scimClient.listUsers("name.givenName eq \"Paginated\"", 4, 2);
-    assertEquals(2, page3.getItemsPerPage());
-    assertEquals(4, page3.getStartIndex());
+    // Page 3: count=2, startIndex=5 (only one user expected)
+    UsersList page3 = scimClient.listUsers("name.givenName eq \"Paginated\"", 5, 2);
+    assertEquals(1, page3.getItemsPerPage());
+    assertEquals(5, page3.getStartIndex());
     assertEquals(5, page3.getTotalResults());
     assertNotNull(page3.getResources());
-    assertTrue(page3.getResources().size() <= 2);
+    assertEquals(1, page3.getResources().size());
+
+    // Together the pages hold every resource once: none is skipped at a page boundary
+    Set<String> pagedIds = new HashSet<>();
+    Stream.of(page1, page2, page3).forEach(page -> page.getResources().forEach(resource -> pagedIds.add(resource.getId())));
+    assertEquals(5, pagedIds.size());
 
     // Cleanup
     for (User user : createdUsers) {

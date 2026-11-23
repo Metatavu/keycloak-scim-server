@@ -79,8 +79,8 @@ public class ScimResources {
     public Response listRealmUsers(
         @Context KeycloakSession session,
         @QueryParam("filter") String filter,
-        @QueryParam("startIndex") @DefaultValue("0") Integer startIndex,
-        @QueryParam("count") @DefaultValue("100") Integer count
+        @QueryParam("startIndex") @DefaultValue("1") Integer startIndex,
+        @QueryParam("count") @DefaultValue(ScimPagination.DEFAULT_COUNT) Integer count
     ) {
         logger.debugf("GET /v2/Users filter=%s startIndex=%d count=%d", filter, startIndex, count);
         RealmScimContext scimContext = realmScimServer.getScimContext(session);
@@ -97,8 +97,8 @@ public class ScimResources {
         return realmScimServer.listUsers(
             scimContext,
             scimFilter,
-            startIndex,
-            count
+            ScimPagination.firstResult(startIndex),
+            ScimPagination.maxResults(count)
         );
     }
 
@@ -203,8 +203,8 @@ public class ScimResources {
     public Response listRealmGroups(
             @Context KeycloakSession session,
             @QueryParam("filter") String filter,
-            @QueryParam("startIndex") @DefaultValue("0") int startIndex,
-            @QueryParam("count") @DefaultValue("100") int count,
+            @QueryParam("startIndex") @DefaultValue("1") int startIndex,
+            @QueryParam("count") @DefaultValue(ScimPagination.DEFAULT_COUNT) int count,
             @QueryParam("attributes") String attributes,
             @QueryParam("excludedAttributes") String excludedAttributes
     ) {
@@ -230,8 +230,8 @@ public class ScimResources {
         return realmScimServer.listGroups(
                 scimContext,
                 scimFilter,
-                startIndex,
-                count,
+                ScimPagination.firstResult(startIndex),
+                ScimPagination.maxResults(count),
                 attributeSelection
         );
     }
@@ -446,8 +446,8 @@ public class ScimResources {
             @Context KeycloakSession session,
             @PathParam("organizationId") String organizationId,
             @QueryParam("filter") String filter,
-            @QueryParam("startIndex") @DefaultValue("0") Integer startIndex,
-            @QueryParam("count") @DefaultValue("100") Integer count
+            @QueryParam("startIndex") @DefaultValue("1") Integer startIndex,
+            @QueryParam("count") @DefaultValue(ScimPagination.DEFAULT_COUNT) Integer count
     ) {
         logger.debugf("GET /v2/organizations/%s/Users filter=%s startIndex=%d count=%d", organizationId, filter, startIndex, count);
         OrganizationScimContext scimContext = getOrganizationScimServer().getScimContext(session, organizationId);
@@ -464,8 +464,8 @@ public class ScimResources {
         return getOrganizationScimServer().listUsers(
             scimContext,
             scimFilter,
-            startIndex,
-            count
+            ScimPagination.firstResult(startIndex),
+            ScimPagination.maxResults(count)
         );
     }
 
@@ -576,8 +576,8 @@ public class ScimResources {
             @Context KeycloakSession session,
             @PathParam("organizationId") String organizationId,
             @QueryParam("filter") String filter,
-            @QueryParam("startIndex") @DefaultValue("0") int startIndex,
-            @QueryParam("count") @DefaultValue("100") int count
+            @QueryParam("startIndex") @DefaultValue("1") int startIndex,
+            @QueryParam("count") @DefaultValue(ScimPagination.DEFAULT_COUNT) int count
     ) {
         logger.debugf("GET /v2/organizations/%s/Groups filter=%s startIndex=%d count=%d", organizationId, filter, startIndex, count);
         OrganizationScimContext scimContext = getOrganizationScimServer().getScimContext(session, organizationId);
@@ -594,8 +594,8 @@ public class ScimResources {
         return getOrganizationScimServer().listGroups(
             scimContext,
             scimFilter,
-            startIndex,
-            count,
+            ScimPagination.firstResult(startIndex),
+            ScimPagination.maxResults(count),
             AttributeSelection.DEFAULT
         );
     }

@@ -6,6 +6,7 @@ import fi.metatavu.keycloak.scim.server.config.ConfigurationError;
 import fi.metatavu.keycloak.scim.server.attributes.AttributeSelection;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
 import fi.metatavu.keycloak.scim.server.groups.InvalidGroupMemberReference;
+import fi.metatavu.keycloak.scim.server.groups.InvalidGroupPatchValue;
 import fi.metatavu.keycloak.scim.server.groups.UnsupportedGroupPath;
 import fi.metatavu.keycloak.scim.server.metadata.UserAttributes;
 import fi.metatavu.keycloak.scim.server.model.User;
@@ -256,13 +257,33 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
             }
 
             return Response.ok(updated).build();
-        } catch (InvalidGroupMemberReference e) {
+        } catch (InvalidGroupMemberReference | InvalidGroupPatchValue e) {
+            rollbackPatch(session);
             return ScimErrors.invalidValue(e.getMessage());
         } catch (UnsupportedGroupPath e) {
+            rollbackPatch(session);
             return ScimErrors.invalidPath(e.getMessage() != null ? e.getMessage() : "Unsupported group path");
         } catch (UnsupportedPatchOperation e) {
+            rollbackPatch(session);
             return ScimErrors.invalidSyntax("Unsupported patch operation");
         }
+    }
+
+    /**
+     * Discards the changes made by the operations of a failed PATCH request.
+     * <p>
+     * RFC 7644 §3.5.2 requires a PATCH to be applied as a whole or not at all.
+     * The error is returned as a Response rather than thrown, so without this
+     * Keycloak would commit the operations that ran before the failing one.
+     * Marking the transaction rollback-only makes Keycloak roll it back when
+     * the request's session closes. No admin events are emitted for a failed
+     * PATCH: GroupsController dispatches them only after every operation has
+     * succeeded.
+     *
+     * @param session Keycloak session
+     */
+    private void rollbackPatch(KeycloakSession session) {
+        session.getTransactionManager().setRollbackOnly();
     }
 
     @Override

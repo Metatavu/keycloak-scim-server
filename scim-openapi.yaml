@@ -34,12 +34,17 @@ paths:
             type: string
         - name: startIndex
           in: query
+          description: 1-based index of the first resource on the page (RFC 7644 3.4.2.4). Values below 1 are treated as 1.
           schema:
             type: integer
+            default: 1
         - name: count
           in: query
+          description: Number of resources on the page, at most 200.
           schema:
             type: integer
+            default: 100
+            maximum: 200
       responses:
         '200':
           description: List of users
@@ -218,12 +223,17 @@ paths:
             type: string
         - name: startIndex
           in: query
+          description: 1-based index of the first resource on the page (RFC 7644 3.4.2.4). Values below 1 are treated as 1.
           schema:
             type: integer
+            default: 1
         - name: count
           in: query
+          description: Number of resources on the page, at most 200.
           schema:
             type: integer
+            default: 100
+            maximum: 200
         - name: attributes
           in: query
           description: >

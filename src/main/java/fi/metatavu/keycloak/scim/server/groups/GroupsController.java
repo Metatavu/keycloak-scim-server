@@ -223,6 +223,12 @@ public class GroupsController extends AbstractController {
     /**
      * Patch group with SCIM group data
      *
+     * <p>Operations are applied in order. When one of them fails, earlier
+     * operations have already been applied to the session; the caller must
+     * mark the Keycloak transaction rollback-only so the PATCH is applied as
+     * a whole or not at all (RFC 7644 §3.5.2). Admin events are dispatched
+     * only after every operation has succeeded.
+     *
      * @param scimContext SCIM context
      * @param existing existing group
      * @param patchRequest patch request
@@ -234,8 +240,11 @@ public class GroupsController extends AbstractController {
             GroupModel existing,
             fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest,
             AttributeSelection attributeSelection
-    ) throws UnsupportedGroupPath, UnsupportedPatchOperation, InvalidGroupMemberReference {
+    ) throws UnsupportedGroupPath, UnsupportedPatchOperation, InvalidGroupMemberReference, InvalidGroupPatchValue {
         Predicate<UserModel> isManaged = getManagedUserPredicate(scimContext);
+        // Admin events are only dispatched once every operation has succeeded,
+        // so a failed (and rolled back) PATCH emits none.
+        List<Runnable> pendingEvents = new ArrayList<>();
 
         for (var operation : patchRequest.getOperations()) {
             PatchOperation op = PatchOperation.fromString(operation.getOp());
@@ -270,7 +279,7 @@ public class GroupsController extends AbstractController {
                     if (attr == null) {
                         throw new UnsupportedGroupPath("Unsupported attribute: " + attrPath);
                     }
-                    applyGroupPatch(scimContext, op, attr, attrPath, entry.getValue(), existing, isManaged);
+                    applyGroupPatch(scimContext, op, attr, attrPath, entry.getValue(), existing, isManaged, pendingEvents);
                 }
                 continue;
             }
@@ -289,10 +298,13 @@ public class GroupsController extends AbstractController {
                 throw new UnsupportedGroupPath("Unsupported patch path: " + path);
             }
 
-            // Value can be null for REMOVE operations with path filters
+            // Value can be null for REMOVE operations with path filters. ADD and
+            // REPLACE need a value: fail the whole PATCH instead of skipping the
+            // operation, so the client never gets a success for changes that
+            // were not made (RFC 7644 §3.5.2).
             if (value == null && op != PatchOperation.REMOVE) {
                 logger.warn("Value is null for patch operation: " + op);
-                break;
+                throw new InvalidGroupPatchValue("Missing value for '" + operation.getOp() + "' operation on path: " + path);
             }
 
             // For REMOVE with a path filter (e.g. members[value eq "id"]), extract
@@ -308,8 +320,10 @@ public class GroupsController extends AbstractController {
                 }
             }
 
-            applyGroupPatch(scimContext, op, groupAttribute, path, effectiveValue, existing, isManaged);
+            applyGroupPatch(scimContext, op, groupAttribute, path, effectiveValue, existing, isManaged, pendingEvents);
         }
+
+        pendingEvents.forEach(Runnable::run);
 
         // RFC 7644 §3.5.2: a successful PATCH may answer 204 No Content, and
         // MUST answer 200 with the resource when "attributes" was specified.
@@ -325,8 +339,9 @@ public class GroupsController extends AbstractController {
      * Apply a single SCIM PatchOp on a Group.
      *
      * <p>Atomicity scope: per operation. If a PatchRequest contains multiple
-     * operations, each is applied independently in order. An earlier
-     * successful operation is NOT rolled back if a later one fails.
+     * operations, each is applied in order; when a later one fails, the caller
+     * rolls back the Keycloak transaction so earlier operations are discarded
+     * (see {@link #patchGroup}).
      *
      * <p>For MEMBERS modifications (ADD/REPLACE/REMOVE), every incoming member
      * ID is resolved via {@link #resolveMembers} before any mutation. The
@@ -338,6 +353,8 @@ public class GroupsController extends AbstractController {
      *
      * <p>Used by both the path-less and path-based PatchOp branches of
      * {@link #patchGroup}.
+     *
+     * @param pendingEvents admin events to dispatch once the whole PATCH has succeeded
      */
     private void applyGroupPatch(
             ScimContext scimContext,
@@ -346,7 +363,8 @@ public class GroupsController extends AbstractController {
             String attrPath,
             Object value,
             GroupModel existing,
-            Predicate<UserModel> isManaged
+            Predicate<UserModel> isManaged,
+            List<Runnable> pendingEvents
     ) throws InvalidGroupMemberReference, UnsupportedGroupPath {
         KeycloakSession session = scimContext.getSession();
         RealmModel realm = scimContext.getRealm();
@@ -367,12 +385,12 @@ public class GroupsController extends AbstractController {
                                     .filter(isManaged)
                                     .forEach(u -> {
                                         u.leaveGroup(existing);
-                                        dispatchGroupMembershipLeaveEvent(scimContext, existing, u);
+                                        pendingEvents.add(() -> dispatchGroupMembershipLeaveEvent(scimContext, existing, u));
                                     });
                         }
                         for (UserModel u : resolved) {
                             u.joinGroup(existing);
-                            dispatchGroupMembershipJoinEvent(scimContext, existing, u);
+                            pendingEvents.add(() -> dispatchGroupMembershipJoinEvent(scimContext, existing, u));
                         }
                     }
                 }
@@ -388,7 +406,7 @@ public class GroupsController extends AbstractController {
                         List<UserModel> resolved = resolveMembers(session, realm, value, isManaged);
                         for (UserModel u : resolved) {
                             u.leaveGroup(existing);
-                            dispatchGroupMembershipLeaveEvent(scimContext, existing, u);
+                            pendingEvents.add(() -> dispatchGroupMembershipLeaveEvent(scimContext, existing, u));
                         }
                     }
                 }
@@ -405,8 +423,9 @@ public class GroupsController extends AbstractController {
      *
      * <p>Atomicity scope: within a single operation only. Resolution runs in
      * full before any group membership is modified, so a bad ID aborts the
-     * operation without partially applying changes. It does NOT span multiple
-     * operations in the same PatchRequest (see {@link #applyGroupPatch}).
+     * operation without partially applying changes. Atomicity across multiple
+     * operations in the same PatchRequest comes from the transaction rollback
+     * done by the caller of {@link #patchGroup}.
      *
      * <p>REMOVE uses this same path: an unknown member ID returns 400 rather
      * than silently no-oping, so SCIM clients with stale state receive an

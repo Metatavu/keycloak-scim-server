@@ -96,6 +96,13 @@ id, and `POST`/`PUT` drop such references as they already did for unknown ids. A
 SCIM client relied on putting users created in the admin console into groups, grant those users
 the `scim-managed` role or enable `SCIM_MANAGE_ALL_USERS`.
 
+Group `PATCH` requests are now applied as a whole or not at all (RFC 7644 §3.5.2).
+When any operation in a multi-operation `PATCH /Groups/{id}` fails, the earlier
+operations are rolled back, no membership admin events are emitted, and the
+response is the error. An `add` or `replace` operation without a `value` now fails
+the request with `400 invalidValue`; before, it silently skipped that operation and
+every operation after it while still answering `204`.
+
 ### Upgrading to 1.9.1
 
 1.9.1 adds support for Keycloak 26.8. Keycloak 26.8 moved the domain-to-identity-provider

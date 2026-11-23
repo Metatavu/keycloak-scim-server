@@ -46,6 +46,16 @@ This project provides a **SCIM 2.0-compliant extension** for [Keycloak](https://
 
 > **Note:** Organization-level SCIM APIs require Keycloak **26+** with the Organizations feature enabled.
 
+### Upgrading to 1.9.2
+
+In external token authentication mode (`SCIM_EXTERNAL_JWKS_URI`), the server now checks
+the token's `exp` and `nbf` claims, with 60 seconds of allowed clock skew. Expired tokens,
+tokens that are not yet valid and tokens without an `exp` claim are rejected with
+`401 Unauthorized`. Previously any token signed by the configured JWKS with the right
+issuer and audience was accepted indefinitely. Tokens without an `iss` or `aud` claim are
+now rejected with `401` instead of failing with `500` (unless the corresponding setting is
+the `*` wildcard). Make sure your SCIM client sends tokens that carry an `exp` claim.
+
 ### Upgrading to 1.9.1
 
 1.9.1 adds support for Keycloak 26.8. Keycloak 26.8 moved the domain-to-identity-provider

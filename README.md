@@ -46,6 +46,15 @@ This project provides a **SCIM 2.0-compliant extension** for [Keycloak](https://
 
 > **Note:** Organization-level SCIM APIs require Keycloak **26+** with the Organizations feature enabled.
 
+### Upgrading to 1.9.2
+
+Realm-level `GET /Users?filter=<attribute> eq "<value>"` now returns only exact matches.
+Before, a single `eq` comparison on `userName`, `email`, `name.givenName`,
+`name.familyName` or a user profile attribute was a substring match, so
+`userName eq "bob"` also returned `bobby`. Comparisons stay case-insensitive, as the
+user schema advertises `caseExact: false` for every attribute (`userName eq "BOB"`
+still finds `bob`). Organization-level user lists already matched exactly.
+
 ### Upgrading to 1.9.1
 
 1.9.1 adds support for Keycloak 26.8. Keycloak 26.8 moved the domain-to-identity-provider

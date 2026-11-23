@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -24,6 +25,9 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 @Testcontainers
 public class RealmGroupPatchTestsIT extends AbstractInternalAuthRealmScimTest {
+
+    /** service-account-scim-client from kc-test.json, which has no scim-managed role */
+    private static final String SERVICE_ACCOUNT_USER_ID = "7437c9e2-f7de-4bb1-b52f-6a6a61a598ab";
 
     @Test
     void testAddGroupMember() throws ApiException {
@@ -532,6 +536,105 @@ public class RealmGroupPatchTestsIT extends AbstractInternalAuthRealmScimTest {
         deleteRealmGroup(TestConsts.TEST_REALM, group.getId());
     }
 
+    /**
+     * A user created outside SCIM (no scim-managed role) is invisible to GET /Users,
+     * so adding it to a group must be rejected exactly like an unknown id.
+     */
+    @Test
+    void testAddUnmanagedUserIsRejected() throws ApiException, IOException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+        String unmanagedUserId = createRealmUser(TestConsts.TEST_REALM, "unmanaged-add", "Unmanaged", "Add");
+        Group group = createGroup(scimClient, "unmanaged-add-group");
+
+        try {
+            ApiException ex = assertThrows(ApiException.class,
+                    () -> scimClient.patchGroup(group.getId(), membersPatch("add", "members", unmanagedUserId)));
+            assertEquals(400, ex.getCode());
+            com.fasterxml.jackson.databind.JsonNode body =
+                    new com.fasterxml.jackson.databind.ObjectMapper().readTree(ex.getResponseBody());
+            assertEquals("Unknown group member: " + unmanagedUserId, body.get("detail").asText());
+
+            assertTrue(getRealmGroupMemberIds(TestConsts.TEST_REALM, group.getId()).isEmpty());
+        } finally {
+            deleteRealmUser(TestConsts.TEST_REALM, unmanagedUserId);
+            deleteRealmGroup(TestConsts.TEST_REALM, group.getId());
+        }
+    }
+
+    /**
+     * Service-account users belong to clients and must never be put into groups through SCIM
+     */
+    @Test
+    void testAddServiceAccountUserIsRejected() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+        Group group = createGroup(scimClient, "service-account-add-group");
+
+        try {
+            ApiException ex = assertThrows(ApiException.class,
+                    () -> scimClient.patchGroup(group.getId(), membersPatch("add", "members", SERVICE_ACCOUNT_USER_ID)));
+            assertEquals(400, ex.getCode());
+
+            assertTrue(getRealmGroupMemberIds(TestConsts.TEST_REALM, group.getId()).isEmpty());
+        } finally {
+            deleteRealmGroup(TestConsts.TEST_REALM, group.getId());
+        }
+    }
+
+    /**
+     * REPLACE members only swaps the SCIM-managed members; a member added by an
+     * administrator outside SCIM stays in the group and stays hidden from the response.
+     */
+    @Test
+    void testReplaceMembersKeepsUnmanagedMember() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+        User oldMember = createUser(scimClient, "replace-keep-old", "Replace", "Old");
+        User newMember = createUser(scimClient, "replace-keep-new", "Replace", "New");
+        String unmanagedUserId = createRealmUser(TestConsts.TEST_REALM, "unmanaged-replace", "Unmanaged", "Replace");
+        Group group = createGroup(scimClient, "replace-keep-group");
+
+        try {
+            seedGroupWithMember(scimClient, group, oldMember);
+            addRealmUserToGroup(TestConsts.TEST_REALM, unmanagedUserId, group.getId());
+
+            assertEquals(204, scimClient.patchGroup(group.getId(),
+                    membersPatch("replace", "members", newMember.getId())).status());
+
+            assertGroupHasOnlyMember(scimClient, group, newMember);
+            assertEquals(Set.of(newMember.getId(), unmanagedUserId),
+                    getRealmGroupMemberIds(TestConsts.TEST_REALM, group.getId()));
+        } finally {
+            deleteRealmUser(TestConsts.TEST_REALM, oldMember.getId());
+            deleteRealmUser(TestConsts.TEST_REALM, newMember.getId());
+            deleteRealmUser(TestConsts.TEST_REALM, unmanagedUserId);
+            deleteRealmGroup(TestConsts.TEST_REALM, group.getId());
+        }
+    }
+
+    /**
+     * Removing a member that SCIM does not manage is rejected like an unknown id,
+     * and the member stays in the group.
+     */
+    @Test
+    void testRemoveUnmanagedMemberIsRejected() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+        String unmanagedUserId = createRealmUser(TestConsts.TEST_REALM, "unmanaged-remove", "Unmanaged", "Remove");
+        Group group = createGroup(scimClient, "unmanaged-remove-group");
+
+        try {
+            addRealmUserToGroup(TestConsts.TEST_REALM, unmanagedUserId, group.getId());
+
+            ApiException ex = assertThrows(ApiException.class,
+                    () -> scimClient.patchGroup(group.getId(),
+                            membersPatch("remove", "members[value eq \"" + unmanagedUserId + "\"]")));
+            assertEquals(400, ex.getCode());
+
+            assertEquals(Set.of(unmanagedUserId), getRealmGroupMemberIds(TestConsts.TEST_REALM, group.getId()));
+        } finally {
+            deleteRealmUser(TestConsts.TEST_REALM, unmanagedUserId);
+            deleteRealmGroup(TestConsts.TEST_REALM, group.getId());
+        }
+    }
+
     // --- helpers shared by the atomic-resolution tests ---
 
     /**
@@ -550,6 +653,33 @@ public class RealmGroupPatchTestsIT extends AbstractInternalAuthRealmScimTest {
         addOp.setValue(List.of(known));
         seed.setOperations(List.of(addOp));
         scimClient.patchGroup(group.getId(), seed);
+    }
+
+    /**
+     * Builds a single-operation members PatchRequest
+     *
+     * @param op operation
+     * @param path path
+     * @param memberIds member IDs to send as the value, none for a filtered remove
+     * @return patch request
+     */
+    private PatchRequest membersPatch(String op, String path, String... memberIds) {
+        PatchRequest request = new PatchRequest();
+        request.setSchemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"));
+        PatchRequestOperationsInner operation = new PatchRequestOperationsInner();
+        operation.setOp(op);
+        operation.setPath(path);
+        if (memberIds.length > 0) {
+            List<GroupMembersInner> refs = new java.util.ArrayList<>();
+            for (String memberId : memberIds) {
+                GroupMembersInner ref = new GroupMembersInner();
+                ref.setValue(memberId);
+                refs.add(ref);
+            }
+            operation.setValue(refs);
+        }
+        request.setOperations(List.of(operation));
+        return request;
     }
 
     /**

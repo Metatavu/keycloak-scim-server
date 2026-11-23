@@ -123,15 +123,15 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
     }
 
     @Override
-    public Response listUsers(RealmScimContext scimContext, ScimFilter scimFilter, Integer startIndex, Integer count) {
+    public Response listUsers(RealmScimContext scimContext, ScimFilter scimFilter, Integer firstResult, Integer maxResults) {
         UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
 
         fi.metatavu.keycloak.scim.server.model.UsersList usersList = usersController.listUsers(
             scimContext,
             scimFilter,
             userAttributes,
-            startIndex,
-            count
+            firstResult,
+            maxResults
         );
 
         return Response.ok(usersList).build();
@@ -194,8 +194,8 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
     }
 
     @Override
-    public Response listGroups(RealmScimContext scimContext, ScimFilter filter, int startIndex, int count, AttributeSelection attributeSelection) {
-        fi.metatavu.keycloak.scim.server.model.GroupsList groupList = groupsController.listGroups(scimContext, filter, startIndex, count, attributeSelection);
+    public Response listGroups(RealmScimContext scimContext, ScimFilter filter, int firstResult, int maxResults, AttributeSelection attributeSelection) {
+        fi.metatavu.keycloak.scim.server.model.GroupsList groupList = groupsController.listGroups(scimContext, filter, firstResult, maxResults, attributeSelection);
         return Response.ok(groupList).build();
     }
 

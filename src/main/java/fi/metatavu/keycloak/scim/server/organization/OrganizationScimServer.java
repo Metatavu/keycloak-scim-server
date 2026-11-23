@@ -127,15 +127,15 @@ public abstract class OrganizationScimServer extends AbstractScimServer<Organiza
     }
 
     @Override
-    public Response listUsers(OrganizationScimContext scimContext, ScimFilter scimFilter, Integer startIndex, Integer count) {
+    public Response listUsers(OrganizationScimContext scimContext, ScimFilter scimFilter, Integer firstResult, Integer maxResults) {
         UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
 
         fi.metatavu.keycloak.scim.server.model.UsersList usersList = organizationUserController.listOrganizationUsers(
             scimContext,
             scimFilter,
             userAttributes,
-            startIndex,
-            count
+            firstResult,
+            maxResults
         );
 
         return Response.ok(usersList).build();
@@ -188,7 +188,7 @@ public abstract class OrganizationScimServer extends AbstractScimServer<Organiza
 
     @Override
     @ExcludeFromJacocoGeneratedReport
-    public Response listGroups(OrganizationScimContext scimContext, ScimFilter filter, int startIndex, int count, AttributeSelection attributeSelection) {
+    public Response listGroups(OrganizationScimContext scimContext, ScimFilter filter, int firstResult, int maxResults, AttributeSelection attributeSelection) {
         // TODO: Organization Groups are not supported yet by the Keycloak
         return Response.status(Response.Status.NOT_IMPLEMENTED).build();
     }

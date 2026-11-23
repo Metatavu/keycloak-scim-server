@@ -5,6 +5,8 @@ import fi.metatavu.keycloak.scim.server.attributes.ConflictingAttributeSelection
 import fi.metatavu.keycloak.scim.server.consts.ContentTypes;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilterParser;
+import fi.metatavu.keycloak.scim.server.filter.UnsupportedFilter;
+import fi.metatavu.keycloak.scim.server.groups.GroupsController;
 import fi.metatavu.keycloak.scim.server.model.Group;
 import fi.metatavu.keycloak.scim.server.organization.OrganizationScimContext;
 import fi.metatavu.keycloak.scim.server.organization.OrganizationScimServer;
@@ -225,6 +227,13 @@ public class ScimResources {
         } catch (Exception e) {
             logger.warn(String.format("Failed to parse filter: '%s'", filter), e);
             return ScimErrors.invalidFilter("Invalid filter");
+        }
+
+        try {
+            scimFilter = GroupsController.resolveListFilter(scimFilter);
+        } catch (UnsupportedFilter e) {
+            logger.warnf("Unsupported group filter: '%s'", filter);
+            return ScimErrors.invalidFilter("Unsupported filter, groups can be filtered only with 'displayName eq', 'displayName co' or 'id eq'");
         }
 
         return realmScimServer.listGroups(

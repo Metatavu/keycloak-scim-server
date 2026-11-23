@@ -46,6 +46,17 @@ This project provides a **SCIM 2.0-compliant extension** for [Keycloak](https://
 
 > **Note:** Organization-level SCIM APIs require Keycloak **26+** with the Organizations feature enabled.
 
+### Upgrading to 1.9.2
+
+`GET /Groups` now rejects a filter it cannot evaluate with `400` and
+`scimType: invalidFilter`, as RFC 7644 §3.4.2.2 requires. Before 1.9.2 any
+filter other than `displayName eq "..."` (for example `externalId eq "..."` or
+`members.value eq "..."`) was ignored and every group was returned, so a client
+that looks a group up by filter and takes the first result could update or
+delete the wrong group. Supported group filters are `displayName eq`,
+`displayName co` and `id eq`; attribute names are matched case-insensitively.
+A request without a filter still lists all groups.
+
 ### Upgrading to 1.9.1
 
 1.9.1 adds support for Keycloak 26.8. Keycloak 26.8 moved the domain-to-identity-provider

@@ -253,6 +253,66 @@ class RealmUserListTestsIT extends AbstractInternalAuthRealmScimTest {
   }
 
   @Test
+  void testEqFiltersMatchExactlyNotSubstring() throws ApiException {
+    ScimClient scimClient = getAuthenticatedScimClient();
+    List<User> createdUsers = new ArrayList<>();
+
+    try {
+      createdUsers.add(createEqTestUser(scimClient, "bob", "Rob", "Builder", "eqtest@example.com"));
+      createdUsers.add(createEqTestUser(scimClient, "bobby", "Robert", "Builders", "aeqtest@example.com"));
+
+      assertSingleUser(scimClient.listUsers("userName eq \"bob\"", 0, 10), "bob");
+      assertSingleUser(scimClient.listUsers("userName eq \"BOB\"", 0, 10), "bob");
+      assertSingleUser(scimClient.listUsers("email eq \"eqtest@example.com\"", 0, 10), "bob");
+      assertSingleUser(scimClient.listUsers("email eq \"EQTEST@example.com\"", 0, 10), "bob");
+      assertSingleUser(scimClient.listUsers("name.givenName eq \"Rob\"", 0, 10), "bob");
+      assertSingleUser(scimClient.listUsers("name.familyName eq \"Builder\"", 0, 10), "bob");
+
+      assertEquals(0, scimClient.listUsers("userName eq \"bo\"", 0, 10).getTotalResults());
+
+      UsersList containsList = scimClient.listUsers("userName co \"bob\"", 0, 10);
+      assertEquals(2, containsList.getTotalResults());
+    } finally {
+      for (User user : createdUsers) {
+        deleteRealmUser(TestConsts.TEST_REALM, user.getId());
+      }
+    }
+  }
+
+  /**
+   * Creates a user for the eq filter tests
+   *
+   * @param scimClient SCIM client
+   * @param userName user name
+   * @param givenName given name
+   * @param familyName family name
+   * @param email email
+   * @return created user
+   */
+  private User createEqTestUser(ScimClient scimClient, String userName, String givenName, String familyName, String email) throws ApiException {
+    User user = new User();
+    user.setUserName(userName);
+    user.setActive(true);
+    user.setSchemas(List.of("urn:ietf:params:scim:schemas:core:2.0:User"));
+    user.setName(getName(givenName, familyName));
+    user.setEmails(getEmails(email));
+    return scimClient.createUser(user);
+  }
+
+  /**
+   * Asserts that the list contains exactly one user with the given user name
+   *
+   * @param usersList users list
+   * @param expectedUserName expected user name
+   */
+  private void assertSingleUser(UsersList usersList, String expectedUserName) {
+    assertEquals(1, usersList.getTotalResults());
+    assertNotNull(usersList.getResources());
+    assertEquals(1, usersList.getResources().size());
+    assertEquals(expectedUserName, usersList.getResources().getFirst().getUserName());
+  }
+
+  @Test
   void testPagination() throws ApiException {
     ScimClient scimClient = getAuthenticatedScimClient();
     List<User> createdUsers = new ArrayList<>();

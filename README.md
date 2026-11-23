@@ -48,6 +48,13 @@ This project provides a **SCIM 2.0-compliant extension** for [Keycloak](https://
 
 ### Upgrading to 1.9.2
 
+Realm-level `GET /Users?filter=<attribute> eq "<value>"` now returns only exact matches.
+Before, a single `eq` comparison on `userName`, `email`, `name.givenName`,
+`name.familyName` or a user profile attribute was a substring match, so
+`userName eq "bob"` also returned `bobby`. Comparisons stay case-insensitive, as the
+user schema advertises `caseExact: false` for every attribute (`userName eq "BOB"`
+still finds `bob`). Organization-level user lists already matched exactly.
+
 `GET`, `PUT` and `PATCH` on `/Users/{id}` now apply the same scope as `GET /Users`: a user that SCIM cannot
 list (no `scim-managed` role while `SCIM_MANAGE_ALL_USERS` is off, a client service account, or, in
 organization mode, a user that is not a member of the organization) answers `404 User not found`, as if it

@@ -197,6 +197,8 @@ public class UsersController extends AbstractController {
 
                 if (userAttribute.getSource() == UserAttribute.Source.USER_MODEL || userAttribute.getSource() == UserAttribute.Source.USER_PROFILE) {
                     searchParams.put(userAttribute.getSourceId(), value);
+                    // Without EXACT Keycloak matches username, email and names with LIKE %value%
+                    searchParams.put(UserModel.EXACT, Boolean.TRUE.toString());
                 }
             }
         }
@@ -205,7 +207,7 @@ public class UsersController extends AbstractController {
 
         List<UserModel> filteredUsers = session.users()
             .searchForUserStream(scimContext.getRealm(), searchParams)
-            .filter(user -> !searchParams.isEmpty() || matchScimFilter(user, userAttributes, scimFilter))
+            .filter(user -> matchScimFilter(user, userAttributes, scimFilter))
             .filter(isManaged)
             .toList();
 

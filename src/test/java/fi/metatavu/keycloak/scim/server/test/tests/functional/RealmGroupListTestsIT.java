@@ -122,24 +122,111 @@ class RealmGroupListTestsIT extends AbstractInternalAuthRealmScimTest {
     }
 
     @Test
-    void testUnsupportedAttributeFallsBackToListAll() throws ApiException {
+    void testFilterById() throws ApiException {
         ScimClient scimClient = getAuthenticatedScimClient();
 
-        // Create test groups
+        Group group1 = createGroup(scimClient, "id-test-group-1");
+        Group group2 = createGroup(scimClient, "id-test-group-2");
+
+        try {
+            GroupsList groupsList = scimClient.listGroups("id eq \"" + group2.getId() + "\"", 0, 10);
+
+            assertEquals(1, groupsList.getTotalResults());
+            assertNotNull(groupsList.getResources());
+            assertEquals(1, groupsList.getResources().size());
+            assertEquals(group2.getId(), groupsList.getResources().getFirst().getId());
+
+            GroupsList noMatch = scimClient.listGroups("id eq \"nonexistent-id\"", 0, 10);
+
+            assertEquals(0, noMatch.getTotalResults());
+            assertNotNull(noMatch.getResources());
+            assertTrue(noMatch.getResources().isEmpty());
+        } finally {
+            deleteGroup(scimClient, group1.getId());
+            deleteGroup(scimClient, group2.getId());
+        }
+    }
+
+    @Test
+    void testFilterAttributeNameIsCaseInsensitive() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+
+        Group group1 = createGroup(scimClient, "case-attr-group");
+        Group group2 = createGroup(scimClient, "other-case-attr-group");
+
+        try {
+            // Attribute names are case-insensitive (RFC 7643 2.1)
+            GroupsList groupsList = scimClient.listGroups("DisplayName eq \"case-attr-group\"", 0, 10);
+
+            assertEquals(1, groupsList.getTotalResults());
+            assertNotNull(groupsList.getResources());
+            assertEquals(1, groupsList.getResources().size());
+            assertEquals(group1.getId(), groupsList.getResources().getFirst().getId());
+
+            GroupsList byId = scimClient.listGroups("ID eq \"" + group2.getId() + "\"", 0, 10);
+
+            assertEquals(1, byId.getTotalResults());
+            assertEquals(group2.getId(), byId.getResources().getFirst().getId());
+        } finally {
+            deleteGroup(scimClient, group1.getId());
+            deleteGroup(scimClient, group2.getId());
+        }
+    }
+
+    @Test
+    void testFilterByDisplayNameContains() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+
+        Group group1 = createGroup(scimClient, "Stark-Industries");
+        Group group2 = createGroup(scimClient, "house-stark");
+        Group group3 = createGroup(scimClient, "lannister");
+
+        try {
+            // displayName is not case-exact (RFC 7643 4.2), so co matches regardless of case
+            GroupsList groupsList = scimClient.listGroups("displayName co \"stark\"", 0, 10);
+
+            assertEquals(2, groupsList.getTotalResults());
+            assertNotNull(groupsList.getResources());
+            List<String> ids = groupsList.getResources().stream().map(Group::getId).toList();
+            assertTrue(ids.contains(group1.getId()));
+            assertTrue(ids.contains(group2.getId()));
+        } finally {
+            deleteGroup(scimClient, group1.getId());
+            deleteGroup(scimClient, group2.getId());
+            deleteGroup(scimClient, group3.getId());
+        }
+    }
+
+    @Test
+    void testUnsupportedFilterAttributeIsRejected() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+
         Group group1 = createGroup(scimClient, "attr-test-group-1");
         Group group2 = createGroup(scimClient, "attr-test-group-2");
 
         try {
-            // Use an unsupported attribute
-            GroupsList groupsList = scimClient.listGroups("id eq \"some-id\"", 0, 10);
-
-            assertNotNull(groupsList);
-            // Should fall back to listing all groups
-            assertEquals(2, groupsList.getTotalResults());
-            assertNotNull(groupsList.getResources());
-            assertEquals(2, groupsList.getResources().size());
+            // Ignoring a filter the server cannot evaluate would list every group, and a client looking a
+            // group up by filter would take the first one as its match (RFC 7644 3.4.2.2)
+            assertInvalidFilter(scimClient, "externalId eq \"some-external-id\"");
+            assertInvalidFilter(scimClient, "members.value eq \"some-user-id\"");
         } finally {
-            // Cleanup
+            deleteGroup(scimClient, group1.getId());
+            deleteGroup(scimClient, group2.getId());
+        }
+    }
+
+    @Test
+    void testUnsupportedFilterOperatorIsRejected() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+
+        Group group1 = createGroup(scimClient, "operator-test-group-1");
+        Group group2 = createGroup(scimClient, "operator-test-group-2");
+
+        try {
+            assertInvalidFilter(scimClient, "displayName sw \"operator\"");
+            assertInvalidFilter(scimClient, "displayName pr");
+            assertInvalidFilter(scimClient, "displayName eq \"operator-test-group-1\" and displayName eq \"operator-test-group-2\"");
+        } finally {
             deleteGroup(scimClient, group1.getId());
             deleteGroup(scimClient, group2.getId());
         }
@@ -296,6 +383,22 @@ class RealmGroupListTestsIT extends AbstractInternalAuthRealmScimTest {
         assertEquals(displayName, created.getDisplayName());
 
         return created;
+    }
+
+    /**
+     * Asserts that listing groups with given filter fails with 400 and scimType invalidFilter
+     *
+     * @param scimClient SCIM client
+     * @param filter filter
+     */
+    private void assertInvalidFilter(ScimClient scimClient, String filter) {
+        ApiException exception = assertThrows(ApiException.class, () ->
+                scimClient.listGroups(filter, 0, 10)
+        );
+
+        ScimErrorAssertions.assertScimError(exception, 400, "Unsupported filter");
+        assertTrue(exception.getResponseBody().contains("\"invalidFilter\""),
+                "scimType should be invalidFilter; body=" + exception.getResponseBody());
     }
 
     /**

@@ -6,6 +6,7 @@ import fi.metatavu.keycloak.scim.server.adminEvents.AdminEventController;
 import fi.metatavu.keycloak.scim.server.attributes.AttributeSelection;
 import fi.metatavu.keycloak.scim.server.filter.ComparisonFilter;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
+import fi.metatavu.keycloak.scim.server.filter.UnsupportedFilter;
 import fi.metatavu.keycloak.scim.server.metadata.GroupAttribute;
 import fi.metatavu.keycloak.scim.server.patch.PatchOperation;
 import fi.metatavu.keycloak.scim.server.consts.Schemas;
@@ -40,6 +41,46 @@ public class GroupsController extends AbstractController {
 
     private static final Logger logger = Logger.getLogger(GroupsController.class);
     private final AdminEventController adminEventController = new AdminEventController();
+
+    /**
+     * SCIM path of the group id attribute
+     */
+    private static final String ID_ATTRIBUTE = "id";
+
+    /**
+     * Resolves a group list filter into one {@link #listGroups} can evaluate.
+     * <p>
+     * Groups can be filtered with {@code displayName eq "..."}, {@code displayName co "..."} and
+     * {@code id eq "..."}. Attribute names are case-insensitive (RFC 7643 section 2.1), so the returned
+     * filter carries the canonical attribute name. Any other filter is rejected (RFC 7644 section 3.4.2.2)
+     * instead of being ignored: ignoring it would list every group, and a client looking a group up by
+     * filter would take the first one as its match.
+     *
+     * @param scimFilter parsed filter, may be null
+     * @return equivalent filter with a canonical attribute name, or null when there is no filter
+     * @throws UnsupportedFilter when the filter cannot be evaluated for groups
+     */
+    public static ScimFilter resolveListFilter(ScimFilter scimFilter) {
+        if (scimFilter == null) {
+            return null;
+        }
+
+        if (scimFilter instanceof ComparisonFilter(
+                String attribute, ScimFilter.Operator operator, String value
+        )) {
+            String displayName = GroupAttribute.DISPLAY_NAME.getScimPath();
+            if (displayName.equalsIgnoreCase(attribute)
+                    && (operator == ScimFilter.Operator.EQ || operator == ScimFilter.Operator.CO)) {
+                return new ComparisonFilter(displayName, operator, value);
+            }
+
+            if (ID_ATTRIBUTE.equalsIgnoreCase(attribute) && operator == ScimFilter.Operator.EQ) {
+                return new ComparisonFilter(ID_ATTRIBUTE, operator, value);
+            }
+        }
+
+        throw new UnsupportedFilter(String.valueOf(scimFilter));
+    }
 
     /**
      * Creates a group
@@ -116,14 +157,14 @@ public class GroupsController extends AbstractController {
 
         Map<String, String> searchParams = new HashMap<>();
 
-        // For now only support to filter on display name
+        // Filters are resolved by resolveListFilter: displayName eq, displayName co, id eq or no filter
         List<GroupModel> filteredGroups;
         if(scimFilter instanceof ComparisonFilter(
                 String attribute, ScimFilter.Operator operator, String value
         ) && operator == ScimFilter.Operator.EQ && attribute.equals(GroupAttribute.DISPLAY_NAME.getScimPath())){
             filteredGroups = session.groups().searchForGroupByNameStream(realm, value, true, startIndex, count).toList();
         }else{
-            filteredGroups = session.groups().getGroupsStream(realm).toList();
+            filteredGroups = findGroups(session, realm, scimFilter);
         }
 
         List<Group> groups = filteredGroups.stream()
@@ -139,6 +180,30 @@ public class GroupsController extends AbstractController {
         result.setSchemas(Collections.singletonList("urn:ietf:params:scim:api:messages:2.0:ListResponse"));
 
         return result;
+    }
+
+    /**
+     * Finds groups matching a resolved filter other than {@code displayName eq}
+     *
+     * @param session Keycloak session
+     * @param realm realm
+     * @param scimFilter filter resolved with {@link #resolveListFilter}, or null
+     * @return matching groups, or all groups when there is no filter
+     */
+    private List<GroupModel> findGroups(KeycloakSession session, RealmModel realm, ScimFilter scimFilter) {
+        if (scimFilter instanceof ComparisonFilter(
+                String attribute, ScimFilter.Operator operator, String value
+        )) {
+            if (ID_ATTRIBUTE.equals(attribute)) {
+                GroupModel group = session.groups().getGroupById(realm, value);
+                return group == null ? List.of() : List.of(group);
+            }
+
+            // displayName co: Keycloak's non-exact name search is a case-insensitive substring match
+            return session.groups().searchForGroupByNameStream(realm, value, false, null, null).toList();
+        }
+
+        return session.groups().getGroupsStream(realm).toList();
     }
 
     /**

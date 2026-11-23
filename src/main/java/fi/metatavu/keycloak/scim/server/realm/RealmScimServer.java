@@ -6,6 +6,7 @@ import fi.metatavu.keycloak.scim.server.config.ConfigurationError;
 import fi.metatavu.keycloak.scim.server.attributes.AttributeSelection;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
 import fi.metatavu.keycloak.scim.server.groups.InvalidGroupMemberReference;
+import fi.metatavu.keycloak.scim.server.groups.InvalidGroupPatchValue;
 import fi.metatavu.keycloak.scim.server.groups.UnsupportedGroupPath;
 import fi.metatavu.keycloak.scim.server.metadata.UserAttributes;
 import fi.metatavu.keycloak.scim.server.model.User;
@@ -79,7 +80,7 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
         }
 
         RealmModel realm = scimContext.getRealm();
-        UserModel user = session.users().getUserById(realm, userId);
+        UserModel user = findManagedUser(scimContext, userId);
         if (user == null) {
             logger.warn(String.format("User not found: %s", userId));
             return ScimErrors.notFound("User not found");
@@ -108,10 +109,7 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
 
     @Override
     public Response patchUser(RealmScimContext scimContext, String userId, fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest) {
-        KeycloakSession session = scimContext.getSession();
-
-        RealmModel realm = scimContext.getRealm();
-        UserModel existing = session.users().getUserById(realm, userId);
+        UserModel existing = findManagedUser(scimContext, userId);
         if (existing == null) {
             logger.warn(String.format("User not found: %s", userId));
             return ScimErrors.notFound("User not found");
@@ -126,15 +124,15 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
     }
 
     @Override
-    public Response listUsers(RealmScimContext scimContext, ScimFilter scimFilter, Integer startIndex, Integer count) {
+    public Response listUsers(RealmScimContext scimContext, ScimFilter scimFilter, Integer firstResult, Integer maxResults) {
         UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
 
         fi.metatavu.keycloak.scim.server.model.UsersList usersList = usersController.listUsers(
             scimContext,
             scimFilter,
             userAttributes,
-            startIndex,
-            count
+            firstResult,
+            maxResults
         );
 
         return Response.ok(usersList).build();
@@ -142,11 +140,16 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
 
     @Override
     public Response findUser(RealmScimContext scimContext, String userId) {
+        if (findManagedUser(scimContext, userId) == null) {
+            logger.warn(String.format("User not found: %s", userId));
+            return ScimErrors.notFound("User not found");
+        }
+
         UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
         User user = usersController.findUser(scimContext, userAttributes, userId);
         if (user == null) {
             logger.warn(String.format("User not found: %s", userId));
-            return Response.status(Response.Status.NOT_FOUND).build();
+            return ScimErrors.notFound("User not found");
         }
 
         return Response.ok(user).build();
@@ -192,8 +195,8 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
     }
 
     @Override
-    public Response listGroups(RealmScimContext scimContext, ScimFilter filter, int startIndex, int count, AttributeSelection attributeSelection) {
-        fi.metatavu.keycloak.scim.server.model.GroupsList groupList = groupsController.listGroups(scimContext, filter, startIndex, count, attributeSelection);
+    public Response listGroups(RealmScimContext scimContext, ScimFilter filter, int firstResult, int maxResults, AttributeSelection attributeSelection) {
+        fi.metatavu.keycloak.scim.server.model.GroupsList groupList = groupsController.listGroups(scimContext, filter, firstResult, maxResults, attributeSelection);
         return Response.ok(groupList).build();
     }
 
@@ -254,13 +257,33 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
             }
 
             return Response.ok(updated).build();
-        } catch (InvalidGroupMemberReference e) {
+        } catch (InvalidGroupMemberReference | InvalidGroupPatchValue e) {
+            rollbackPatch(session);
             return ScimErrors.invalidValue(e.getMessage());
         } catch (UnsupportedGroupPath e) {
+            rollbackPatch(session);
             return ScimErrors.invalidPath(e.getMessage() != null ? e.getMessage() : "Unsupported group path");
         } catch (UnsupportedPatchOperation e) {
+            rollbackPatch(session);
             return ScimErrors.invalidSyntax("Unsupported patch operation");
         }
+    }
+
+    /**
+     * Discards the changes made by the operations of a failed PATCH request.
+     * <p>
+     * RFC 7644 §3.5.2 requires a PATCH to be applied as a whole or not at all.
+     * The error is returned as a Response rather than thrown, so without this
+     * Keycloak would commit the operations that ran before the failing one.
+     * Marking the transaction rollback-only makes Keycloak roll it back when
+     * the request's session closes. No admin events are emitted for a failed
+     * PATCH: GroupsController dispatches them only after every operation has
+     * succeeded.
+     *
+     * @param session Keycloak session
+     */
+    private void rollbackPatch(KeycloakSession session) {
+        session.getTransactionManager().setRollbackOnly();
     }
 
     @Override
@@ -303,6 +326,30 @@ public class RealmScimServer extends AbstractScimServer<RealmScimContext> {
             realm,
             config
         );
+    }
+
+    /**
+     * Finds a user that is within the SCIM API's scope.
+     *
+     * Users that are not managed through SCIM (see {@link ScimManagedUsers}) are treated as if they
+     * did not exist, so that GET, PUT and PATCH by id cannot reach users outside SCIM's scope.
+     *
+     * @param scimContext SCIM context
+     * @param userId user ID
+     * @return user, or null if the user does not exist or is not managed through SCIM
+     */
+    private UserModel findManagedUser(RealmScimContext scimContext, String userId) {
+        UserModel user = scimContext.getSession().users().getUserById(scimContext.getRealm(), userId);
+        if (user == null) {
+            return null;
+        }
+
+        if (!ScimManagedUsers.isManaged(scimContext, user)) {
+            logger.warnf("User %s is not managed by SCIM (scim.manage.all.users=%s), treating it as not found", userId, scimContext.getConfig().getManageAllUsers());
+            return null;
+        }
+
+        return user;
     }
 
 }

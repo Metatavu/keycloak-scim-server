@@ -3,6 +3,10 @@ package fi.metatavu.keycloak.scim.server.test.tests.functional;
 import fi.metatavu.keycloak.scim.server.test.ScimClient;
 import fi.metatavu.keycloak.scim.server.test.TestConsts;
 import fi.metatavu.keycloak.scim.server.test.client.ApiException;
+import fi.metatavu.keycloak.scim.server.test.client.model.Group;
+import fi.metatavu.keycloak.scim.server.test.client.model.GroupMembersInner;
+import fi.metatavu.keycloak.scim.server.test.client.model.PatchRequest;
+import fi.metatavu.keycloak.scim.server.test.client.model.PatchRequestOperationsInner;
 import fi.metatavu.keycloak.scim.server.test.client.model.User;
 import fi.metatavu.keycloak.scim.server.test.client.model.UsersList;
 import fi.metatavu.keycloak.scim.server.test.tests.AbstractInternalAuthRealmScimTest;
@@ -134,6 +138,44 @@ class RealmManageAllUsersTestsIT extends AbstractInternalAuthRealmScimTest {
     }
 
     @Test
+    void testAddUnmanagedUserToGroupWhenEnabled() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+        String unmanagedUserId = createRealmUser(TestConsts.TEST_REALM, "unmanaged-group", "Unmanaged", "Group");
+        Group group = createGroup(scimClient, "manage-all-group");
+
+        try {
+            setRealmAttribute(TestConsts.TEST_REALM, MANAGE_ALL_USERS, "true");
+
+            assertEquals(204, scimClient.patchGroup(group.getId(), addMembersPatch(unmanagedUserId)).status());
+
+            Group found = scimClient.findGroup(group.getId());
+            assertNotNull(found.getMembers());
+            assertEquals(List.of(unmanagedUserId), found.getMembers().stream().map(GroupMembersInner::getValue).toList());
+        } finally {
+            deleteRealmUser(TestConsts.TEST_REALM, unmanagedUserId);
+            deleteRealmGroup(TestConsts.TEST_REALM, group.getId());
+        }
+    }
+
+    @Test
+    void testAddServiceAccountToGroupIsRejectedWhenEnabled() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+        Group group = createGroup(scimClient, "manage-all-service-account-group");
+
+        try {
+            setRealmAttribute(TestConsts.TEST_REALM, MANAGE_ALL_USERS, "true");
+
+            ApiException exception = assertThrows(ApiException.class,
+                    () -> scimClient.patchGroup(group.getId(), addMembersPatch(SERVICE_ACCOUNT_USER_ID)));
+            assertEquals(400, exception.getCode());
+
+            assertTrue(getRealmGroupMemberIds(TestConsts.TEST_REALM, group.getId()).isEmpty());
+        } finally {
+            deleteRealmGroup(TestConsts.TEST_REALM, group.getId());
+        }
+    }
+
+    @Test
     void testUpdateUnmanagedUserWhenEnabled() throws ApiException {
         ScimClient scimClient = getAuthenticatedScimClient();
         String unmanagedUserId = createRealmUser(TestConsts.TEST_REALM, "unmanaged-update", "Unmanaged", "Update");
@@ -155,6 +197,129 @@ class RealmManageAllUsersTestsIT extends AbstractInternalAuthRealmScimTest {
         } finally {
             deleteRealmUser(TestConsts.TEST_REALM, unmanagedUserId);
         }
+    }
+
+    @Test
+    void testFindUnmanagedUserIsNotFoundByDefault() {
+        ScimClient scimClient = getAuthenticatedScimClient();
+        String unmanagedUserId = createRealmUser(TestConsts.TEST_REALM, "unmanaged-find", "Unmanaged", "Find");
+
+        try {
+            ApiException exception = assertThrows(ApiException.class, () -> scimClient.findUser(unmanagedUserId));
+            ScimErrorAssertions.assertScimError(exception, 404, "User not found");
+        } finally {
+            deleteRealmUser(TestConsts.TEST_REALM, unmanagedUserId);
+        }
+    }
+
+    @Test
+    void testUpdateUnmanagedUserIsNotFoundByDefault() {
+        ScimClient scimClient = getAuthenticatedScimClient();
+        String unmanagedUserId = createRealmUser(TestConsts.TEST_REALM, "unmanaged-put", "Unmanaged", "Put");
+
+        try {
+            User updateRequest = createUserRequest("renamed-by-scim");
+            updateRequest.setActive(false);
+            updateRequest.setName(getName("Renamed", "BySCIM"));
+
+            ApiException exception = assertThrows(ApiException.class, () -> scimClient.updateUser(unmanagedUserId, updateRequest));
+            ScimErrorAssertions.assertScimError(exception, 404, "User not found");
+
+            UserRepresentation realmUser = findRealmUser(TestConsts.TEST_REALM, unmanagedUserId);
+            assertEquals("unmanaged-put", realmUser.getUsername());
+            assertEquals("Unmanaged", realmUser.getFirstName());
+            assertTrue(realmUser.isEnabled());
+        } finally {
+            deleteRealmUser(TestConsts.TEST_REALM, unmanagedUserId);
+        }
+    }
+
+    @Test
+    void testPatchUnmanagedUserIsNotFoundByDefault() {
+        ScimClient scimClient = getAuthenticatedScimClient();
+        String unmanagedUserId = createRealmUser(TestConsts.TEST_REALM, "unmanaged-patch", "Unmanaged", "Patch");
+
+        try {
+            ApiException exception = assertThrows(ApiException.class, () -> scimClient.patchUser(unmanagedUserId, deactivateRequest()));
+            ScimErrorAssertions.assertScimError(exception, 404, "User not found");
+
+            assertTrue(findRealmUser(TestConsts.TEST_REALM, unmanagedUserId).isEnabled());
+        } finally {
+            deleteRealmUser(TestConsts.TEST_REALM, unmanagedUserId);
+        }
+    }
+
+    @Test
+    void testServiceAccountIsNotFoundWhenEnabled() {
+        ScimClient scimClient = getAuthenticatedScimClient();
+
+        setRealmAttribute(TestConsts.TEST_REALM, MANAGE_ALL_USERS, "true");
+
+        ApiException findException = assertThrows(ApiException.class, () -> scimClient.findUser(SERVICE_ACCOUNT_USER_ID));
+        ScimErrorAssertions.assertScimError(findException, 404, "User not found");
+
+        User updateRequest = createUserRequest("renamed-service-account");
+        ApiException updateException = assertThrows(ApiException.class, () -> scimClient.updateUser(SERVICE_ACCOUNT_USER_ID, updateRequest));
+        ScimErrorAssertions.assertScimError(updateException, 404, "User not found");
+
+        ApiException patchException = assertThrows(ApiException.class, () -> scimClient.patchUser(SERVICE_ACCOUNT_USER_ID, deactivateRequest()));
+        ScimErrorAssertions.assertScimError(patchException, 404, "User not found");
+
+        UserRepresentation serviceAccount = findRealmUser(TestConsts.TEST_REALM, SERVICE_ACCOUNT_USER_ID);
+        assertEquals("service-account-scim-client", serviceAccount.getUsername());
+        assertTrue(serviceAccount.isEnabled());
+    }
+
+    @Test
+    void testPatchUnmanagedUserWhenEnabled() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+        String unmanagedUserId = createRealmUser(TestConsts.TEST_REALM, "unmanaged-patch-enabled", "Unmanaged", "Patch");
+
+        try {
+            setRealmAttribute(TestConsts.TEST_REALM, MANAGE_ALL_USERS, "true");
+
+            User patched = scimClient.patchUser(unmanagedUserId, deactivateRequest());
+            assertEquals(Boolean.FALSE, patched.getActive());
+
+            assertFalse(findRealmUser(TestConsts.TEST_REALM, unmanagedUserId).isEnabled());
+        } finally {
+            deleteRealmUser(TestConsts.TEST_REALM, unmanagedUserId);
+        }
+    }
+
+    /**
+     * Builds a PATCH request that sets active to false
+     *
+     * @return patch request
+     */
+    private PatchRequest deactivateRequest() {
+        return new PatchRequest()
+            .schemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"))
+            .operations(List.of(
+                new PatchRequestOperationsInner()
+                    .op("replace")
+                    .path("active")
+                    .value(Boolean.FALSE)
+            ));
+    }
+
+    /**
+     * Builds a PatchRequest adding the given user to a group
+     *
+     * @param userId user ID
+     * @return patch request
+     */
+    private PatchRequest addMembersPatch(String userId) {
+        GroupMembersInner member = new GroupMembersInner();
+        member.setValue(userId);
+        PatchRequestOperationsInner operation = new PatchRequestOperationsInner();
+        operation.setOp("add");
+        operation.setPath("members");
+        operation.setValue(List.of(member));
+        PatchRequest request = new PatchRequest();
+        request.setSchemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"));
+        request.setOperations(List.of(operation));
+        return request;
     }
 
 }

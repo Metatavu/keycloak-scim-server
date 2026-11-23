@@ -42,9 +42,71 @@ This project provides a **SCIM 2.0-compliant extension** for [Keycloak](https://
 | 1.7.0 | 26.6.x (tested: 26.6.3) | Stable |
 | 1.8.0 | 26.6.x (tested: 26.6.3) | Stable |
 | 1.9.0 | 26.6.x (tested: 26.6.3) | Stable |
-| 1.9.1 | 26.8.x (tested: 26.8.2) | In development |
+| 1.9.1 | 26.8.x (tested: 26.8.2) | Stable |
+| 1.9.2 | 26.8.x (tested: 26.8.2) | In development |
 
 > **Note:** Organization-level SCIM APIs require Keycloak **26+** with the Organizations feature enabled.
+
+### Upgrading to 1.9.2
+
+1.9.2 is a bug-fix release with security fixes. Several fixes change responses that clients
+may have relied on, so read the notes below before upgrading. No configuration changes are
+needed.
+
+In external token authentication mode (`SCIM_EXTERNAL_JWKS_URI`), the server now checks
+the token's `exp` and `nbf` claims, with 60 seconds of allowed clock skew. Expired tokens,
+tokens that are not yet valid and tokens without an `exp` claim are rejected with
+`401 Unauthorized`. Previously any token signed by the configured JWKS with the right
+issuer and audience was accepted indefinitely. Tokens without an `iss` or `aud` claim are
+now rejected with `401` instead of failing with `500` (unless the corresponding setting is
+the `*` wildcard). Make sure your SCIM client sends tokens that carry an `exp` claim.
+
+Realm-level `GET /Users?filter=<attribute> eq "<value>"` now returns only exact matches.
+Before, a single `eq` comparison on `userName`, `email`, `name.givenName`,
+`name.familyName` or a user profile attribute was a substring match, so
+`userName eq "bob"` also returned `bobby`. Comparisons stay case-insensitive, as the
+user schema advertises `caseExact: false` for every attribute (`userName eq "BOB"`
+still finds `bob`). Organization-level user lists already matched exactly.
+
+`GET`, `PUT` and `PATCH` on `/Users/{id}` now apply the same scope as `GET /Users`: a user that SCIM cannot
+list (no `scim-managed` role while `SCIM_MANAGE_ALL_USERS` is off, a client service account, or, in
+organization mode, a user that is not a member of the organization) answers `404 User not found`, as if it
+did not exist. Before 1.9.2 any realm user could be read and modified by id, so a SCIM client could for
+example deactivate or rename an administrator, and an organization's SCIM client could modify users of
+other organizations. Clients that relied on this now get `404`: assign the `scim-managed` role to those
+users, or enable `SCIM_MANAGE_ALL_USERS`. `DELETE /Users/{id}` is unchanged and still answers `403` for users SCIM does not manage.
+
+List endpoints (`GET /Users` and `GET /Groups`) now treat `startIndex` as
+1-based, as RFC 7644 §3.4.2.4 defines it. Before 1.9.2 it was used as a
+0-based offset, so a client paging from `startIndex=1` never received the
+first resource of a listing, and a group lookup such as
+`filter=displayName eq "Engineering"&startIndex=1` returned no group at all
+(the offset was applied twice). A missing `startIndex`, or one below 1, means
+the first page, so clients that sent `startIndex=0` get the same first page as
+before. A client that paged with 0-based offsets beyond the first page
+(`startIndex=0`, then `count`, then `2 * count`) now gets each page shifted by
+one resource and should switch to 1-based indexes.
+
+List responses now report the 1-based `startIndex` and set `itemsPerPage` to the
+number of resources on the page rather than the requested `count`. A `count`
+above 200, the `maxResults` the server advertises in `/ServiceProviderConfig`,
+is capped to 200.
+
+Group endpoints now follow the same managed-user rule as `GET /Users` (see
+[Which users SCIM can see](#which-users-scim-can-see)). Group responses only list members that
+SCIM manages, and SCIM can only add or remove those members: a `PATCH` that references a user
+without the `scim-managed` role, or a service account, is rejected with `400` like an unknown
+id, and `POST`/`PUT` drop such references as they already did for unknown ids. A `PUT`, or a
+`PATCH` that replaces `members`, no longer removes members that were added outside SCIM. If a
+SCIM client relied on putting users created in the admin console into groups, grant those users
+the `scim-managed` role or enable `SCIM_MANAGE_ALL_USERS`.
+
+Group `PATCH` requests are now applied as a whole or not at all (RFC 7644 §3.5.2).
+When any operation in a multi-operation `PATCH /Groups/{id}` fails, the earlier
+operations are rolled back, no membership admin events are emitted, and the
+response is the error. An `add` or `replace` operation without a `value` now fails
+the request with `400 invalidValue`; before, it silently skipped that operation and
+every operation after it while still answering `204`.
 
 ### Upgrading to 1.9.1
 
@@ -215,18 +277,20 @@ Configuration on organization level is done by defining organization attributes 
 By default the SCIM API only works with users it created itself. Every user created through SCIM is granted the
 `scim-managed` realm role, and users without that role are hidden from `GET /Users` and rejected with `403` on
 `DELETE /Users/{id}`. Users that already existed in Keycloak, or that were created through the admin console, are
-therefore not listed and cannot be deleted through SCIM. They can still be fetched and updated by id, since
-`GET`, `PUT` and `PATCH` on `/Users/{id}` are not filtered by the role.
+therefore not listed and cannot be deleted through SCIM, and `GET`, `PUT` and `PATCH` on `/Users/{id}` answer `404`
+for them. In organization mode the user must also be a member of the organization.
 
 Set `SCIM_MANAGE_ALL_USERS` (or the `scim.manage.all.users` realm attribute) to `true` to let the SCIM client see and
 manage those users as well:
 
 * `GET /Users` lists every user in the realm (or every member of the organization), with filters and paging applied as usual.
-* `GET`, `PUT` and `PATCH` on `/Users/{id}` work for any user, as they already did without the setting.
+* `GET`, `PUT` and `PATCH` on `/Users/{id}` work for any user in the realm (or any member of the organization).
 * `DELETE /Users/{id}` is accepted for any user. In realm mode the user is deleted. In organization mode the user is removed
   from the organization: Keycloak deletes the account of a member the organization owns (created through SCIM or an
   organization identity provider) and only drops the membership of a member that was added from the realm.
-* Service account users of clients are never listed or deleted through SCIM, regardless of this setting.
+* Group members follow the same rule: only users SCIM can see are listed in group responses or can be added to and
+  removed from groups through SCIM. Other members are left in place on `PUT` or a `members` replace.
+* Service account users of clients are never listed, read, updated, deleted or put into groups through SCIM, regardless of this setting.
 
 > **Caution:** with this setting enabled, a deprovisioning rule on the identity provider side can delete any realm user,
 > including administrators and users from federated user storage such as LDAP (the delete is passed on to the storage
@@ -632,7 +696,9 @@ user that should be reachable through SCIM.
 
 This role-based filtering applies to:
 - `GET /Users`
-- `DELETE /Users/{id}`
+- `GET`, `PUT` and `PATCH` on `/Users/{id}` (users outside the scope answer `404`)
+- `DELETE /Users/{id}` (users SCIM does not manage answer `403`)
+- group members in `/Groups` responses and membership changes through `/Groups`
 
 The `scim-managed` role must exist in the realm. Without it, `GET /Users` fails and `DELETE /Users/{id}` is rejected for every user.
 

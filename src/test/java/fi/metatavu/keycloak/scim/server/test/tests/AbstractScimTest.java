@@ -482,6 +482,42 @@ public abstract class AbstractScimTest {
     }
 
     /**
+     * Adds a user to a group directly through the Keycloak admin API, bypassing SCIM
+     *
+     * @param realm realm name
+     * @param userId user ID
+     * @param groupId group ID
+     */
+    protected void addRealmUserToGroup(String realm, String userId, String groupId) {
+        getKeycloakContainer().getKeycloakAdminClient()
+            .realms()
+            .realm(realm)
+            .users()
+            .get(userId)
+            .joinGroup(groupId);
+    }
+
+    /**
+     * Returns the IDs of all members of a group as seen by the Keycloak admin API,
+     * including users that the SCIM API does not expose
+     *
+     * @param realm realm name
+     * @param groupId group ID
+     * @return member user IDs
+     */
+    protected Set<String> getRealmGroupMemberIds(String realm, String groupId) {
+        List<UserRepresentation> members = getKeycloakContainer().getKeycloakAdminClient()
+            .realms()
+            .realm(realm)
+            .groups()
+            .group(groupId)
+            .members();
+        Set<String> result = new HashSet<>();
+        members.forEach(member -> result.add(member.getId()));
+        return result;
+    }
+
+    /**
      * Deletes group from Keycloak
      *
      * @param realm realm name

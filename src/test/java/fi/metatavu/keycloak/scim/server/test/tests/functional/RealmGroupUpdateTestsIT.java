@@ -324,6 +324,36 @@ public class RealmGroupUpdateTestsIT extends AbstractInternalAuthRealmScimTest {
         }
     }
 
+    /**
+     * PUT reconciles only the SCIM-managed members: a member added outside SCIM is
+     * neither removed nor listed, and a reference to a non-managed user is dropped
+     * like an unknown id.
+     */
+    @Test
+    void testUpdateGroupLeavesUnmanagedMembersAlone() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+        User user = createUser(scimClient, "put-unmanaged-user", "Put", "Managed");
+        String existingUnmanagedId = createRealmUser(TestConsts.TEST_REALM, "put-unmanaged-existing", "Put", "Existing");
+        String requestedUnmanagedId = createRealmUser(TestConsts.TEST_REALM, "put-unmanaged-requested", "Put", "Requested");
+        Group group = createGroup(scimClient, "put-unmanaged-group");
+
+        try {
+            addRealmUserToGroup(TestConsts.TEST_REALM, existingUnmanagedId, group.getId());
+
+            Group updated = scimClient.updateGroup(group.getId(),
+                    groupUpdate(group.getDisplayName(), user.getId(), requestedUnmanagedId));
+
+            assertMembersEqual(Set.of(user.getId()), updated.getMembers());
+            assertEquals(Set.of(user.getId(), existingUnmanagedId),
+                    getRealmGroupMemberIds(TestConsts.TEST_REALM, group.getId()));
+        } finally {
+            deleteRealmUser(TestConsts.TEST_REALM, user.getId());
+            deleteRealmUser(TestConsts.TEST_REALM, existingUnmanagedId);
+            deleteRealmUser(TestConsts.TEST_REALM, requestedUnmanagedId);
+            deleteRealmGroup(TestConsts.TEST_REALM, group.getId());
+        }
+    }
+
     // --- helpers ---
 
     private GroupMembersInner memberRef(String userId) {

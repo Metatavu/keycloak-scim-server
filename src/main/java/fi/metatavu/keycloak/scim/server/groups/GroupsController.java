@@ -2,6 +2,7 @@ package fi.metatavu.keycloak.scim.server.groups;
 
 import fi.metatavu.keycloak.scim.server.AbstractController;
 import fi.metatavu.keycloak.scim.server.ScimContext;
+import fi.metatavu.keycloak.scim.server.ScimPagination;
 import fi.metatavu.keycloak.scim.server.adminEvents.AdminEventController;
 import fi.metatavu.keycloak.scim.server.attributes.AttributeSelection;
 import fi.metatavu.keycloak.scim.server.filter.ComparisonFilter;
@@ -98,16 +99,17 @@ public class GroupsController extends AbstractController {
      * Lists groups
      *
      * @param scimContext SCIM context
-     * @param startIndex start index
-     * @param count count
+     * @param scimFilter SCIM filter
+     * @param firstResult zero-based offset of the first group on the page
+     * @param maxResults page size
      * @param attributeSelection attributes the response may carry
      * @return groups list
      */
     public GroupsList listGroups(
             ScimContext scimContext,
             ScimFilter scimFilter,
-            int startIndex,
-            int count,
+            int firstResult,
+            int maxResults,
             AttributeSelection attributeSelection
     ) {
         KeycloakSession session = scimContext.getSession();
@@ -121,20 +123,21 @@ public class GroupsController extends AbstractController {
         if(scimFilter instanceof ComparisonFilter(
                 String attribute, ScimFilter.Operator operator, String value
         ) && operator == ScimFilter.Operator.EQ && attribute.equals(GroupAttribute.DISPLAY_NAME.getScimPath())){
-            filteredGroups = session.groups().searchForGroupByNameStream(realm, value, true, startIndex, count).toList();
+            // Not paged here: the page is cut once below, and paging the query too applied the offset twice
+            filteredGroups = session.groups().searchForGroupByNameStream(realm, value, true, null, null).toList();
         }else{
             filteredGroups = session.groups().getGroupsStream(realm).toList();
         }
 
         List<Group> groups = filteredGroups.stream()
-            .skip(startIndex)
-            .limit(count)
+            .skip(firstResult)
+            .limit(maxResults)
             .map(group -> translateGroup(scimContext, group, attributeSelection))
             .collect(Collectors.toList());
 
         result.setTotalResults(filteredGroups.size());
-        result.setStartIndex(startIndex);
-        result.setItemsPerPage(count);
+        result.setStartIndex(ScimPagination.startIndex(firstResult));
+        result.setItemsPerPage(groups.size());
         result.setResources(groups);
         result.setSchemas(Collections.singletonList("urn:ietf:params:scim:api:messages:2.0:ListResponse"));
 

@@ -46,6 +46,24 @@ This project provides a **SCIM 2.0-compliant extension** for [Keycloak](https://
 
 > **Note:** Organization-level SCIM APIs require Keycloak **26+** with the Organizations feature enabled.
 
+### Upgrading to 1.9.2
+
+List endpoints (`GET /Users` and `GET /Groups`) now treat `startIndex` as
+1-based, as RFC 7644 §3.4.2.4 defines it. Before 1.9.2 it was used as a
+0-based offset, so a client paging from `startIndex=1` never received the
+first resource of a listing, and a group lookup such as
+`filter=displayName eq "Engineering"&startIndex=1` returned no group at all
+(the offset was applied twice). A missing `startIndex`, or one below 1, means
+the first page, so clients that sent `startIndex=0` get the same first page as
+before. A client that paged with 0-based offsets beyond the first page
+(`startIndex=0`, then `count`, then `2 * count`) now gets each page shifted by
+one resource and should switch to 1-based indexes.
+
+List responses now report the 1-based `startIndex` and set `itemsPerPage` to the
+number of resources on the page rather than the requested `count`. A `count`
+above 200, the `maxResults` the server advertises in `/ServiceProviderConfig`,
+is capped to 200.
+
 ### Upgrading to 1.9.1
 
 1.9.1 adds support for Keycloak 26.8. Keycloak 26.8 moved the domain-to-identity-provider

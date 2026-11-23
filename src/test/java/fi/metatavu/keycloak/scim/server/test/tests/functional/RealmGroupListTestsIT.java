@@ -5,6 +5,8 @@ import fi.metatavu.keycloak.scim.server.test.ScimClient;
 import fi.metatavu.keycloak.scim.server.test.TestConsts;
 import fi.metatavu.keycloak.scim.server.test.client.ApiException;
 import fi.metatavu.keycloak.scim.server.test.client.model.Group;
+import fi.metatavu.keycloak.scim.server.test.client.model.GroupMembersInner;
+import fi.metatavu.keycloak.scim.server.test.client.model.User;
 import fi.metatavu.keycloak.scim.server.test.client.model.GroupsList;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -325,6 +327,38 @@ class RealmGroupListTestsIT extends AbstractInternalAuthRealmScimTest {
         assertEquals(displayName, created.getDisplayName());
 
         return created;
+    }
+
+    /**
+     * Group reads only list SCIM-managed members, matching what GET /Users exposes:
+     * an admin-added user and a service account in the group stay hidden.
+     */
+    @Test
+    void testGroupMembersHideUnmanagedUsers() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient();
+        User managed = createUser(scimClient, "list-managed-member", "List", "Managed");
+        String unmanagedUserId = createRealmUser(TestConsts.TEST_REALM, "list-unmanaged-member", "List", "Unmanaged");
+        Group group = createGroup(scimClient, "hidden-members-group");
+
+        try {
+            addRealmUserToGroup(TestConsts.TEST_REALM, managed.getId(), group.getId());
+            addRealmUserToGroup(TestConsts.TEST_REALM, unmanagedUserId, group.getId());
+            addRealmUserToGroup(TestConsts.TEST_REALM, "7437c9e2-f7de-4bb1-b52f-6a6a61a598ab", group.getId());
+
+            Group found = scimClient.findGroup(group.getId());
+            assertNotNull(found.getMembers());
+            assertEquals(List.of(managed.getId()), found.getMembers().stream().map(GroupMembersInner::getValue).toList());
+
+            GroupsList groupsList = scimClient.listGroups("displayName eq \"hidden-members-group\"", 0, 10);
+            assertEquals(1, groupsList.getTotalResults());
+            Group listed = groupsList.getResources().getFirst();
+            assertNotNull(listed.getMembers());
+            assertEquals(List.of(managed.getId()), listed.getMembers().stream().map(GroupMembersInner::getValue).toList());
+        } finally {
+            deleteRealmUser(TestConsts.TEST_REALM, managed.getId());
+            deleteRealmUser(TestConsts.TEST_REALM, unmanagedUserId);
+            deleteGroup(scimClient, group.getId());
+        }
     }
 
     /**

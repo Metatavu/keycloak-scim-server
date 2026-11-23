@@ -72,6 +72,15 @@ number of resources on the page rather than the requested `count`. A `count`
 above 200, the `maxResults` the server advertises in `/ServiceProviderConfig`,
 is capped to 200.
 
+Group endpoints now follow the same managed-user rule as `GET /Users` (see
+[Which users SCIM can see](#which-users-scim-can-see)). Group responses only list members that
+SCIM manages, and SCIM can only add or remove those members: a `PATCH` that references a user
+without the `scim-managed` role, or a service account, is rejected with `400` like an unknown
+id, and `POST`/`PUT` drop such references as they already did for unknown ids. A `PUT`, or a
+`PATCH` that replaces `members`, no longer removes members that were added outside SCIM. If a
+SCIM client relied on putting users created in the admin console into groups, grant those users
+the `scim-managed` role or enable `SCIM_MANAGE_ALL_USERS`.
+
 ### Upgrading to 1.9.1
 
 1.9.1 adds support for Keycloak 26.8. Keycloak 26.8 moved the domain-to-identity-provider
@@ -252,7 +261,9 @@ manage those users as well:
 * `DELETE /Users/{id}` is accepted for any user. In realm mode the user is deleted. In organization mode the user is removed
   from the organization: Keycloak deletes the account of a member the organization owns (created through SCIM or an
   organization identity provider) and only drops the membership of a member that was added from the realm.
-* Service account users of clients are never listed, read, updated or deleted through SCIM, regardless of this setting.
+* Group members follow the same rule: only users SCIM can see are listed in group responses or can be added to and
+  removed from groups through SCIM. Other members are left in place on `PUT` or a `members` replace.
+* Service account users of clients are never listed, read, updated, deleted or put into groups through SCIM, regardless of this setting.
 
 > **Caution:** with this setting enabled, a deprovisioning rule on the identity provider side can delete any realm user,
 > including administrators and users from federated user storage such as LDAP (the delete is passed on to the storage
@@ -660,6 +671,7 @@ This role-based filtering applies to:
 - `GET /Users`
 - `GET`, `PUT` and `PATCH` on `/Users/{id}` (users outside the scope answer `404`)
 - `DELETE /Users/{id}` (users SCIM does not manage answer `403`)
+- group members in `/Groups` responses and membership changes through `/Groups`
 
 The `scim-managed` role must exist in the realm. Without it, `GET /Users` fails and `DELETE /Users/{id}` is rejected for every user.
 

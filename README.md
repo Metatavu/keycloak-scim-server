@@ -48,6 +48,14 @@ This project provides a **SCIM 2.0-compliant extension** for [Keycloak](https://
 
 ### Upgrading to 1.9.2
 
+`GET`, `PUT` and `PATCH` on `/Users/{id}` now apply the same scope as `GET /Users`: a user that SCIM cannot
+list (no `scim-managed` role while `SCIM_MANAGE_ALL_USERS` is off, a client service account, or, in
+organization mode, a user that is not a member of the organization) answers `404 User not found`, as if it
+did not exist. Before 1.9.2 any realm user could be read and modified by id, so a SCIM client could for
+example deactivate or rename an administrator, and an organization's SCIM client could modify users of
+other organizations. Clients that relied on this now get `404`: assign the `scim-managed` role to those
+users, or enable `SCIM_MANAGE_ALL_USERS`. `DELETE /Users/{id}` is unchanged and still answers `403` for users SCIM does not manage.
+
 List endpoints (`GET /Users` and `GET /Groups`) now treat `startIndex` as
 1-based, as RFC 7644 §3.4.2.4 defines it. Before 1.9.2 it was used as a
 0-based offset, so a client paging from `startIndex=1` never received the
@@ -233,18 +241,18 @@ Configuration on organization level is done by defining organization attributes 
 By default the SCIM API only works with users it created itself. Every user created through SCIM is granted the
 `scim-managed` realm role, and users without that role are hidden from `GET /Users` and rejected with `403` on
 `DELETE /Users/{id}`. Users that already existed in Keycloak, or that were created through the admin console, are
-therefore not listed and cannot be deleted through SCIM. They can still be fetched and updated by id, since
-`GET`, `PUT` and `PATCH` on `/Users/{id}` are not filtered by the role.
+therefore not listed and cannot be deleted through SCIM, and `GET`, `PUT` and `PATCH` on `/Users/{id}` answer `404`
+for them. In organization mode the user must also be a member of the organization.
 
 Set `SCIM_MANAGE_ALL_USERS` (or the `scim.manage.all.users` realm attribute) to `true` to let the SCIM client see and
 manage those users as well:
 
 * `GET /Users` lists every user in the realm (or every member of the organization), with filters and paging applied as usual.
-* `GET`, `PUT` and `PATCH` on `/Users/{id}` work for any user, as they already did without the setting.
+* `GET`, `PUT` and `PATCH` on `/Users/{id}` work for any user in the realm (or any member of the organization).
 * `DELETE /Users/{id}` is accepted for any user. In realm mode the user is deleted. In organization mode the user is removed
   from the organization: Keycloak deletes the account of a member the organization owns (created through SCIM or an
   organization identity provider) and only drops the membership of a member that was added from the realm.
-* Service account users of clients are never listed or deleted through SCIM, regardless of this setting.
+* Service account users of clients are never listed, read, updated or deleted through SCIM, regardless of this setting.
 
 > **Caution:** with this setting enabled, a deprovisioning rule on the identity provider side can delete any realm user,
 > including administrators and users from federated user storage such as LDAP (the delete is passed on to the storage
@@ -650,7 +658,8 @@ user that should be reachable through SCIM.
 
 This role-based filtering applies to:
 - `GET /Users`
-- `DELETE /Users/{id}`
+- `GET`, `PUT` and `PATCH` on `/Users/{id}` (users outside the scope answer `404`)
+- `DELETE /Users/{id}` (users SCIM does not manage answer `403`)
 
 The `scim-managed` role must exist in the realm. Without it, `GET /Users` fails and `DELETE /Users/{id}` is rejected for every user.
 

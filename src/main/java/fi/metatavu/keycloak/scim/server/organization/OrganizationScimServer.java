@@ -83,7 +83,7 @@ public abstract class OrganizationScimServer extends AbstractScimServer<Organiza
         }
 
         RealmModel realm = scimContext.getRealm();
-        UserModel user = session.users().getUserById(realm, userId);
+        UserModel user = findScopedUser(scimContext, userId);
         if (user == null) {
             logger.warn(String.format("User not found: %s", userId));
             return ScimErrors.notFound("User not found");
@@ -112,10 +112,7 @@ public abstract class OrganizationScimServer extends AbstractScimServer<Organiza
 
     @Override
     public Response patchUser(OrganizationScimContext scimContext, String userId, fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest) {
-        KeycloakSession session = scimContext.getSession();
-
-        RealmModel realm = scimContext.getRealm();
-        UserModel existing = session.users().getUserById(realm, userId);
+        UserModel existing = findScopedUser(scimContext, userId);
         if (existing == null) {
             logger.warn(String.format("User not found: %s", userId));
             return ScimErrors.notFound("User not found");
@@ -146,11 +143,16 @@ public abstract class OrganizationScimServer extends AbstractScimServer<Organiza
 
     @Override
     public Response findUser(OrganizationScimContext scimContext, String userId) {
+        if (findScopedUser(scimContext, userId) == null) {
+            logger.warn(String.format("User not found: %s", userId));
+            return ScimErrors.notFound("User not found");
+        }
+
         UserAttributes userAttributes = metadataController.getUserAttributes(scimContext);
         User user = organizationUserController.findOrganizationUser(scimContext, userAttributes, userId);
         if (user == null) {
             logger.warn(String.format("User not found: %s", userId));
-            return Response.status(Response.Status.NOT_FOUND).build();
+            return ScimErrors.notFound("User not found");
         }
 
         return Response.ok(user).build();
@@ -220,5 +222,30 @@ public abstract class OrganizationScimServer extends AbstractScimServer<Organiza
     }
 
     public abstract OrganizationScimContext getScimContext(KeycloakSession session, String organizationId);
+
+    /**
+     * Finds a user that is within the organization SCIM API's scope.
+     *
+     * The user must be a member of this organization and managed through SCIM (see {@link ScimManagedUsers}),
+     * which is the same scope the user list applies. Users outside that scope, including users that only
+     * belong to other organizations, are treated as if they did not exist.
+     *
+     * @param scimContext SCIM context
+     * @param userId user ID
+     * @return user, or null if the user does not exist or is outside the organization's SCIM scope
+     */
+    private UserModel findScopedUser(OrganizationScimContext scimContext, String userId) {
+        UserModel user = scimContext.getSession().users().getUserById(scimContext.getRealm(), userId);
+        if (user == null) {
+            return null;
+        }
+
+        if (!scimContext.isMember(user) || !ScimManagedUsers.isManaged(scimContext, user)) {
+            logger.warnf("User %s is not managed by this organization's SCIM (SCIM_MANAGE_ALL_USERS=%s), treating it as not found", userId, scimContext.getConfig().getManageAllUsers());
+            return null;
+        }
+
+        return user;
+    }
 
 }

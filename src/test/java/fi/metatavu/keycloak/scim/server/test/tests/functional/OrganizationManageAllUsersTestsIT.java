@@ -3,6 +3,8 @@ package fi.metatavu.keycloak.scim.server.test.tests.functional;
 import fi.metatavu.keycloak.scim.server.test.ScimClient;
 import fi.metatavu.keycloak.scim.server.test.TestConsts;
 import fi.metatavu.keycloak.scim.server.test.client.ApiException;
+import fi.metatavu.keycloak.scim.server.test.client.model.PatchRequest;
+import fi.metatavu.keycloak.scim.server.test.client.model.PatchRequestOperationsInner;
 import fi.metatavu.keycloak.scim.server.test.client.model.User;
 import fi.metatavu.keycloak.scim.server.test.client.model.UsersList;
 import fi.metatavu.keycloak.scim.server.test.tests.AbstractOrganizationScimTest;
@@ -162,6 +164,137 @@ class OrganizationManageAllUsersTestsIT extends AbstractOrganizationScimTest {
         } finally {
             deleteRealmUser(TestConsts.ORGANIZATIONS_REALM, unmanagedUserId);
         }
+    }
+
+    @Test
+    void testUnmanagedMemberIsNotFoundByDefault() {
+        ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
+        String unmanagedUserId = createUnmanagedMember("unmanaged-by-id");
+
+        try {
+            assertUserNotFound(scimClient, unmanagedUserId);
+            assertUserUnchanged(unmanagedUserId, "unmanaged-by-id");
+        } finally {
+            deleteRealmUser(TestConsts.ORGANIZATIONS_REALM, unmanagedUserId);
+        }
+    }
+
+    @Test
+    void testMemberWithScimManagedRoleIsReachableByDefault() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
+        String memberId = createUnmanagedMember("role-member-by-id");
+
+        try {
+            // An existing member that was given the scim-managed role is in scope, as it is in GET /Users
+            grantRealmRole(TestConsts.ORGANIZATIONS_REALM, memberId, "scim-managed");
+
+            assertEquals("role-member-by-id", scimClient.findUser(memberId).getUserName());
+
+            User patched = scimClient.patchUser(memberId, deactivateRequest());
+            assertEquals(Boolean.FALSE, patched.getActive());
+            assertFalse(findRealmUser(TestConsts.ORGANIZATIONS_REALM, memberId).isEnabled());
+        } finally {
+            deleteRealmUser(TestConsts.ORGANIZATIONS_REALM, memberId);
+        }
+    }
+
+    @Test
+    void testUserOfAnotherOrganizationIsNotFound() throws ApiException {
+        ScimClient organization1Client = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
+        ScimClient organization2Client = getAuthenticatedScimClient(TestConsts.ORGANIZATION_2_ID);
+        User otherOrganizationUser = createUser(organization2Client, "other-org-by-id", "OtherOrg", "Member");
+
+        try {
+            assertUserNotFound(organization1Client, otherOrganizationUser.getId());
+            assertUserUnchanged(otherOrganizationUser.getId(), "other-org-by-id");
+
+            // Manage-all widens the scope to every member of organization 1, never to other organizations
+            setOrganizationAttribute(TestConsts.ORGANIZATIONS_REALM, TestConsts.ORGANIZATION_1_ID, MANAGE_ALL_USERS, "true");
+
+            assertUserNotFound(organization1Client, otherOrganizationUser.getId());
+            assertUserUnchanged(otherOrganizationUser.getId(), "other-org-by-id");
+        } finally {
+            deleteRealmUser(TestConsts.ORGANIZATIONS_REALM, otherOrganizationUser.getId());
+        }
+    }
+
+    @Test
+    void testNonMemberIsNotFoundWhenEnabled() {
+        ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
+        String outsiderId = createRealmUser(TestConsts.ORGANIZATIONS_REALM, "outsider-by-id", "Outsider", "Member");
+
+        try {
+            setOrganizationAttribute(TestConsts.ORGANIZATIONS_REALM, TestConsts.ORGANIZATION_1_ID, MANAGE_ALL_USERS, "true");
+
+            assertUserNotFound(scimClient, outsiderId);
+            assertUserUnchanged(outsiderId, "outsider-by-id");
+        } finally {
+            deleteRealmUser(TestConsts.ORGANIZATIONS_REALM, outsiderId);
+        }
+    }
+
+    @Test
+    void testPatchUnmanagedMemberWhenEnabled() throws ApiException {
+        ScimClient scimClient = getAuthenticatedScimClient(TestConsts.ORGANIZATION_1_ID);
+        String unmanagedUserId = createUnmanagedMember("unmanaged-patch-enabled");
+
+        try {
+            setOrganizationAttribute(TestConsts.ORGANIZATIONS_REALM, TestConsts.ORGANIZATION_1_ID, MANAGE_ALL_USERS, "true");
+
+            User patched = scimClient.patchUser(unmanagedUserId, deactivateRequest());
+            assertEquals(Boolean.FALSE, patched.getActive());
+            assertFalse(findRealmUser(TestConsts.ORGANIZATIONS_REALM, unmanagedUserId).isEnabled());
+        } finally {
+            deleteRealmUser(TestConsts.ORGANIZATIONS_REALM, unmanagedUserId);
+        }
+    }
+
+    /**
+     * Asserts that GET, PUT and PATCH by id all answer 404 for the given user
+     *
+     * @param scimClient SCIM client
+     * @param userId user ID
+     */
+    private void assertUserNotFound(ScimClient scimClient, String userId) {
+        ApiException findException = assertThrows(ApiException.class, () -> scimClient.findUser(userId));
+        ScimErrorAssertions.assertScimError(findException, 404, "User not found");
+
+        User updateRequest = createUserRequest("renamed-by-scim");
+        updateRequest.setActive(false);
+        updateRequest.setName(getName("Renamed", "BySCIM"));
+        ApiException updateException = assertThrows(ApiException.class, () -> scimClient.updateUser(userId, updateRequest));
+        ScimErrorAssertions.assertScimError(updateException, 404, "User not found");
+
+        ApiException patchException = assertThrows(ApiException.class, () -> scimClient.patchUser(userId, deactivateRequest()));
+        ScimErrorAssertions.assertScimError(patchException, 404, "User not found");
+    }
+
+    /**
+     * Asserts that the user still has its original username and is still enabled
+     *
+     * @param userId user ID
+     * @param username original username
+     */
+    private void assertUserUnchanged(String userId, String username) {
+        UserRepresentation realmUser = findRealmUser(TestConsts.ORGANIZATIONS_REALM, userId);
+        assertEquals(username, realmUser.getUsername());
+        assertTrue(realmUser.isEnabled());
+    }
+
+    /**
+     * Builds a PATCH request that sets active to false
+     *
+     * @return patch request
+     */
+    private PatchRequest deactivateRequest() {
+        return new PatchRequest()
+            .schemas(List.of("urn:ietf:params:scim:api:messages:2.0:PatchOp"))
+            .operations(List.of(
+                new PatchRequestOperationsInner()
+                    .op("replace")
+                    .path("active")
+                    .value(Boolean.FALSE)
+            ));
     }
 
     /**

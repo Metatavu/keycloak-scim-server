@@ -42,11 +42,16 @@ This project provides a **SCIM 2.0-compliant extension** for [Keycloak](https://
 | 1.7.0 | 26.6.x (tested: 26.6.3) | Stable |
 | 1.8.0 | 26.6.x (tested: 26.6.3) | Stable |
 | 1.9.0 | 26.6.x (tested: 26.6.3) | Stable |
-| 1.9.1 | 26.8.x (tested: 26.8.2) | In development |
+| 1.9.1 | 26.8.x (tested: 26.8.2) | Stable |
+| 1.9.2 | 26.8.x (tested: 26.8.2) | In development |
 
 > **Note:** Organization-level SCIM APIs require Keycloak **26+** with the Organizations feature enabled.
 
 ### Upgrading to 1.9.2
+
+1.9.2 is a bug-fix release with security fixes. Several fixes change responses that clients
+may have relied on, so read the notes below before upgrading. No configuration changes are
+needed.
 
 In external token authentication mode (`SCIM_EXTERNAL_JWKS_URI`), the server now checks
 the token's `exp` and `nbf` claims, with 60 seconds of allowed clock skew. Expired tokens,

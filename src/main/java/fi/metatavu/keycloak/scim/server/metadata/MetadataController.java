@@ -5,6 +5,7 @@ import java.util.*;
 
 import fi.metatavu.keycloak.scim.server.AbstractController;
 import fi.metatavu.keycloak.scim.server.ScimContext;
+import fi.metatavu.keycloak.scim.server.ScimPagination;
 import fi.metatavu.keycloak.scim.server.config.ScimConfig;
 import fi.metatavu.keycloak.scim.server.model.ResourceType;
 import fi.metatavu.keycloak.scim.server.model.SchemaListResponse;
@@ -98,7 +99,7 @@ public class MetadataController extends AbstractController {
 
         ServiceProviderConfigFilter filter = new ServiceProviderConfigFilter();
         filter.setSupported(true);
-        filter.setMaxResults(200);
+        filter.setMaxResults(ScimPagination.MAX_RESULTS);
         config.setFilter(filter);
 
         ServiceFeatureSupport changePassword = new ServiceFeatureSupport();

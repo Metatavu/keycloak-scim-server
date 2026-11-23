@@ -1,5 +1,6 @@
 package fi.metatavu.keycloak.scim.server.organization;
 
+import fi.metatavu.keycloak.scim.server.ScimPagination;
 import fi.metatavu.keycloak.scim.server.adminEvents.AdminEventController;
 import fi.metatavu.keycloak.scim.server.config.ScimConfig;
 import fi.metatavu.keycloak.scim.server.consts.ScimRoles;
@@ -273,8 +274,8 @@ public class OrganizationUserController extends UsersController  {
      *
      * @param scimContext SCIM context
      * @param scimFilter SCIM filter
-     * @param firstResult first result
-     * @param maxResults max results
+     * @param firstResult zero-based offset of the first user on the page
+     * @param maxResults page size
      * @return users list
      */
     public fi.metatavu.keycloak.scim.server.model.UsersList listOrganizationUsers(
@@ -301,8 +302,8 @@ public class OrganizationUserController extends UsersController  {
 
         result.setTotalResults(filteredUsers.size());
         result.setResources(users);
-        result.setStartIndex(firstResult);
-        result.setItemsPerPage(maxResults);
+        result.setStartIndex(ScimPagination.startIndex(firstResult));
+        result.setItemsPerPage(users.size());
 
         return result;
     }

@@ -2,12 +2,8 @@ package fi.metatavu.keycloak.scim.server.organization;
 
 import fi.metatavu.keycloak.scim.server.AbstractScimServer;
 import fi.metatavu.keycloak.scim.server.ScimErrors;
-import fi.metatavu.keycloak.scim.server.attributes.AttributeSelection;
 import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
-import fi.metatavu.keycloak.scim.server.jacoco.ExcludeFromJacocoGeneratedReport;
 import fi.metatavu.keycloak.scim.server.metadata.UserAttributes;
-import fi.metatavu.keycloak.scim.server.model.Group;
-import fi.metatavu.keycloak.scim.server.model.PatchRequest;
 import fi.metatavu.keycloak.scim.server.model.User;
 import fi.metatavu.keycloak.scim.server.users.ScimManagedUsers;
 import jakarta.ws.rs.core.Response;
@@ -177,48 +173,6 @@ public abstract class OrganizationScimServer extends AbstractScimServer<Organiza
         organizationUserController.deleteOrganizationUser(scimContext, user);
 
         return Response.noContent().build();
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public Response createGroup(OrganizationScimContext scimContext, Group createRequest) {
-        // TODO: Organization Groups are not supported yet by the Keycloak
-        return Response.status(Response.Status.NOT_IMPLEMENTED).build();
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public Response listGroups(OrganizationScimContext scimContext, ScimFilter filter, int firstResult, int maxResults, AttributeSelection attributeSelection) {
-        // TODO: Organization Groups are not supported yet by the Keycloak
-        return Response.status(Response.Status.NOT_IMPLEMENTED).build();
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public Response findGroup(OrganizationScimContext scimContext, String id, AttributeSelection attributeSelection) {
-        // TODO: Organization Groups are not supported yet by the Keycloak
-        return Response.status(Response.Status.NOT_IMPLEMENTED).build();
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public Response updateGroup(OrganizationScimContext scimContext, String id, Group updateRequest) {
-        // TODO: Organization Groups are not supported yet by the Keycloak
-        return Response.status(Response.Status.NOT_IMPLEMENTED).build();
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public Response patchGroup(OrganizationScimContext scimContext, String groupId, PatchRequest patchRequest, AttributeSelection attributeSelection) {
-        // TODO: Organization Groups are not supported yet by the Keycloak
-        return Response.status(Response.Status.NOT_IMPLEMENTED).build();
-    }
-
-    @Override
-    @ExcludeFromJacocoGeneratedReport
-    public Response deleteGroup(OrganizationScimContext scimContext, String id) {
-        // TODO: Organization Groups are not supported yet by the Keycloak
-        return Response.status(Response.Status.NOT_IMPLEMENTED).build();
     }
 
     public abstract OrganizationScimContext getScimContext(KeycloakSession session, String organizationId);

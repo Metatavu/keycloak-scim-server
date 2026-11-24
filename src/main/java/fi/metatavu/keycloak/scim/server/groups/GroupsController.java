@@ -18,7 +18,6 @@ import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
 import fi.metatavu.keycloak.scim.server.users.ScimManagedUsers;
 import org.jboss.logging.Logger;
 import org.keycloak.events.admin.OperationType;
-import org.keycloak.events.admin.ResourceType;
 import org.keycloak.models.GroupModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
@@ -59,7 +58,7 @@ public class GroupsController extends AbstractController {
         KeycloakSession session = scimContext.getSession();
         RealmModel realm = scimContext.getRealm();
 
-        GroupModel group = session.groups().createGroup(realm, scimGroup.getDisplayName());
+        GroupModel group = scimContext.getGroupScope().createGroup(scimGroup.getDisplayName());
         Predicate<UserModel> isManaged = getManagedUserPredicate(scimContext);
 
         if (scimGroup.getMembers() != null) {
@@ -90,9 +89,7 @@ public class GroupsController extends AbstractController {
             String groupId,
             AttributeSelection attributeSelection
     ) {
-        KeycloakSession session = scimContext.getSession();
-        RealmModel realm = scimContext.getRealm();
-        GroupModel group = session.groups().getGroupById(realm, groupId);
+        GroupModel group = scimContext.getGroupScope().findGroup(groupId);
         if (group == null) {
             return null;
         }
@@ -117,11 +114,8 @@ public class GroupsController extends AbstractController {
             int maxResults,
             AttributeSelection attributeSelection
     ) {
-        KeycloakSession session = scimContext.getSession();
-        RealmModel realm = scimContext.getRealm();
+        GroupScope groupScope = scimContext.getGroupScope();
         GroupsList result = new GroupsList();
-
-        Map<String, String> searchParams = new HashMap<>();
 
         // For now only support to filter on display name
         List<GroupModel> filteredGroups;
@@ -129,9 +123,9 @@ public class GroupsController extends AbstractController {
                 String attribute, ScimFilter.Operator operator, String value
         ) && operator == ScimFilter.Operator.EQ && attribute.equals(GroupAttribute.DISPLAY_NAME.getScimPath())){
             // Not paged here: the page is cut once below, and paging the query too applied the offset twice
-            filteredGroups = session.groups().searchForGroupByNameStream(realm, value, true, null, null).toList();
+            filteredGroups = groupScope.getGroupsByNameStream(value).toList();
         }else{
-            filteredGroups = session.groups().getGroupsStream(realm).toList();
+            filteredGroups = groupScope.getGroupsStream().toList();
         }
 
         // Resolved once for the whole page rather than once per group
@@ -569,7 +563,8 @@ public class GroupsController extends AbstractController {
      *
      * Same rule as {@link ScimManagedUsers#predicate}, but fails closed like
      * {@link ScimManagedUsers#isManaged}: when the scim-managed role is missing and the
-     * manage-all-users setting is off, no user is treated as managed.
+     * manage-all-users setting is off, no user is treated as managed. The group scope
+     * narrows it further, e.g. to the members of an organization.
      *
      * @param scimContext SCIM context
      * @return predicate that is true for SCIM-managed users
@@ -580,7 +575,7 @@ public class GroupsController extends AbstractController {
             return user -> false;
         }
 
-        return ScimManagedUsers.predicate(scimContext);
+        return ScimManagedUsers.predicate(scimContext).and(scimContext.getGroupScope()::canBeMember);
     }
 
     /**
@@ -598,8 +593,8 @@ public class GroupsController extends AbstractController {
         adminEventController.sendAdminEvent(
                 scimContext,
                 OperationType.CREATE,
-                ResourceType.GROUP,
-                "groups/" + group.getId(),
+                scimContext.getGroupScope().getGroupResourceType(),
+                scimContext.getGroupScope().getGroupResourcePath(group),
                 groupRepresentation
         );
     }
@@ -617,8 +612,8 @@ public class GroupsController extends AbstractController {
         adminEventController.sendAdminEvent(
                 scimContext,
                 OperationType.DELETE,
-                ResourceType.GROUP,
-                "groups/" + group.getId(),
+                scimContext.getGroupScope().getGroupResourceType(),
+                scimContext.getGroupScope().getGroupResourcePath(group),
                 null
         );
     }
@@ -640,8 +635,8 @@ public class GroupsController extends AbstractController {
         adminEventController.sendAdminEvent(
                 scimContext,
                 OperationType.CREATE,
-                ResourceType.GROUP_MEMBERSHIP,
-                "groups/" + group.getId() + "/members/" + user.getId(),
+                scimContext.getGroupScope().getGroupMembershipResourceType(),
+                scimContext.getGroupScope().getGroupResourcePath(group) + "/members/" + user.getId(),
                 groupRepresentation,
                  Map.of(
                          UserModel.USERNAME, user.getUsername(),
@@ -667,8 +662,8 @@ public class GroupsController extends AbstractController {
         adminEventController.sendAdminEvent(
                 scimContext,
                 OperationType.DELETE,
-                ResourceType.GROUP_MEMBERSHIP,
-                "groups/" + group.getId() + "/members/" + user.getId(),
+                scimContext.getGroupScope().getGroupMembershipResourceType(),
+                scimContext.getGroupScope().getGroupResourcePath(group) + "/members/" + user.getId(),
                 groupRepresentation,
                 Map.of(
                         UserModel.USERNAME, user.getUsername(),

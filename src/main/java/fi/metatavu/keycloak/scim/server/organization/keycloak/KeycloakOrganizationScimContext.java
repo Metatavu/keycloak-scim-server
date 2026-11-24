@@ -3,6 +3,7 @@ package fi.metatavu.keycloak.scim.server.organization.keycloak;
 import static fi.metatavu.keycloak.scim.server.users.UsersController.getEmailDomain;
 
 import fi.metatavu.keycloak.scim.server.ScimContext;
+import fi.metatavu.keycloak.scim.server.groups.GroupScope;
 import fi.metatavu.keycloak.scim.server.organization.*;
 import org.keycloak.models.FederatedIdentityModel;
 import org.keycloak.models.KeycloakSession;
@@ -113,6 +114,11 @@ public class KeycloakOrganizationScimContext extends OrganizationScimContext {
     return false;
   }
   
+  @Override
+  public GroupScope getGroupScope() {
+    return new KeycloakOrganizationGroupScope(getSession(), getRealm(), organization);
+  }
+
   @Override
   public Object toRepresentation() {
     return ModelToRepresentation.toRepresentation(organization);

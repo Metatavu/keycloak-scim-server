@@ -30,6 +30,7 @@ This project provides a **SCIM 2.0-compliant extension** for [Keycloak](https://
 - [Identity Provider Linking](#identity-provider-linking)
   - [Identity Provider Linking with Azure Entra ID](#identity-provider-linking-with-azure-entra-id)
 - [Group responses and large groups](#group-responses-and-large-groups)
+- [Organization groups](#organization-groups)
 - [SCIM-Managed Users](#scim-managed-users)
 - [License](#license)
 
@@ -46,6 +47,19 @@ This project provides a **SCIM 2.0-compliant extension** for [Keycloak](https://
 | 1.9.2 | 26.8.x (tested: 26.8.2) | In development |
 
 > **Note:** Organization-level SCIM APIs require Keycloak **26+** with the Organizations feature enabled.
+
+### Upgrading to 1.10.0
+
+Organization-level `/Groups` endpoints now manage Keycloak organization groups; before, they answered
+`501 Not Implemented`. See [Organization groups](#organization-groups).
+
+The realm-level `/Groups` endpoints now only work with realm groups. Organization groups, including the internal group
+Keycloak keeps for every organization, are no longer listed and answer `404` on `GET`, `PUT`, `PATCH` and `DELETE`
+`/Groups/{id}`. Before, a realm-level SCIM client could read, rename or delete an organization group whose id it knew.
+
+`POST /Groups` with a `displayName` that another group at the same level already uses still answers `409 Conflict`, but
+now with a SCIM Error body instead of Keycloak's own error format. The `Location` header of a created group is now the
+absolute URL from `meta.location`.
 
 ### Upgrading to 1.9.2
 
@@ -679,6 +693,26 @@ Note that a plain `GET /Groups/{id}` with neither parameter still returns the
 full membership: `members` is `"returned": "default"` in the core Group schema
 (RFC 7643 §8.7.1), so omitting it by default would be non-conformant. Clients
 reading very large groups should pass `excludedAttributes=members`.
+
+## Organization groups
+
+On an organization endpoint, `/realms/{realm}/scim/v2/organizations/{organizationId}/Groups` manages the Keycloak
+organization groups of that organization. Requests, filters, paging, attribute selection and `PATCH` behave as on the realm endpoint.
+
+* `POST /Groups` creates a top-level organization group. SCIM has no notion of group hierarchy, so groups are created
+  flat; a `displayName` already used by another top-level group of the organization answers `409`.
+* `GET /Groups` lists every group of the organization, including subgroups created in the admin console. The same group
+  name may exist in several organizations; each endpoint only sees its own.
+* A group of another organization, a realm group and the internal group Keycloak keeps for every organization answer
+  `404` on `GET`, `PUT`, `PATCH` and `DELETE /Groups/{id}`.
+* Only members of the organization can join its groups. On top of the [managed-user rule](#which-users-scim-can-see), a
+  `PATCH` that references a user outside the organization is rejected with `400` like an unknown id, and `POST`/`PUT`
+  drop such references. Group responses only list members of the organization.
+* Admin events use the resource types `ORGANIZATION_GROUP` and `ORGANIZATION_GROUP_MEMBERSHIP` with the paths of the
+  Keycloak admin API (`organizations/{organizationId}/groups/{groupId}[/members/{userId}]`), as Keycloak itself does for
+  changes made in the admin console.
+
+When a user leaves the organization, Keycloak removes them from the organization's groups.
 
 
 ## SCIM-Managed Users

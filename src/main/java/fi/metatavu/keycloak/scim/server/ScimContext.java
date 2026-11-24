@@ -1,6 +1,7 @@
 package fi.metatavu.keycloak.scim.server;
 
 import fi.metatavu.keycloak.scim.server.config.ScimConfig;
+import fi.metatavu.keycloak.scim.server.groups.GroupScope;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 
@@ -65,4 +66,11 @@ public abstract class ScimContext {
     public ScimConfig getConfig() {
         return config;
     }
+
+    /**
+     * Gets the groups this SCIM endpoint manages
+     *
+     * @return group scope
+     */
+    public abstract GroupScope getGroupScope();
 }

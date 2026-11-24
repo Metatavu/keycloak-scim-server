@@ -4,8 +4,16 @@ import fi.metatavu.keycloak.scim.server.authentication.Verifier;
 import fi.metatavu.keycloak.scim.server.authentication.VerifierFactory;
 import fi.metatavu.keycloak.scim.server.config.ScimConfig;
 import fi.metatavu.keycloak.scim.server.consts.ScimRoles;
+import fi.metatavu.keycloak.scim.server.attributes.AttributeSelection;
+import fi.metatavu.keycloak.scim.server.filter.ScimFilter;
 import fi.metatavu.keycloak.scim.server.groups.GroupsController;
+import fi.metatavu.keycloak.scim.server.groups.InvalidGroupMemberReference;
+import fi.metatavu.keycloak.scim.server.groups.InvalidGroupPatchValue;
+import fi.metatavu.keycloak.scim.server.groups.UnsupportedGroupPath;
 import fi.metatavu.keycloak.scim.server.metadata.MetadataController;
+import fi.metatavu.keycloak.scim.server.model.Group;
+import fi.metatavu.keycloak.scim.server.model.GroupsList;
+import fi.metatavu.keycloak.scim.server.model.PatchRequest;
 import fi.metatavu.keycloak.scim.server.model.User;
 import fi.metatavu.keycloak.scim.server.patch.UnsupportedPatchOperation;
 import fi.metatavu.keycloak.scim.server.users.UnsupportedUserPath;
@@ -23,7 +31,9 @@ import jakarta.ws.rs.core.Response;
 import org.jboss.logging.Logger;
 import org.keycloak.common.ClientConnection;
 import org.keycloak.models.ClientModel;
+import org.keycloak.models.GroupModel;
 import org.keycloak.models.KeycloakContext;
+import org.keycloak.models.ModelDuplicateException;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.RoleModel;
@@ -292,6 +302,121 @@ public abstract class AbstractScimServer <T extends ScimContext> implements Scim
         }
 
         return stringBuilder.toString();
+    }
+
+    @Override
+    public Response createGroup(T scimContext, Group createRequest) {
+        if (isBlank(createRequest.getDisplayName())) {
+            logger.warn("Cannot create group: Missing displayName");
+            return ScimErrors.invalidValue("Missing displayName");
+        }
+
+        Group created;
+        try {
+            created = groupsController.createGroup(scimContext, createRequest);
+        } catch (ModelDuplicateException e) {
+            logger.warn("Cannot create group: a group with the same name already exists");
+            return ScimErrors.conflict("Group already exists");
+        }
+
+        return Response
+                .created(created.getMeta().getLocation())
+                .entity(created)
+                .build();
+    }
+
+    @Override
+    public Response listGroups(T scimContext, ScimFilter filter, int firstResult, int maxResults, AttributeSelection attributeSelection) {
+        GroupsList groupList = groupsController.listGroups(scimContext, filter, firstResult, maxResults, attributeSelection);
+        return Response.ok(groupList).build();
+    }
+
+    @Override
+    public Response findGroup(T scimContext, String id, AttributeSelection attributeSelection) {
+        Group group = groupsController.findGroup(scimContext, id, attributeSelection);
+        if (group == null) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        return Response.ok(group).build();
+    }
+
+    @Override
+    public Response updateGroup(T scimContext, String id, Group updateRequest) {
+        GroupModel existing = scimContext.getGroupScope().findGroup(id);
+        if (existing == null) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        Group updated = groupsController.updateGroup(
+            scimContext,
+            existing,
+            updateRequest
+        );
+
+        return Response.ok(updated).build();
+    }
+
+    @Override
+    public Response patchGroup(T scimContext, String groupId, PatchRequest patchRequest, AttributeSelection attributeSelection) {
+        KeycloakSession session = scimContext.getSession();
+
+        GroupModel existing = scimContext.getGroupScope().findGroup(groupId);
+        if (existing == null) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        try {
+            Group updated = groupsController.patchGroup(scimContext, existing, patchRequest, attributeSelection);
+
+            // RFC 7644 §3.5.2: 204 No Content is a valid success response, and the
+            // one Microsoft Entra ID asks for ("Returning a body with a list of all
+            // the members isn't advisable"). A body is only produced — and only
+            // required — when the client named the attributes it wants.
+            if (updated == null) {
+                return Response.noContent().build();
+            }
+
+            return Response.ok(updated).build();
+        } catch (InvalidGroupMemberReference | InvalidGroupPatchValue e) {
+            rollbackPatch(session);
+            return ScimErrors.invalidValue(e.getMessage());
+        } catch (UnsupportedGroupPath e) {
+            rollbackPatch(session);
+            return ScimErrors.invalidPath(e.getMessage() != null ? e.getMessage() : "Unsupported group path");
+        } catch (UnsupportedPatchOperation e) {
+            rollbackPatch(session);
+            return ScimErrors.invalidSyntax("Unsupported patch operation");
+        }
+    }
+
+    @Override
+    public Response deleteGroup(T scimContext, String id) {
+        GroupModel group = scimContext.getGroupScope().findGroup(id);
+        if (group == null) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        groupsController.deleteGroup(scimContext, group);
+
+        return Response.noContent().build();
+    }
+
+    /**
+     * Discards the changes made by the operations of a failed PATCH request.
+     * <p>
+     * RFC 7644 §3.5.2 requires a PATCH to be applied as a whole or not at all.
+     * The error is returned as a Response rather than thrown, so without this
+     * Keycloak would commit the operations that ran before the failing one.
+     * Marking the transaction rollback-only makes Keycloak roll it back when
+     * the request's session closes. No admin events are emitted for a failed
+     * PATCH: GroupsController dispatches them only after every operation has
+     * succeeded.
+     *
+     * @param session Keycloak session
+     */
+    private void rollbackPatch(KeycloakSession session) {
+        session.getTransactionManager().setRollbackOnly();
     }
 
     /**

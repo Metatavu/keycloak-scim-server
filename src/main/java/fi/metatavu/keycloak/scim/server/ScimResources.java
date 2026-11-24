@@ -577,11 +577,20 @@ public class ScimResources {
             @PathParam("organizationId") String organizationId,
             @QueryParam("filter") String filter,
             @QueryParam("startIndex") @DefaultValue("1") int startIndex,
-            @QueryParam("count") @DefaultValue(ScimPagination.DEFAULT_COUNT) int count
+            @QueryParam("count") @DefaultValue(ScimPagination.DEFAULT_COUNT) int count,
+            @QueryParam("attributes") String attributes,
+            @QueryParam("excludedAttributes") String excludedAttributes
     ) {
         logger.debugf("GET /v2/organizations/%s/Groups filter=%s startIndex=%d count=%d", organizationId, filter, startIndex, count);
         OrganizationScimContext scimContext = getOrganizationScimServer().getScimContext(session, organizationId);
         getOrganizationScimServer().verifyPermissions(scimContext);
+
+        AttributeSelection attributeSelection;
+        try {
+            attributeSelection = AttributeSelection.parse(attributes, excludedAttributes);
+        } catch (ConflictingAttributeSelection e) {
+            return ScimErrors.invalidValue(e.getMessage());
+        }
 
         ScimFilter scimFilter;
         try {
@@ -596,7 +605,7 @@ public class ScimResources {
             scimFilter,
             ScimPagination.firstResult(startIndex),
             ScimPagination.maxResults(count),
-            AttributeSelection.DEFAULT
+            attributeSelection
         );
     }
 
@@ -607,16 +616,25 @@ public class ScimResources {
     public Response findOrganizationGroup(
             @Context KeycloakSession session,
             @PathParam("organizationId") String organizationId,
-            @PathParam("id") String id
+            @PathParam("id") String id,
+            @QueryParam("attributes") String attributes,
+            @QueryParam("excludedAttributes") String excludedAttributes
     ) {
         logger.debugf("GET /v2/organizations/%s/Groups/%s", organizationId, id);
         OrganizationScimContext scimContext = getOrganizationScimServer().getScimContext(session, organizationId);
         getOrganizationScimServer().verifyPermissions(scimContext);
 
+        AttributeSelection attributeSelection;
+        try {
+            attributeSelection = AttributeSelection.parse(attributes, excludedAttributes);
+        } catch (ConflictingAttributeSelection e) {
+            return ScimErrors.invalidValue(e.getMessage());
+        }
+
         return getOrganizationScimServer().findGroup(
             scimContext,
             id,
-            AttributeSelection.DEFAULT
+            attributeSelection
         );
     }
 
@@ -651,17 +669,25 @@ public class ScimResources {
             @Context KeycloakSession session,
             @PathParam("id") String groupId,
             @PathParam("organizationId") String organizationId,
+            @QueryParam("attributes") String attributes,
             fi.metatavu.keycloak.scim.server.model.PatchRequest patchRequest
     ) {
         logger.debugf("PATCH /v2/organizations/%s/Groups/%s", organizationId, groupId);
         OrganizationScimContext scimContext = getOrganizationScimServer().getScimContext(session, organizationId);
         getOrganizationScimServer().verifyPermissions(scimContext);
 
+        AttributeSelection attributeSelection;
+        try {
+            attributeSelection = AttributeSelection.parse(attributes, null);
+        } catch (ConflictingAttributeSelection e) {
+            return ScimErrors.invalidValue(e.getMessage());
+        }
+
         return getOrganizationScimServer().patchGroup(
                 scimContext,
                 groupId,
                 patchRequest,
-                AttributeSelection.DEFAULT
+                attributeSelection
         );
     }
 

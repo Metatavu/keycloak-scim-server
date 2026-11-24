@@ -1,6 +1,7 @@
 package fi.metatavu.keycloak.scim.server.realm;
 
 import fi.metatavu.keycloak.scim.server.ScimContext;
+import fi.metatavu.keycloak.scim.server.groups.GroupScope;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 
@@ -21,6 +22,11 @@ public class RealmScimContext extends ScimContext {
      */
     RealmScimContext(URI serverBaseUri, KeycloakSession session, RealmModel realm, RealmScimConfig config) {
         super(serverBaseUri, session, realm, config);
+    }
+
+    @Override
+    public GroupScope getGroupScope() {
+        return new RealmGroupScope(getSession(), getRealm());
     }
 
 }
